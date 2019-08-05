@@ -1,0 +1,18 @@
+root = "/p/d4v/dx3yy/nas_res_bs_simu/"
+nb_best_net = 5
+mode = "nas_bs_simu"
+network_name = "dave"
+original_model = "/p/d4v/dx3yy/DNNVeri/dnnvbs/cegsdl/networks/dave/model.onnx"
+source_distillation_config = "/p/d4v/dx3yy/DNNVeri/dnnvbs/configs/dave.toml"
+proxy_dis_epochs = 12
+scale_layer_factor = 0.5
+veri_time = 60
+veri_mem = 64
+proxy_nb_props = 5
+veri_threshold = [ 1, 1,]
+verifiers = [ "neurify",]
+
+
+[dis_threshold.dave]
+type = "loss"
+value = [ 0.1, 0.1,]

@@ -1,0 +1,417 @@
+import os
+import copy
+import numpy as np
+import random
+import toml
+import time
+import verify.neurify
+
+from nn.layers import Dense, Conv, Transpose, Flatten
+
+SEED = 0
+random.seed(SEED)
+np.random.seed(SEED)
+
+class Network():
+    
+    def __init__(self, config):
+        self.config = config
+        self.distilled = False
+        self.tested = False
+        self.verified = False
+        self.processed = False
+        self.relative_acc = None
+        self.best_iter = None
+        self.score_veri = 0
+        if self.config['dis_threshold'][self.config['network_name']]['type'] == 'loss':
+            self.score_ra = float('inf')
+        elif self.config['dis_threshold'][self.config['network_name']]['type'] == 'acc':
+            self.score_ra = -1
+
+
+    def set_distillation_strategies(self, strategies):
+        source_dis_config = open(self.config['source_distillation_config'],'r').read()
+        source_dis_config = toml.loads(source_dis_config)
+        self.distillation_config = source_dis_config
+        #self.distillation_config['distillation']['strategies']={}
+        self.dis_strategies = strategies
+
+        drop_ids = []
+        scale_ids = []
+        for s in strategies:
+            if s[0] == 'D':
+                # TODO: use better toml api
+                #self.distillation_config['distillation']['strategies']['drop_layer']={}
+                drop_ids+=[int(s[1:])]
+            elif s[0] == 'S':
+                # TODO: use better toml api
+                #self.distillation_config['distillation']['strategies']['scale_layer']={}
+                scale_ids+=[int(s[1:])]
+            else:
+                assert False, 'Unkown strategy'
+
+        self.drop_ids = drop_ids
+        self.scale_ids = scale_ids
+
+        self.name = self.config['network_name']
+
+        if drop_ids != []:
+            # TODO: use better toml api
+            #self.distillation_config['distillation']['strategies']['drop_layer']['layer_id'] = drop_ids
+            self.name = self.name + '.D.' + '.'.join([str(x) for x in drop_ids])
+
+        if scale_ids != []:
+            # TODO: use better toml api
+            #self.distillation_config['distillation']['strategies']['scale_layer']['layer_id'] = scale_ids
+            self.name = self.name + '.S.' + '.'.join([str(x) for x in scale_ids])
+
+        self.distillation_config['distillation']['parameters']['epochs'] = self.config['proxy_dis_epochs']
+
+        self.dis_config_path = os.path.join(self.config['dis_config_dir'], self.name + '.toml')
+        self.dis_model_dir = os.path.join(self.config['dis_model_dir'], self.name)
+        self.dis_log_path = os.path.join(self.config['dis_log_dir'], self.name + '.out')
+        self.dis_slurm_path = os.path.join(self.config['dis_slurm_dir'], self.name + '.slurm')
+        self.dis_done_path = os.path.join(self.config['dis_done_dir'], self.name + '.done')
+        self.test_log_path = os.path.join(self.config['test_log_dir'], self.name + '.out')
+        self.test_done_path = os.path.join(self.config['test_done_dir'], self.name + '.done')
+        self.test_slurm_path = os.path.join(self.config['test_slurm_dir'], self.name + '.slurm')
+
+        # TODO: use better toml api
+        #self.distillation_config['distillation']['student'] = {}
+        #self.distillation_config['distillation']['student']['path'] = self.dis_model_dir
+
+
+    def calc_order(self, order_by, orig_layers):
+        if order_by == 'nb_neurons':
+            self.order_by = 'nb_neurons'
+            input_shape = orig_layers[0].in_shape
+
+            '''
+            print(input_shape)
+            for l in orig_layers:
+                print(l)
+            self.drop_ids = [0,1,2,3,7,8,10]
+            self.scale_ids = [4]
+            print(self.drop_ids)
+            print(self.scale_ids)
+            '''
+
+            self.layers = []
+            self.nb_neurons = []
+            self.remaining_layer_ids = []
+            
+            for i in range(len(orig_layers)):
+                if i not in self.drop_ids:
+                    if self.layers == []:
+                        in_shape = input_shape
+                    else:
+                        in_shape = self.layers[-1].out_shape
+
+                    ol = orig_layers[i]
+                    if ol.type == 'FC':
+                        size = ol.size
+                        if i in self.scale_ids:
+                            size = int(size * self.config['scale_layer_factor'])
+                        l = Dense(size, None, None, in_shape)
+                        self.nb_neurons += [np.prod(l.out_shape)]
+                    elif ol.type == 'Conv':
+                        size = ol.size
+                        if i in self.scale_ids:
+                            size = int(size * self.config['scale_layer_factor'])
+                        l = Conv(size, None, None, ol.kernel_size, ol.stride, ol.padding, in_shape)
+                        self.nb_neurons += [np.prod(l.out_shape)]
+                    elif ol.type == 'Transpose':
+                        l = Transpose(ol.order, in_shape)
+                        self.nb_neurons += [0]
+                    elif ol.type == 'Flatten':
+                        l = Flatten(in_shape)
+                        self.nb_neurons += [0]
+                    else:
+                        assert False
+                    # print(l)
+                    self.layers += [l]
+                    self.remaining_layer_ids += [i]
+
+            # print(np.sum(np.array(self.nb_neurons)))
+
+        else:
+            assert False
+
+
+    # override comparators
+    def __gt__(self, other):
+        if self.order_by == 'nb_neurons' and other.order_by == 'nb_neurons':
+            return np.sum(self.nb_neurons) > np.sum(other.nb_neurons)
+        else:
+            assert False
+
+
+    def distill(self):
+        print('\n--- INFO --- Distilling network: ' + self.name)
+
+        if os.path.exists(self.dis_model_dir):
+            model_iters = os.listdir(self.dis_model_dir)
+            if self.name+'.iter.'+str(self.config['proxy_dis_epochs'])+'.onnx' in model_iters:
+                return
+        '''
+        else:
+            assert False
+        '''
+
+        formatted_data = toml.dumps(self.distillation_config)
+        with open(self.dis_config_path, 'w') as f:
+            f.write(formatted_data)
+
+        # TODO: use better toml api
+        lines = ['']
+        if self.drop_ids:
+            lines +=['[[distillation.strategies.drop_layer]]']
+            lines +=['layer_id=['+', '.join([str(x) for x in self.drop_ids])+']']
+            lines +=['']
+        if self.scale_ids:
+            lines +=['[[distillation.strategies.scale_layer]]']
+            lines +=['layer_id=['+', '.join([str(x) for x in self.scale_ids])+']']
+            lines +=['factor='+str(self.config['scale_layer_factor'])]
+            lines +=['']
+
+        lines += ['[distillation.student]']
+        lines += ['path="'+os.path.join(self.dis_model_dir,self.name)+'.onnx"']
+        lines = [x+'\n' for x in lines]
+
+        with open(self.dis_config_path, 'a') as f:
+            for l in lines:
+                f.write(l)
+
+        if not os.path.exists(self.dis_model_dir):
+            os.mkdir(self.dis_model_dir)
+
+        slurm_lines = ['#!/bin/sh',
+                       '#SBATCH --job-name=NAS-BS_D',
+                       '#SBATCH --partition=gpu',
+                       '#SBATCH --error="{}"'.format(self.dis_log_path),
+                       '#SBATCH --output="{}"'.format(self.dis_log_path),
+                       '#SBATCH --gres=gpu:1',
+                       '',
+                       'time (',
+                       'python -m d4v distill {} --novalidation --debug'.format(self.dis_config_path),
+                       ')',
+                       'touch {}'.format(self.dis_done_path)]
+        slurm_lines = [x+'\n' for x in slurm_lines]
+        open(self.dis_slurm_path, 'w').writelines(slurm_lines)
+        cmd = 'sbatch -w ristretto02 --reservation=dx3yy_15 {}'.format(self.dis_slurm_path)
+        #cmd = 'sbatch --exclude=artemis4,artemis5,artemis6,artemis7 {}'.format(self.dis_slurm_path)
+        os.system(cmd)
+
+
+    def dis_monitor(self):
+        print('\n--- INFO --- Checking distillation status: ' + self.name)
+        while True:
+            time.sleep(1)
+            done_nets = os.listdir(self.config['dis_done_dir'])
+            #print("distilled networks:")
+            #print(done_nets)
+            if self.name+'.done' in done_nets:
+                self.distilled = True
+                break
+
+
+    def test(self):
+        print('\n--- INFO --- Testing network: ' + self.name)
+
+        done_nets = os.listdir(self.config['test_done_dir'])
+        if self.name+'.done' in done_nets:
+            return
+
+        slurm_lines = ['#!/bin/sh',
+                       '#SBATCH --job-name=NAS-BS_T',
+                       '#SBATCH --partition=gpu',
+                       '#SBATCH --error="{}"'.format(self.test_log_path),
+                       '#SBATCH --output="{}"'.format(self.test_log_path),
+                       '#SBATCH --gres=gpu:1',
+                       '',
+                       'time (',
+                       'python /p/d4v/dx3yy/DNNVeri/dnnvbs/cegsdl/tools/measure_performance.py {} configs/udacity-driving.100.valid.toml --input_shape 1 3 100 100 --loss mse --cuda --teacher /p/d4v/dx3yy/DNNVeri/dnnvbs/cegsdl/networks/dave/model.onnx --teacher_input_shape 1 100 100 3 --teacher_input_format NHWC'.format(self.dis_model_dir),
+                       ')',
+                       'touch {}'.format(self.test_done_path)]
+        slurm_lines = [x+'\n' for x in slurm_lines]
+        open(self.test_slurm_path, 'w').writelines(slurm_lines)
+        cmd = 'sbatch -w ristretto01 --reservation=dx3yy_15 {}'.format(self.test_slurm_path)
+        #cmd = 'sbatch --exclude=artemis4,artemis5,artemis6,artemis7,lynx05,lynx06 {}'.format(self.dis_slurm_path)
+        os.system(cmd)
+
+
+    def test_monitor(self):
+        print('\n--- INFO --- Waiting and analyzing network test result: ' + self.name)
+
+        while True:
+            time.sleep(1)
+            done_nets = os.listdir(self.config['test_done_dir'])
+            # print("tested networks:")
+            # print(done_nets)
+            if self.name+'.done' in done_nets:
+                self.tested = True
+                break
+
+        # Parser test results
+        lines = open(self.test_log_path, 'r').readlines()
+
+        #self.relative_acc = float(lines[-2].strip().split(' ')[-1])
+        #self.best_iter = int(lines[-3].strip().split(' ')[-1])
+        self.relative_acc = float(lines[-6].strip().split(' ')[-1])
+        self.best_iter = int(lines[-7].strip().split(' ')[-1])
+
+        self.best_model_name = self.name+'.iter.'+str(self.best_iter)
+        self.best_model_path = os.path.join(self.dis_model_dir, self.best_model_name+'.onnx')
+
+        print('Test relative accuracy: ', self.relative_acc)
+        print('Best iteration: ', self.best_iter)
+        
+
+    def transform(self):
+        print('\n--- INFO --- Transforming network: ' + self.name)
+        for v in self.config['verifiers']:
+            if v == 'neurify':
+                if os.path.exists('{}/{}.{}'.format(self.config['veri_net_dir'], self.best_model_name,v)):
+                    continue
+                else:
+                    cmd = '/p/d4v/dx3yy/DNNVeri/dnnvbs/tools/main.py -v neurify  -om {} Convert'.format(self.best_model_path)
+                    os.system(cmd)
+                    cmd = 'cp /p/d4v/dx3yy/DNNVeri/dnnvbs/results/networks/{}/{}.nnet {}/{}.{}'.format(v,self.best_model_name, self.config['veri_net_dir'], self.best_model_name,v)
+                    os.system(cmd)
+            else:
+                assert False
+
+
+    def verify(self):
+        print('\n--- INFO --- Verifying network: ' + self.name)
+        prop_bounds = {}
+        lines = open(os.path.join(self.config['prop_dir'],self.config['network_name'],'properties.csv'),'r').readlines()[1:]
+        for l in lines:
+            toks = l.strip().split(',')
+            prop_bounds[toks[0]] = [toks[-2], toks[-1]]
+        all_props = os.listdir(os.path.join(self.config['prop_dir'],self.config['network_name']))
+
+        veri_jobs = []
+        ccc = 0
+        for v in self.config['verifiers']:
+            props = [x for x in all_props if v in x]
+            # Verification Proxy, sample properties
+            random.seed(SEED)
+            props_sampled = random.sample(props, self.config['proxy_nb_props'])
+            
+            for p in props_sampled:
+                ccc += 1
+                p_name = os.path.splitext(p)[0]
+                veri_jobs += ['{}_{}_{}'.format(self.best_model_name, p_name, v)]
+                [lb, ub] = prop_bounds[p_name]
+
+                if os.path.exists(('{}/{}_{}_{}.done'.format(self.config['veri_done_dir'], self.best_model_name, p_name, v))):
+                    #print('YES')
+                    continue
+
+
+                lines = ['#!/bin/sh',
+                         '#SBATCH --job-name=NAS-BS_V',
+                         '#SBATCH --output={}/{}_{}_{}.out'.format(self.config['veri_log_dir'], self.best_model_name, p_name, v),
+                         '#SBATCH --error={}/{}_{}_{}.out'.format(self.config['veri_log_dir'], self.best_model_name, p_name, v),
+                         'time (',
+                         'stdbuf -o0 -e0 python /p/d4v/dx3yy/DNNVeri/dnnvbs/cegsdl/tools/resmonitor.py -M {}G -T {} /p/d4v/dx3yy/DNNVeri/dnnvbs/verifiers/Neurify/dave2/network_test 500 {} {} {} {}'
+                         .format(self.config['veri_mem'],
+                                 self.config['veri_time'],
+                                 os.path.join(self.config['veri_net_dir'],self.best_model_name+'.'+v),
+                                 os.path.join(self.config['prop_dir'],self.config['network_name'], p),
+                                 lb, ub),
+                         ')',
+                         'touch {}/{}_{}_{}.done'.format(self.config['veri_done_dir'], self.best_model_name, p_name, v),]
+                lines = [x+'\n' for x in lines]
+                slurm_path = os.path.join(self.config['veri_slurm_dir'],'{}_{}_{}.slurm'.format(self.best_model_name, p_name, v),)
+                open(slurm_path,'w').writelines(lines)
+                if (ccc//8)%2 == 0:
+                    task = 'sbatch -w slurm1 --reservation=dx3yy_15 {}'.format(slurm_path)
+                else:
+                    task = 'sbatch -w slurm2 --reservation=dx3yy_15 {}'.format(slurm_path)
+                os.system(task)
+
+
+    def veri_monitor(self):
+        print('\n--- INFO --- Waiting and analyzing verified network: ' + self.name)
+        all_props = os.listdir(os.path.join(self.config['prop_dir'],self.config['network_name']))
+        self.veri_res = {}
+        veri_jobs = []
+        for v in self.config['verifiers']:
+            props = [x for x in all_props if v in x]
+            random.seed(SEED)
+            props_sampled = random.sample(props, self.config['proxy_nb_props'])
+            for p in props_sampled:
+                p_name = os.path.splitext(p)[0]
+                veri_jobs += ['{}_{}_{}'.format(self.best_model_name, p_name, v)]
+
+        while veri_jobs != []:
+            time.sleep(1)
+            done_veri = os.listdir(self.config['veri_done_dir'])
+            
+            #print("veri jobs:")
+            #print(veri_jobs)
+            #print("verified networks:")
+            #print(done_veri)
+
+            i = 0
+            while i < len(veri_jobs):
+                vj = veri_jobs[i]
+                if vj+'.done' in done_veri:
+                    if v == 'neurify':
+                        [res, v_time]= verify.neurify.analyze_result(os.path.join(self.config['veri_log_dir'], vj+'.out'))
+                    else:
+                        assert False
+
+                    p_name = vj.split('_')[1]
+                    if v not in self.veri_res.keys():
+                        self.veri_res[v] = [[p_name, res, v_time]]
+                    else:
+                        self.veri_res[v] += [[p_name, res, v_time]]
+                    del veri_jobs[i]
+                    print('verification result:', v, p_name, res, v_time)
+                else:
+                    i += 1
+
+            # Stop when all verification jobs are done for one verification tool
+            finished_verifier = None
+            for key in self.veri_res.keys():
+                if len(self.veri_res[key]) == self.config['proxy_nb_props']:
+                    finished_verifier = key
+            if finished_verifier is not None:
+                #print('Verifier finished:', finished_verifier)
+                break
+
+
+    def score(self):
+        print('\n--- INFO --- Scoring network: ' + self.name)
+        # calculate distillation score
+        self.score_ra = self.relative_acc
+
+        # calculate verification score
+        score_veri = 0
+        for key in self.veri_res.keys():
+            if len(self.veri_res[key]) == self.config['proxy_nb_props']:
+                for v_res in self.veri_res[key]:
+                    if v_res[1] in ['True', 'False']:
+                        score_veri += 1
+            else:
+                assert False, "{},{},{}".format(key, len(self.veri_res[key]),self.config['proxy_nb_props'])
+        self.score_veri = score_veri / self.config['proxy_nb_props']
+
+
+    def accurate(self, phase):
+        is_acc = False
+        if self.config['dis_threshold'][self.config['network_name']]['type'] == 'loss':
+            if self.score_ra < self.config['dis_threshold'][self.config['network_name']]['value'][phase-1]:
+                is_acc = True
+        elif self.config['dis_threshold'][self.config['network_name']]['type'] == 'acc':
+            if self.score_ra > self.config['dis_threshold'][self.config['network_name']]['value'][phase-1]:
+                is_acc = True
+        return is_acc
+
+
+    def verifiable(self, phase):
+        return self.score_veri >= self.config['veri_threshold'][phase-1]
+
