@@ -24,31 +24,13 @@ PROPERTIES_DIR = 'properties'
 def _parse_args():
     parser = argparse.ArgumentParser(description='Neural Architecture Search')
     parser.add_argument('config', type=str, help='NAS config')
+    parser.add_argument('tmp_id', type=int, help='id to simu concurent')
     return parser.parse_args()
 
 
 def configure(args):
-
-    global CONFIGS
-    '''
-    CONFIGS={
-    'root':'/p/d4v/dx3yy/nas_bad_res/',
-    'nb_best_net':5,
-    'proxy_dis_epochs':12,
-    'scale_layer_factor':.5,
-        'dis_threshold':{'dave':{'type':'loss','value':[0.1,0.1]}},
-    'veri_time': 60, # verification time in seconds
-    'veri_mem': 64, # verification memory in Gigabytes
-    'proxy_nb_props':5,
-    'veri_threshold':[1,1],
-    'verifiers': ['neurify']}
-
-    configs = toml.dumps(CONFIGS)
-    with open('temp.toml','w') as f:
-        f.write(configs)
-    '''
-
     config_file = open(args.config,'r').read()
+    global CONFIGS
     CONFIGS = toml.loads(config_file)
 
     if not os.path.exists(CONFIGS['root']):
@@ -75,7 +57,7 @@ def get_layers(onnx_net):
     return layers         
 
 
-def NAS_BS():
+def NAS_BS(args):
     onnx_net = Onnxu(CONFIGS['original_model'])
     droppable_scalable_layers = get_layers(onnx_net)
 
@@ -101,9 +83,9 @@ def NAS_BS():
 
     networks = sorted(networks)
 
-    if CONFIGS['mode'] == 'nas_bs':
+    if CONFIGS['mode'] == 'bs':
         binary_search(networks, 0, len(networks)-1, phase=1)
-    elif CONFIGS['mode'] == 'nas_bs_simu':
+    elif CONFIGS['mode'] == 'bs_simu':
         nas_bs_simu(networks)
     else:
         assert False
@@ -115,7 +97,10 @@ def NAS_BS():
     else:
         assert False
 
+    plot_data(networks)
+
     best_networks = networks[:CONFIGS['nb_best_net']]
+    best_networks = [best_networks[args.tmp_id]]
     print(len(best_networks))
     
     # 2. binary search phase 2
@@ -125,33 +110,55 @@ def NAS_BS():
     comb_trans_scale = []
     for i in range(len(transformations_scale)):
         comb_trans_scale += combinations(transformations_scale, i+1)
-    
+
     for cts in comb_trans_scale:
         for bn in best_networks:
             scale_ids = [int(x[1:]) for x in cts]
-            dis_strats = list(bn.dis_strategies) + list(cts)
-
+            
+            add_net = False
+            # drop half
             if not list(set(bn.drop_ids).intersection(scale_ids)):
+                #print(bn.drop_ids, scale_ids)
+                #print('drop half')
+                dis_strats = list(bn.dis_strategies) + list(cts)
+                add_net = True
+            # add half
+            elif set(bn.drop_ids).intersection(scale_ids) == set(scale_ids):
+                #print(bn.drop_ids, scale_ids)
+                #print('add half')
+                dis_strats = []
+                for ds in bn.dis_strategies:
+                    assert ds[0] == 'D'
+                    if int(ds[1:]) not in scale_ids:
+                        dis_strats += [ds]
+                dis_strats += list(cts)
+                add_net = True
+                
+            else:
+                add_net = False
+                #print('ignore')
+            
+            if add_net:
                 n = Network(CONFIGS)
                 n.set_distillation_strategies(dis_strats)
                 n.calc_order('nb_neurons', droppable_scalable_layers)
-
                 # TODO: make this general
                 if np.sum(n.nb_neurons) < 82669:
                     networks2 += [n]
-
+    
     print(len(networks2))
     print([x.dis_strategies for x in networks2])
-    
 
     networks2 = sorted(networks2)
 
-    if CONFIGS['mode'] == 'nas_bs':
-        binary_search(networks2, 0, len(networks)-1, phase=2)
-    elif CONFIGS['mode'] == 'nas_bs_simu':
+    if CONFIGS['mode'] == 'bs':
+        binary_search(networks2, 0, len(networks2)-1, phase=2)
+    elif CONFIGS['mode'] == 'bs_simu':
         nas_bs_simu(networks2)
     else:
         assert False
+
+    plot_data(networks2)
 
 
 def nas_bs_simu(networks):
@@ -190,6 +197,14 @@ def binary_search(networks, L, R, phase, d=0):
 
     M = (L+R)//2
     net = networks[M]
+    print(net.name)
+
+    '''
+    if net.name == 'dave.D.3.4.S.0.1.2.8':
+        plot_data(networks)
+        exit()
+    '''
+
     if net.processed:
         return
 
@@ -221,7 +236,7 @@ def binary_search(networks, L, R, phase, d=0):
             binary_search(networks, M, R, d+1)
 
     elif phase == 2:
-        print('Net score', net.score, net.score_ra, net.accurate(1), net.score_veri, net.verifiable(1))
+        print('Net score', net.score_ra, net.accurate(2), net.score_veri, net.verifiable(2))
         if net.accurate(2) and not net.verifiable(2):
             binary_search(networks, L, M, d+1)
         elif not net.accurate(2) and net.verifiable(2):
@@ -233,9 +248,26 @@ def binary_search(networks, L, R, phase, d=0):
         assert False
 
 
+def plot_data(networks):
+
+    for n in networks:
+        if n.processed:
+            for v in n.veri_res['neurify']:
+                print("{}.iter.{},{}.neurify,{},{}".format(n.name,n.best_iter,v[0],v[1],v[2]))
+
+    for n in networks:
+        if n.processed:
+            print('{}.iter.{},0,0,{},0,0'.format(n.name,n.best_iter,n.score_ra))
+
+    for n in networks:
+        if n.processed:
+            print('{},,,{},,,,'.format(n.name, np.sum(n.nb_neurons)))
+
+
+
 def main(args):
     configure(args)
-    NAS_BS()
+    NAS_BS(args)
 
 
 if __name__ == '__main__':

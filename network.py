@@ -8,9 +8,9 @@ import verify.neurify
 
 from nn.layers import Dense, Conv, Transpose, Flatten
 
-SEED = 0
-random.seed(SEED)
-np.random.seed(SEED)
+SEED=0
+NODES = ['slurm1', 'slurm2']
+
 
 class Network():
     
@@ -22,6 +22,7 @@ class Network():
         self.processed = False
         self.relative_acc = None
         self.best_iter = None
+        self.d_time = None
         self.score_veri = 0
         if self.config['dis_threshold'][self.config['network_name']]['type'] == 'loss':
             self.score_ra = float('inf')
@@ -153,10 +154,7 @@ class Network():
             model_iters = os.listdir(self.dis_model_dir)
             if self.name+'.iter.'+str(self.config['proxy_dis_epochs'])+'.onnx' in model_iters:
                 return
-        '''
-        else:
-            assert False
-        '''
+
 
         formatted_data = toml.dumps(self.distillation_config)
         with open(self.dis_config_path, 'w') as f:
@@ -198,8 +196,8 @@ class Network():
                        'touch {}'.format(self.dis_done_path)]
         slurm_lines = [x+'\n' for x in slurm_lines]
         open(self.dis_slurm_path, 'w').writelines(slurm_lines)
-        cmd = 'sbatch -w ristretto02 --reservation=dx3yy_15 {}'.format(self.dis_slurm_path)
-        #cmd = 'sbatch --exclude=artemis4,artemis5,artemis6,artemis7 {}'.format(self.dis_slurm_path)
+        cmd = 'sbatch -w ristretto01 --reservation=dx3yy_15 {}'.format(self.dis_slurm_path)
+        #cmd = 'sbatch --exclude=artemis4,artemis5,artemis6,artemis7,lynx05,lynx06 {}'.format(self.dis_slurm_path)
         os.system(cmd)
 
 
@@ -213,6 +211,38 @@ class Network():
             if self.name+'.done' in done_nets:
                 self.distilled = True
                 break
+        
+
+        with open(self.dis_log_path, 'r') as f:
+            lines = f.readlines()
+            from datetime import datetime
+            d_str = lines[0].split(' ')[4]
+            d_int = [int(x) for x in d_str.split('-')]
+            t_str = lines[0].split(' ')[5]
+            t_int = [int(x) for x in t_str.split(':')[:-1]]
+            t_int += [int(t_str.split(':')[-1][:-4])]
+            d1 = datetime(d_int[0],d_int[1],d_int[2],t_int[0],t_int[1],t_int[2])
+
+            canceled = False
+            for l in reversed(lines):
+                if 'CANCELLED' in l:
+                    canceled = True
+
+            if not canceled:
+                for l in lines:
+                    if 'DEBUG    2019-' in l:
+                        d_str = l.split(' ')[4]
+                        d_int = [int(x) for x in d_str.split('-')]
+                        t_str = l.split(' ')[5]
+                        t_int = [int(x) for x in t_str.split(':')[:-1]]
+                        t_int += [int(t_str.split(':')[-1][:-4])]
+                        d2 = datetime(d_int[0],d_int[1],d_int[2],t_int[0],t_int[1],t_int[2])
+                duration = (d2 - d1).total_seconds()
+                print(duration)
+            else:
+                duration = 0
+
+            self.d_time = duration
 
 
     def test(self):
@@ -236,7 +266,7 @@ class Network():
         slurm_lines = [x+'\n' for x in slurm_lines]
         open(self.test_slurm_path, 'w').writelines(slurm_lines)
         cmd = 'sbatch -w ristretto01 --reservation=dx3yy_15 {}'.format(self.test_slurm_path)
-        #cmd = 'sbatch --exclude=artemis4,artemis5,artemis6,artemis7,lynx05,lynx06 {}'.format(self.dis_slurm_path)
+        #cmd = 'sbatch --exclude=artemis4,artemis5,artemis6,artemis7,lynx05,lynx06 {}'.format(self.test_slurm_path)
         os.system(cmd)
 
 
@@ -300,7 +330,7 @@ class Network():
             props_sampled = random.sample(props, self.config['proxy_nb_props'])
             
             for p in props_sampled:
-                ccc += 1
+
                 p_name = os.path.splitext(p)[0]
                 veri_jobs += ['{}_{}_{}'.format(self.best_model_name, p_name, v)]
                 [lb, ub] = prop_bounds[p_name]
@@ -308,6 +338,43 @@ class Network():
                 if os.path.exists(('{}/{}_{}_{}.done'.format(self.config['veri_done_dir'], self.best_model_name, p_name, v))):
                     #print('YES')
                     continue
+
+                while(True):
+                    node_avl_flag = False
+                    task = 'squeue > squeue_results.txt'
+                    os.system(task)
+                    time.sleep(5)
+                    sq_lines = open('squeue_results.txt', 'r').readlines()[1:]
+                    nodes_avl = {}
+                    for n in NODES:
+                        nodes_avl[n] = 0
+
+                    nodenodavil_flag = False
+                    for l in sq_lines:
+                        '''
+                        if 'ReqNodeNotAvail' in l and 'dx3yy' in l:
+                            nodenodavil_flag = True
+                            break
+                        '''
+                    
+                        if ' R ' in l and l != '':
+                            node = l.strip().split(' ')[-1]
+                            if node in NODES:
+                                nodes_avl[node] += 1
+                    '''
+                    if nodenodavil_flag == True:
+                        print('node unavialiable. waiting ...')
+                        continue
+                    '''
+
+                    #print(nodes_avl)
+            
+                    for na in nodes_avl:
+                        if nodes_avl[na] < 7:
+                            node_avl_flag = True
+                            break
+                    if node_avl_flag:
+                        break
 
 
                 lines = ['#!/bin/sh',
@@ -326,10 +393,8 @@ class Network():
                 lines = [x+'\n' for x in lines]
                 slurm_path = os.path.join(self.config['veri_slurm_dir'],'{}_{}_{}.slurm'.format(self.best_model_name, p_name, v),)
                 open(slurm_path,'w').writelines(lines)
-                if (ccc//8)%2 == 0:
-                    task = 'sbatch -w slurm1 --reservation=dx3yy_15 {}'.format(slurm_path)
-                else:
-                    task = 'sbatch -w slurm2 --reservation=dx3yy_15 {}'.format(slurm_path)
+
+                task = 'sbatch -w {} --reservation=dx3yy_15 {}'.format(na, slurm_path)
                 os.system(task)
 
 
@@ -414,4 +479,3 @@ class Network():
 
     def verifiable(self, phase):
         return self.score_veri >= self.config['veri_threshold'][phase-1]
-
