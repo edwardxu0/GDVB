@@ -1,4 +1,4 @@
-root = "/p/d4v/dx3yy/nas_res/"
+root = "/p/d4v/dx3yy/nas_res"
 nb_best_net = 5
 mode = "bs_simu"
 network_name = "dave"

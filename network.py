@@ -1,21 +1,30 @@
 import os
+import sys
 import copy
 import numpy as np
 import random
 import toml
 import time
+import logging
+logging.basicConfig(stream=sys.stdout,
+                    level=logging.DEBUG,
+                    format='%(asctime)s %(message)s',
+                    datefmt='%m/%d/%Y %I:%M:%S %p')
+
 import verify.neurify
 
 from nn.layers import Dense, Conv, Transpose, Flatten
 
-SEED=0
-NODES = ['slurm1', 'slurm2']
+SEED = 0
+NODES = ['slurm1', 'slurm2', 'slurm3', 'slurm4', 'slurm5']
+TASK_NODE = {'slurm1':7,'slurm2':7,'slurm3':7,'slurm4':7,'slurm5':3}
 
 
 class Network():
-    
     def __init__(self, config):
+        self.name = config['network_name']
         self.config = config
+        self.distillation_configled = False
         self.distilled = False
         self.tested = False
         self.verified = False
@@ -30,41 +39,35 @@ class Network():
             self.score_ra = -1
 
 
-    def set_distillation_strategies(self, strategies):
+    def set_distillation_strategies(self, dis_strats):
         source_dis_config = open(self.config['source_distillation_config'],'r').read()
         source_dis_config = toml.loads(source_dis_config)
         self.distillation_config = source_dis_config
         #self.distillation_config['distillation']['strategies']={}
-        self.dis_strategies = strategies
+        self.dis_strats = dis_strats
 
         drop_ids = []
         scale_ids = []
-        for s in strategies:
-            if s[0] == 'D':
-                # TODO: use better toml api
-                #self.distillation_config['distillation']['strategies']['drop_layer']={}
-                drop_ids+=[int(s[1:])]
-            elif s[0] == 'S':
-                # TODO: use better toml api
-                #self.distillation_config['distillation']['strategies']['scale_layer']={}
-                scale_ids+=[int(s[1:])]
+        scale_factors = []
+        for ds in dis_strats:
+            if ds[0] == 'drop':
+                drop_ids += [ds[1]]
+            elif ds[0] == 'scale':
+                scale_ids += [ds[1]]
+                scale_factors += [ds[2]]
             else:
                 assert False, 'Unkown strategy'
 
+        if drop_ids:
+            self.name += '.D.' + '.'.join([str(x) for x in sorted(drop_ids)])
+
+        if scale_ids:
+            self.name += '.S'
+            for i in range(len(scale_ids)):
+                self.name += '.{}_{}_'.format(scale_ids[i],scale_factors[i])
         self.drop_ids = drop_ids
         self.scale_ids = scale_ids
-
-        self.name = self.config['network_name']
-
-        if drop_ids != []:
-            # TODO: use better toml api
-            #self.distillation_config['distillation']['strategies']['drop_layer']['layer_id'] = drop_ids
-            self.name = self.name + '.D.' + '.'.join([str(x) for x in drop_ids])
-
-        if scale_ids != []:
-            # TODO: use better toml api
-            #self.distillation_config['distillation']['strategies']['scale_layer']['layer_id'] = scale_ids
-            self.name = self.name + '.S.' + '.'.join([str(x) for x in scale_ids])
+        self.scale_factors = scale_factors
 
         self.distillation_config['distillation']['parameters']['epochs'] = self.config['proxy_dis_epochs']
 
@@ -111,14 +114,14 @@ class Network():
                     ol = orig_layers[i]
                     if ol.type == 'FC':
                         size = ol.size
-                        if i in self.scale_ids:
-                            size = int(size * self.config['scale_layer_factor'])
+                        if i in self.scale_factors:
+                            size = int(size * i)
                         l = Dense(size, None, None, in_shape)
                         self.nb_neurons += [np.prod(l.out_shape)]
                     elif ol.type == 'Conv':
                         size = ol.size
-                        if i in self.scale_ids:
-                            size = int(size * self.config['scale_layer_factor'])
+                        if i in self.scale_factors:
+                            size = int(size * i)
                         l = Conv(size, None, None, ol.kernel_size, ol.stride, ol.padding, in_shape)
                         self.nb_neurons += [np.prod(l.out_shape)]
                     elif ol.type == 'Transpose':
@@ -148,7 +151,7 @@ class Network():
 
 
     def distill(self):
-        print('\n--- INFO --- Distilling network: ' + self.name)
+        logging.info('Distilling network: ' + self.name)
 
         if os.path.exists(self.dis_model_dir):
             model_iters = os.listdir(self.dis_model_dir)
@@ -169,7 +172,7 @@ class Network():
         if self.scale_ids:
             lines +=['[[distillation.strategies.scale_layer]]']
             lines +=['layer_id=['+', '.join([str(x) for x in self.scale_ids])+']']
-            lines +=['factor='+str(self.config['scale_layer_factor'])]
+            lines +=['factor=[{}]'.format(', '.join([str(x) for x in self.scale_factors]))]
             lines +=['']
 
         lines += ['[distillation.student]']
@@ -196,7 +199,24 @@ class Network():
                        'touch {}'.format(self.dis_done_path)]
         slurm_lines = [x+'\n' for x in slurm_lines]
         open(self.dis_slurm_path, 'w').writelines(slurm_lines)
-        cmd = 'sbatch -w ristretto01 --reservation=dx3yy_15 {}'.format(self.dis_slurm_path)
+
+        tmp_file = './tmp/'+str(np.random.uniform(low=0, high=10000, size=(1))[0])
+        cmd = 'squeue -u dx3yy > ' + tmp_file
+        os.system(cmd)
+        time.sleep(5)
+        sq_lines = open(tmp_file, 'r').readlines()[1:]
+        ccc = 0
+        for l in sq_lines:
+            if 'NAS-BS_D' in l or 'NAS-BS_T' in l:
+                ccc += 1
+        if ccc < 6:
+            run_node = ' -w ristretto01 --reservation=dx3yy_15 '
+        elif ccc < 13:
+            run_node = ' -w ristretto02 --reservation=dx3yy_15 '
+        else:
+            run_node = ''
+
+        cmd = 'sbatch {} {}'.format(run_node, self.dis_slurm_path)
         #cmd = 'sbatch --exclude=artemis4,artemis5,artemis6,artemis7,lynx05,lynx06 {}'.format(self.dis_slurm_path)
         os.system(cmd)
 
@@ -265,7 +285,25 @@ class Network():
                        'touch {}'.format(self.test_done_path)]
         slurm_lines = [x+'\n' for x in slurm_lines]
         open(self.test_slurm_path, 'w').writelines(slurm_lines)
-        cmd = 'sbatch -w ristretto01 --reservation=dx3yy_15 {}'.format(self.test_slurm_path)
+        tmp_file = './tmp/'+str(np.random.uniform(low=0, high=10000, size=(1))[0])
+        tmp_file = 'sq.txt'
+        cmd = 'squeue -u dx3yy > ' + tmp_file
+        os.system(cmd)
+        time.sleep(5)
+        sq_lines = open(tmp_file, 'r').readlines()[1:]
+        ccc = 0
+        for l in sq_lines:
+            if 'NAS-BS_D' in l or 'NAS-BS_T' in l:
+                ccc += 1
+        if ccc < 6:
+            run_node = ' -w ristretto01 --reservation=dx3yy_15 '
+        elif ccc < 13:
+            run_node = ' -w ristretto02 --reservation=dx3yy_15 '
+        else:
+            run_node = ''
+
+        cmd = 'sbatch {} {}'.format(run_node, self.test_slurm_path)
+        #cmd = 'sbatch -w ristretto01 --reservation=dx3yy_15 {}'.format(self.test_slurm_path)
         #cmd = 'sbatch --exclude=artemis4,artemis5,artemis6,artemis7,lynx05,lynx06 {}'.format(self.test_slurm_path)
         os.system(cmd)
 
@@ -341,7 +379,7 @@ class Network():
 
                 while(True):
                     node_avl_flag = False
-                    task = 'squeue > squeue_results.txt'
+                    task = 'squeue -u dx3yy > squeue_results.txt'
                     os.system(task)
                     time.sleep(5)
                     sq_lines = open('squeue_results.txt', 'r').readlines()[1:]
@@ -351,11 +389,9 @@ class Network():
 
                     nodenodavil_flag = False
                     for l in sq_lines:
-                        '''
                         if 'ReqNodeNotAvail' in l and 'dx3yy' in l:
                             nodenodavil_flag = True
                             break
-                        '''
                     
                         if ' R ' in l and l != '':
                             node = l.strip().split(' ')[-1]
@@ -370,7 +406,7 @@ class Network():
                     #print(nodes_avl)
             
                     for na in nodes_avl:
-                        if nodes_avl[na] < 7:
+                        if nodes_avl[na] < TASK_NODE[na]:
                             node_avl_flag = True
                             break
                     if node_avl_flag:

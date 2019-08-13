@@ -1,4 +1,4 @@
-root = "/p/d4v/dx3yy/nas_res"
+root = "/p/d4v/dx3yy/nas_res_s1"
 nb_best_net = 5
 mode = "bs"
 network_name = "dave"
@@ -12,7 +12,7 @@ proxy_nb_props = 10
 veri_threshold = [ 1, 1,]
 verifiers = [ "neurify",]
 scale_limit_strat = 'nb_layers'
-scale_network_size_distance = 0.9
+#scale_network_size_distance = 0.1
 max_nb_layer_scale = 1
 
 [dis_threshold.dave]
