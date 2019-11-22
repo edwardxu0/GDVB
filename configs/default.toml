@@ -1,7 +1,6 @@
-root = "/p/d4v/dx3yy/Work/gb/res"
 network_name = "dave"
-source_model = "/p/d4v/dx3yy/Work/gb/networks/dave.onnx"
-source_distillation_config = "/p/d4v/dx3yy/Work/gb/configs/dave.toml"
+source_model = "configs/networks/dave.onnx"
+source_distillation_config = "configs/dave.toml"
 veri_time = 14400
 veri_mem = 64
 verifiers = [ "neurify",]

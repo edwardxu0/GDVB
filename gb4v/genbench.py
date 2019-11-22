@@ -224,47 +224,33 @@ def gen2(args, configs):
     lines = [x +'\n' for x in lines]
 
     open('./tmp/ca_config.txt','w').writelines(lines)
-    cmd = 'java  -Ddoi=2 -jar lib/acts_3.2.jar ./tmp/ca_config.txt ./tmp/ca.txt'
+    cmd = 'java  -Ddoi=2 -jar lib/acts_3.2.jar ./tmp/ca_config.txt ./tmp/ca.txt > /dev/null'
     os.system(cmd)
     
     vp_configs = []
-
     lines = open('./tmp/ca.txt','r').readlines()
     i = 0
     while i < len(lines):
         l = lines[i]
         if 'Number of configurations' in l:
             nb_tests = int(l.strip().split(' ')[-1])
-            print(nb_tests)
+            logger.info(f'# tests: {nb_tests}')
 
         if 'Configuration #' in l:
             vp = []
-            for j in range(2, len(parameters)):
-                l = lines[j+i]
+            for j in range(len(parameters)):
+                l = lines[j+i+2]
                 vp += [int(l.strip().split('=')[-1])]
+            assert len(vp) == len(parameters)
             vp_configs += [vp]
-            i+=j
+            i+=j+2
         i+=1
     assert len(vp_configs) == nb_tests
-
-    '''
-    vp_configs = []
-    for x1 in range(4):
-        for x2 in range(4):
-            for x3 in range(4):
-                for x4 in range(3):
-                    for x5 in range(5):
-                        for x6 in range(5):
-                            for x7 in range(5):
-                                    for x8 in range(5):
-                                        vp_configs += [[x1,x2,x3,x4,x5,x6,x7,x8]]
-    '''
-
-    print(vp_configs)
+    
     net_configs = []
     prop_configs = []
-    print(net_configs)
-
+        
+    
     for vp in vp_configs:
         net_configs += [vp[:-2]]
         prop_configs += [vp[-2:]]
@@ -272,7 +258,6 @@ def gen2(args, configs):
     net_configs = set(tuple(x) for x in net_configs)
     prop_configs = set(tuple(x) for x in prop_configs)
 
-    
     # gen networks
     source_net_onnx_path = Onnxu(configs['source_model'])
     source_net_layers = get_layers(source_net_onnx_path, configs)
@@ -281,27 +266,30 @@ def gen2(args, configs):
     source_net.set_distillation_strategies([])
     source_net.calc_order('nb_neurons', source_net_layers)
     source_net_nb_neurons = np.sum(source_net.nb_neurons)
-    print(source_net_nb_neurons)
+    #print(source_net_nb_neurons)
     
     #drop_ids, scale_ids = drop_scale_ids(source_net_layers)
     #nb_modi_layers = len(set(drop_ids).union(set(scale_ids)))
 
     fc_ids = [7,8,9,10]
     conv_ids = [0,1,2,3,4]
+
+    neuron_scale_factors = [1, 0.8, 0.6, 0.4, 0.2]
     fc_drop_factors = [0.75, 0.5, 0.25, 0]
     conv_drop_factors = [0.75, 0.5, 0.25, 0]
-    scale_factors = [1,0.8,0.6,0.4,0.2]
+    input_dimension_levels = [1, 0.75, 0.5, 0.25]
+    input_domain_size_levels = [1, 0.75, 0.5, 0.25]
 
     
     neurons = []
     nets = []
     for nc in net_configs:
-        #print('net config:',nc)
+        print('net config:',nc)
         #print(nc[0])
-        scale_factor = scale_factors[nc[0]]
-        drop_fc_ids = random.sample(fc_ids, int(round(len(fc_ids)*fc_drop_factors[nc[1]])))
+        neuron_scale_factor = neuron_scale_factors[nc[0]]
+        drop_fc_ids = sorted(random.sample(fc_ids, int(round(len(fc_ids)*fc_drop_factors[nc[1]]))))
         #print(drop_fc_ids, fc_ids)
-        drop_conv_ids = random.sample(conv_ids, int(round(len(conv_ids)*conv_drop_factors[nc[2]])))
+        drop_conv_ids = sorted(random.sample(conv_ids, int(round(len(conv_ids)*conv_drop_factors[nc[2]]))))
         #print(drop_conv_ids, conv_ids)
         drop_ids = drop_fc_ids + drop_conv_ids
         scale_ids = set(fc_ids + conv_ids) - set(drop_ids)
@@ -309,38 +297,55 @@ def gen2(args, configs):
 
         n = Network(configs)
         dis_strats = [['drop', x, 1] for x in drop_ids]
-        if scale_factor != 1:
+        if neuron_scale_factor != 1:
             dis_strats += [['scale', x, 1] for x in scale_ids]
         #print(dis_strats)
         n.set_distillation_strategies(dis_strats)
         n.calc_order('nb_neurons', source_net_layers)
 
+        neurons_drop_only = np.sum(n.nb_neurons)
+        #print('neuron percent:', scale_factors)
+        #print('neurons:', neurons_drop_only)
 
-        if scale_factor != 1:
-            neurons_drop_only = np.sum(n.nb_neurons)
-            #print('neuron percent:', scale_factors)
-            #print('neurons:', neurons_drop_only)
+        neuron_scale_factor = (source_net_nb_neurons*neuron_scale_factor)/neurons_drop_only
 
-            scale_factor = (source_net_nb_neurons*scale_factor)/neurons_drop_only
+        if neuron_scale_factor != 1:
             #print('factor:', scale_factor)
         
             n = Network(configs)
             dis_strats = [['drop', x, 1] for x in drop_ids]
-            dis_strats += [['scale', x, scale_factor] for x in scale_ids]
+            dis_strats += [['scale', x, neuron_scale_factor] for x in scale_ids]
             #print(dis_strats)
             n.set_distillation_strategies(dis_strats)
             n.calc_order('nb_neurons', source_net_layers)
-            
+
+        transform = n.distillation_config['distillation']['data']['transform']['student']
+        height = transform['height']
+        width = transform['width']
+        assert height == width
+        id_f = input_dimension_levels[nc[3]]
+
+        new_height = int(np.sqrt(height*width*id_f))
+        transform['height'] = new_height
+        transform['width'] = new_height
+        
+        mean = transform['mean']
+        max_value = transform['max_value']
+        ids_f = input_domain_size_levels[nc[4]]
+
+        transform['mean'] = [x*ids_f for x in mean]
+        transform['max_value'] = max_value*ids_f
+
+        if ids_f != 1 and id_f != 1:
+            print(id_f, ids_f)
+            print(height,width, mean, max_value)
+            print(new_height, [x*ids_f for x in mean], max_value*ids_f)
+        
         nets += [n]
         neurons += [np.sum(n.nb_neurons)]
         #print('neurons:', neurons)
-
-
-    for n in nets:
-        n.distill()
-        exit()
-        
         
     logger.info(f'# NN: {len(nets)}')
-
-    print(neurons,np.mean(neurons))
+    for n in nets:
+        print(f'{np.sum(n.nb_neurons)}/{source_net_nb_neurons}')
+        n.distill()

@@ -62,11 +62,9 @@ class Network():
         if scale_ids_factors:
             self.name += '.S'
             for i in range(len(scale_ids_factors)):
-                self.name += '.{}_{}_'.format(scale_ids_factors[i][0], scale_ids_factors[i][1])
+                self.name += '.{}_{}_'.format(scale_ids_factors[i][0], str(scale_ids_factors[i][1])[:5])
         self.drop_ids = drop_ids
         self.scale_ids_factors = scale_ids_factors
-        print("scale_ids",self.scale_ids_factors)
-
 
         #self.distillation_config['distillation']['parameters']['epochs'] = self.config['proxy_dis_epochs']
 
@@ -148,10 +146,12 @@ class Network():
     def distill(self):
         logging.info('Distilling network: ' + self.name)
 
+        '''
         if os.path.exists(self.dis_model_dir):
             model_iters = os.listdir(self.dis_model_dir)
             if self.name+'.iter.'+str(self.config['proxy_dis_epochs'])+'.onnx' in model_iters:
                 return
+        '''
 
 
         formatted_data = toml.dumps(self.distillation_config)
@@ -177,14 +177,12 @@ class Network():
         with open(self.dis_config_path, 'a') as f:
             for l in lines:
                 f.write(l)
-        
-        exit()
 
         if not os.path.exists(self.dis_model_dir):
             os.mkdir(self.dis_model_dir)
 
         slurm_lines = ['#!/bin/sh',
-                       '#SBATCH --job-name=NAS-BS_D',
+                       '#SBATCH --job-name=GB_D',
                        '#SBATCH --partition=gpu',
                        '#SBATCH --error="{}"'.format(self.dis_log_path),
                        '#SBATCH --output="{}"'.format(self.dis_log_path),
@@ -200,18 +198,21 @@ class Network():
         tmp_file = './tmp/'+str(np.random.uniform(low=0, high=10000, size=(1))[0])
         cmd = 'squeue -u dx3yy > ' + tmp_file
         os.system(cmd)
-        time.sleep(5)
+        time.sleep(0)
         sq_lines = open(tmp_file, 'r').readlines()[1:]
         ccc = 0
         for l in sq_lines:
             if 'NAS-BS_D' in l or 'NAS-BS_T' in l:
                 ccc += 1
+        '''
         if ccc < 6:
             run_node = ' -w ristretto01 --reservation=dx3yy_15 '
         elif ccc < 13:
             run_node = ' -w ristretto02 --reservation=dx3yy_15 '
         else:
             run_node = ''
+        '''
+        run_node = ''
 
         cmd = 'sbatch {} {}'.format(run_node, self.dis_slurm_path)
         #cmd = 'sbatch --exclude=artemis4,artemis5,artemis6,artemis7,lynx05,lynx06 {}'.format(self.dis_slurm_path)

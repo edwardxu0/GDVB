@@ -16,7 +16,21 @@ format="udacity-driving"
 batchsize=256
 presized=false
 
-[distillation.data.transform]
+[distillation.teacher]
+framework="onnx"
+input_shape=[1, 100, 100, 3]
+input_format="NHWC"
+model="./configs/networks/dave.onnx"
+
+
+[distillation.data.transform.teacher]
+bgr=true
+mean=[103.939, 116.779, 123.68]
+max_value=255.0
+height=100
+width=100
+
+[distillation.data.transform.student]
 bgr=true
 mean=[103.939, 116.779, 123.68]
 max_value=255.0
@@ -40,10 +54,4 @@ path="/p/d4v/dls2fc/cegsdl/artifacts/udacity.sdc.100/validation"
 
 [distillation.data.validation.student]
 path="/p/d4v/dls2fc/cegsdl/artifacts/udacity.sdc.100/validation"
-
-[distillation.teacher]
-framework="onnx"
-input_shape=[1, 100, 100, 3]
-input_format="NHWC"
-model="/p/d4v/dx3yy/DNNVeri/dnnvbs/cegsdl/networks/dave/model.onnx"
 
