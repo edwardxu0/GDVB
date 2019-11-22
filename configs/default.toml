@@ -1,0 +1,23 @@
+root = "/p/d4v/dx3yy/Work/gb/res"
+network_name = "dave"
+source_model = "/p/d4v/dx3yy/Work/gb/networks/dave.onnx"
+source_distillation_config = "/p/d4v/dx3yy/Work/gb/configs/dave.toml"
+veri_time = 14400
+veri_mem = 64
+verifiers = [ "neurify",]
+
+[dis_threshold.dave]
+type = "loss"
+value = [ 0.01, 0.01,]
+
+
+[factor]
+[factor.architecture]
+neuron_bins = 10
+layer_depth_step = 1
+layer_types = ['FC','Conv']
+[factor.property]
+count = 5
+epsilons = [0.01,0.02,0.05,0.1,0.2]
+[factor.other]
+weight_value_repeats = 2
