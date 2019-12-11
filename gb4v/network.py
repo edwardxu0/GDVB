@@ -21,8 +21,11 @@ TASK_NODE = {'slurm1':7,'slurm2':7,'slurm3':7,'slurm4':7,'slurm5':3}
 
 
 class Network():
-    def __init__(self, config):
+    def __init__(self, config, vpc):
         self.name = config['network_name']
+        if vpc is not None:
+            self.name += '.'+'.'.join([str(vpc[x]) for x in list(vpc)[:-2]])
+        self.vpc = vpc
         self.config = config
         self.distillation_configled = False
         self.distilled = False
@@ -33,9 +36,10 @@ class Network():
         self.best_iter = None
         self.d_time = None
         self.score_veri = 0
-        if self.config['dis_threshold'][self.config['network_name']]['type'] == 'loss':
+        self.scale_input = False
+        if self.config['dis_threshold']['type'] == 'loss':
             self.score_ra = float('inf')
-        elif self.config['dis_threshold'][self.config['network_name']]['type'] == 'acc':
+        elif self.config['dis_threshold']['type'] == 'acc':
             self.score_ra = -1
 
 
@@ -56,13 +60,14 @@ class Network():
             else:
                 assert False, 'Unkown strategy'
 
+        '''
         if drop_ids:
             self.name += '.D.' + '.'.join([str(x) for x in sorted(drop_ids)])
-
         if scale_ids_factors:
             self.name += '.S'
             for i in range(len(scale_ids_factors)):
                 self.name += '.{}_{}_'.format(scale_ids_factors[i][0], str(scale_ids_factors[i][1])[:5])
+        '''
         self.drop_ids = drop_ids
         self.scale_ids_factors = scale_ids_factors
 
@@ -82,15 +87,13 @@ class Network():
         #self.distillation_config['distillation']['student']['path'] = self.dis_model_dir
 
 
-    def calc_order(self, order_by, orig_layers, ppp= False):
+    def calc_order(self, order_by, orig_layers, input_shape):
         if order_by == 'nb_neurons':
             self.order_by = 'nb_neurons'
-            input_shape = orig_layers[0].in_shape
-
             self.layers = []
             self.nb_neurons = []
             self.remaining_layer_ids = []
-            
+
             for i in range(len(orig_layers)):
                 if i not in self.drop_ids:
                     if self.layers == []:
@@ -128,9 +131,7 @@ class Network():
                     # print(l)
                     self.layers += [l]
                     self.remaining_layer_ids += [i]
-
             # print(np.sum(np.array(self.nb_neurons)))
-
         else:
             assert False
 
@@ -146,13 +147,18 @@ class Network():
     def distill(self):
         logging.info('Distilling network: ' + self.name)
 
-        '''
-        if os.path.exists(self.dis_model_dir):
-            model_iters = os.listdir(self.dis_model_dir)
-            if self.name+'.iter.'+str(self.config['proxy_dis_epochs'])+'.onnx' in model_iters:
-                return
-        '''
 
+        if os.path.exists(self.dis_log_path):
+            lines = open(self.dis_log_path).readlines()
+            successful = True
+            for l in lines:
+                if 'Traceback' in l:
+                    successful = False
+            if successful:
+                print('done')
+                return
+            else:
+                print(f'error in {self.dis_log_path}, retraining')
 
         formatted_data = toml.dumps(self.distillation_config)
         with open(self.dis_config_path, 'w') as f:
@@ -169,6 +175,9 @@ class Network():
             lines +=['layer_id=['+', '.join([str(x[0]) for x in self.scale_ids_factors])+']']
             lines +=['factor=[{}]'.format(', '.join([str(x[1]) for x in self.scale_ids_factors]))]
             lines +=['']
+        if self.scale_input:
+            lines +=['[[distillation.strategies.scale_input]]']
+            lines +=[f'factor={self.scale_input_factor}\n']
 
         lines += ['[distillation.student]']
         lines += ['path="'+os.path.join(self.dis_model_dir,self.name)+'.onnx"']
@@ -183,18 +192,17 @@ class Network():
 
         slurm_lines = ['#!/bin/sh',
                        '#SBATCH --job-name=GB_D',
-                       '#SBATCH --partition=gpu',
                        '#SBATCH --error="{}"'.format(self.dis_log_path),
                        '#SBATCH --output="{}"'.format(self.dis_log_path),
+                       '#SBATCH --partition=gpu',
                        '#SBATCH --gres=gpu:1',
-                       '',
-                       'time (',
-                       'python -m d4v distill {} --novalidation --debug'.format(self.dis_config_path),
-                       ')',
+                       'cat /proc/sys/kernel/hostname',
+                       'python -m r4v distill {} --debug'.format(self.dis_config_path),
                        'touch {}'.format(self.dis_done_path)]
         slurm_lines = [x+'\n' for x in slurm_lines]
         open(self.dis_slurm_path, 'w').writelines(slurm_lines)
-
+        
+        '''
         tmp_file = './tmp/'+str(np.random.uniform(low=0, high=10000, size=(1))[0])
         cmd = 'squeue -u dx3yy > ' + tmp_file
         os.system(cmd)
@@ -204,18 +212,18 @@ class Network():
         for l in sq_lines:
             if 'NAS-BS_D' in l or 'NAS-BS_T' in l:
                 ccc += 1
-        '''
+        
         if ccc < 6:
             run_node = ' -w ristretto01 --reservation=dx3yy_15 '
         elif ccc < 13:
             run_node = ' -w ristretto02 --reservation=dx3yy_15 '
         else:
             run_node = ''
-        '''
         run_node = ''
 
-        cmd = 'sbatch {} {}'.format(run_node, self.dis_slurm_path)
-        #cmd = 'sbatch --exclude=artemis4,artemis5,artemis6,artemis7,lynx05,lynx06 {}'.format(self.dis_slurm_path)
+        #cmd = 'sbatch {} {}'.format(run_node, self.dis_slurm_path)
+        '''
+        cmd = 'sbatch --exclude=artemis4,artemis5,artemis6,artemis7 {}'.format(self.dis_slurm_path)
         os.system(cmd)
 
 

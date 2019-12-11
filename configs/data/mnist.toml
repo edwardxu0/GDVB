@@ -1,0 +1,17 @@
+format="mnist"
+batchsize=64
+presized=false
+
+[student]
+path="./data/mnist"
+
+[teacher]
+path="./data/mnist"
+
+[transform]
+grayscale=true
+mean=[0.1307]
+std=[0.3081]
+height=28
+width=28
+max_value=1

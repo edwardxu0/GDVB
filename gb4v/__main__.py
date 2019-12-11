@@ -9,8 +9,7 @@ def main():
     configs = config.configure(args)
     logger = logging.initialize(args)
     configs['logger'] = logger
-    #genbench.gen(args, configs)
-    genbench.gen2(args, configs)
+    genbench.gen(args, configs)
 
 if __name__ == '__main__':
     main()

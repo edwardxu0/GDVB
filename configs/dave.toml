@@ -1,57 +1,25 @@
-[distillation]
-maxmemory="32G"
-threshold=1e-9
-cuda=true
-type="regression"
-precompute_teacher=true
+network_name = "dave"
+image_shape = [1, 100, 100, 3]
+image_shape_mode = 'NHWC'
+source_model = "configs/networks/dave.onnx"
+source_distillation_config = "configs/networks/dave.toml"
+data_config = "configs/data/udacity-driving.toml"
+veri_time = 14400
+veri_mem = 64
+verifiers = [ "neurify",]
 
-[distillation.parameters]
-epochs=10
-optimizer="adadelta"
-rho=0.95
-loss="MSE"
-
-[distillation.data]
-format="udacity-driving"
-batchsize=256
-presized=false
-
-[distillation.teacher]
-framework="onnx"
-input_shape=[1, 100, 100, 3]
-input_format="NHWC"
-model="./configs/networks/dave.onnx"
+[dis_threshold]
+type = "loss"
+value = [ 0.01, 0.01,]
 
 
-[distillation.data.transform.teacher]
-bgr=true
-mean=[103.939, 116.779, 123.68]
-max_value=255.0
-height=100
-width=100
-
-[distillation.data.transform.student]
-bgr=true
-mean=[103.939, 116.779, 123.68]
-max_value=255.0
-height=100
-width=100
-
-[distillation.data.train]
-shuffle=true
-
-[distillation.data.train.teacher]
-path="/p/d4v/dls2fc/cegsdl/artifacts/udacity.sdc.100/training"
-
-[distillation.data.train.student]
-path="/p/d4v/dls2fc/cegsdl/artifacts/udacity.sdc.100/training"
-
-[distillation.data.validation]
-shuffle=false
-
-[distillation.data.validation.teacher]
-path="/p/d4v/dls2fc/cegsdl/artifacts/udacity.sdc.100/validation"
-
-[distillation.data.validation.student]
-path="/p/d4v/dls2fc/cegsdl/artifacts/udacity.sdc.100/validation"
-
+[factor]
+[factor.architecture]
+neuron_bins = 10
+layer_depth_step = 1
+layer_types = ['FC','Conv']
+[factor.property]
+count = 5
+epsilons = [0.01,0.02,0.05,0.1,0.2]
+[factor.other]
+weight_value_repeats = 2

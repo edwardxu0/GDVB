@@ -1,0 +1,14 @@
+format="udacity-driving"
+batchsize=100
+presized=false
+
+[student]
+path="/p/d4v/dls2fc/cegsdl/artifacts/udacity.sdc.100/testing"
+
+[teacher]
+path="/p/d4v/dls2fc/cegsdl/artifacts/udacity.sdc.100/testing"
+
+[transform]
+bgr=true
+mean=[103.939, 116.779, 123.68]
+max_value=255.0

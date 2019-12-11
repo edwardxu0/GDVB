@@ -5,17 +5,17 @@ import toml
 def configure(args):
     config_file = open(args.config,'r').read()
     configs = toml.loads(config_file)
-    configs['root'] = args.root
+    configs['root'] = f'{args.root}.{configs["network_name"]}'
 
     if not os.path.exists(configs['root']):
         os.mkdir(configs['root'])
 
-    subdirs = ['dis_config_dir','dis_model_dir','dis_slurm_dir','dis_log_dir','dis_done_dir','test_slurm_dir','test_log_dir',\
-    'test_done_dir','prop_dir','veri_net_dir','veri_slurm_dir','veri_log_dir','veri_done_dir']
+    subdirs = ['dis_config','dis_model','dis_slurm','dis_log','dis_done','test_slurm','test_log',\
+    'test_done','props','veri_net','veri_slurm','veri_log','veri_done']
 
     for sd in subdirs:
-        configs[sd] = os.path.join(configs['root'],sd[:-4])
-        if not os.path.exists(configs[sd]):
-            os.mkdir(configs[sd])
+        configs[sd+'_dir'] = os.path.join(configs['root'],sd)
+        if not os.path.exists(configs[sd+'_dir']):
+            os.mkdir(configs[sd+'_dir'])
 
     return configs
