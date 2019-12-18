@@ -5,7 +5,7 @@ import toml
 def configure(args):
     config_file = open(args.config,'r').read()
     configs = toml.loads(config_file)
-    configs['root'] = f'{args.root}.{configs["network_name"]}'
+    configs['root'] = f'{args.root}.{configs["name"]}'
 
     if not os.path.exists(configs['root']):
         os.mkdir(configs['root'])

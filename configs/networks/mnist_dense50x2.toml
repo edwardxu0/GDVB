@@ -3,7 +3,7 @@ maxmemory="32G"
 threshold=1e-9
 cuda=true
 type="classification"
-precompute_teacher=false
+precompute_teacher=true
 
 [distillation.parameters]
 epochs=10
@@ -19,8 +19,8 @@ path="./data/mnist"
 
 [distillation.teacher]
 framework="onnx"
-input_shape=[1, 28, 28, 1]
-input_format="NHWC"
+input_shape=[1, 1, 28, 28]
+input_format="NCHW"
 model="./configs/networks/mnist_dense50x2.onnx"
 
 [distillation.data.transform.teacher]

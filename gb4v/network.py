@@ -22,9 +22,9 @@ TASK_NODE = {'slurm1':7,'slurm2':7,'slurm3':7,'slurm4':7,'slurm5':3}
 
 class Network():
     def __init__(self, config, vpc):
-        self.name = config['network_name']
+        self.name = config['name']
         if vpc is not None:
-            self.name += '.'+'.'.join([str(vpc[x]) for x in list(vpc)[:-2]])
+            self.name += '.'+''.join([str(vpc[x]) for x in list(vpc)[:-2]])
         self.vpc = vpc
         self.config = config
         self.distillation_configled = False
@@ -37,17 +37,12 @@ class Network():
         self.d_time = None
         self.score_veri = 0
         self.scale_input = False
-        if self.config['dis_threshold']['type'] == 'loss':
-            self.score_ra = float('inf')
-        elif self.config['dis_threshold']['type'] == 'acc':
-            self.score_ra = -1
 
+        source_dis_config = open(self.config['dnn']['r4v_config'],'r').read()
+        self.distillation_config = toml.loads(source_dis_config)
 
+        
     def set_distillation_strategies(self, dis_strats):
-        source_dis_config = open(self.config['source_distillation_config'],'r').read()
-        source_dis_config = toml.loads(source_dis_config)
-        self.distillation_config = source_dis_config
-        #self.distillation_config['distillation']['strategies']={}
         self.dis_strats = dis_strats
 
         drop_ids = []
@@ -57,8 +52,11 @@ class Network():
                 drop_ids += [ds[1]]
             elif ds[0] == 'scale':
                 scale_ids_factors += [[ds[1],ds[2]]]
+            elif ds[0] == 'scale_input':
+                self.scale_input = True
+                self.scale_input_factor = ds[1]
             else:
-                assert False, 'Unkown strategy'
+                assert False, 'Unkown strategy'+ ds
 
         '''
         if drop_ids:
@@ -74,7 +72,8 @@ class Network():
         #self.distillation_config['distillation']['parameters']['epochs'] = self.config['proxy_dis_epochs']
 
         self.dis_config_path = os.path.join(self.config['dis_config_dir'], self.name + '.toml')
-        self.dis_model_dir = os.path.join(self.config['dis_model_dir'], self.name)
+        #self.dis_model_dir = os.path.join(self.config['dis_model_dir'], self.name)
+        self.dis_model_path = os.path.join(self.config['dis_model_dir'], self.name +'.onnx')
         self.dis_log_path = os.path.join(self.config['dis_log_dir'], self.name + '.out')
         self.dis_slurm_path = os.path.join(self.config['dis_slurm_dir'], self.name + '.slurm')
         self.dis_done_path = os.path.join(self.config['dis_done_dir'], self.name + '.done')
@@ -180,15 +179,16 @@ class Network():
             lines +=[f'factor={self.scale_input_factor}\n']
 
         lines += ['[distillation.student]']
-        lines += ['path="'+os.path.join(self.dis_model_dir,self.name)+'.onnx"']
+        lines += ['path="'+self.dis_model_path+'"']
         lines = [x+'\n' for x in lines]
 
         with open(self.dis_config_path, 'a') as f:
             for l in lines:
                 f.write(l)
-
+        '''
         if not os.path.exists(self.dis_model_dir):
             os.mkdir(self.dis_model_dir)
+        '''
 
         slurm_lines = ['#!/bin/sh',
                        '#SBATCH --job-name=GB_D',
@@ -491,33 +491,30 @@ class Network():
                 break
 
 
-    def score(self):
-        print('\n--- INFO --- Scoring network: ' + self.name)
-        # calculate distillation score
-        self.score_ra = self.relative_acc
+    def input_too_small(self):
 
-        # calculate verification score
-        score_veri = 0
-        for key in self.veri_res.keys():
-            if len(self.veri_res[key]) == self.config['proxy_nb_props']:
-                for v_res in self.veri_res[key]:
-                    if v_res[1] in ['True', 'False']:
-                        score_veri += 1
-            else:
-                assert False, "{},{},{}".format(key, len(self.veri_res[key]),self.config['proxy_nb_props'])
-        self.score_veri = score_veri / self.config['proxy_nb_props']
+        conv_ids = []
+        for i,l in enumerate(self.layers):
+            if isinstance(l, Conv):
+                conv_ids += [i]
+        assert set(conv_ids) == set(range(len(conv_ids)))
+        conv_ids.reverse()
 
+        if not conv_ids:
+            return False
+        
+        #print(conv_ids)
+        return False
 
-    def accurate(self, phase):
-        is_acc = False
-        if self.config['dis_threshold'][self.config['network_name']]['type'] == 'loss':
-            if self.score_ra < self.config['dis_threshold'][self.config['network_name']]['value'][phase-1]:
-                is_acc = True
-        elif self.config['dis_threshold'][self.config['network_name']]['type'] == 'acc':
-            if self.score_ra > self.config['dis_threshold'][self.config['network_name']]['value'][phase-1]:
-                is_acc = True
-        return is_acc
-
-
-    def verifiable(self, phase):
-        return self.score_veri >= self.config['veri_threshold'][phase-1]
+        
+    def untrainable(self, parameter_limit):
+        self.nb_parameters = 0
+        for i in range(len(self.layers)):
+            l = self.layers[i]
+            if isinstance(l, Conv):
+                self.nb_parameters += (l.kernel_size**2 + 1)*l.size
+            elif isinstance(l, Dense):
+                ins = np.prod(np.array(l.in_shape))
+                outs = np.prod(np.array(l.out_shape))
+                self.nb_parameters += ins*outs
+        return self.nb_parameters > parameter_limit

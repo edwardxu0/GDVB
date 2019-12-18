@@ -1,9 +1,8 @@
 network_name = "dave"
-image_shape = [1, 100, 100, 3]
-image_shape_mode = 'NHWC'
 source_model = "configs/networks/dave.onnx"
 source_distillation_config = "configs/networks/dave.toml"
 data_config = "configs/data/udacity-driving.toml"
+parameter_limit = 2116983
 veri_time = 14400
 veri_mem = 64
 verifiers = [ "neurify",]

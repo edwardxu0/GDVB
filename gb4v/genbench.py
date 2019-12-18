@@ -12,65 +12,24 @@ from nn.onnxu import Onnxu
 from gb4v.network import Network
 
 
-def get_layers(onnx_net, configs):
-    layers_with_ids = ['Conv', 'FC', 'Transpose', 'Flatten']
-    layers = []
-    for l in onnx_net.arch:
-        if l.type in layers_with_ids:
-            layers += [l]
-    if configs['network_name'] == 'dave':
-        layers = layers[1:]
-    elif configs['network_name'] == 'mnist_conv_super':
-        layers = layers[1:]
-    elif configs['network_name'] == 'mnist_dense50x2':
-        pass
-    else:
-        assert False
-    return layers
-
-
-def drop_scale_ids(layers):
-    layers = layers[:-1]
-    droppable_layers = ['Conv', 'FC']
-    scalable_layers = ['Conv', 'FC']
-    drop_ids = []
-    scale_ids = []
-    for i,l in enumerate(layers):
-        if l.type in droppable_layers:
-            drop_ids += [i]
-        if l.type in scalable_layers:
-            scale_ids += [i]
-    return drop_ids, scale_ids
-
-
-def calc_neurons(onnx_path, configs):
-    onnx_net = Onnxu(onnx_path, configs['image_shape_mode'])
-    droppable_scalable_layers = get_layers(onnx_net, configs)
-    n = Network(configs)
-    n.set_distillation_strategies([])
-    n.calc_order('nb_neurons', droppable_scalable_layers)
-
-
 def gen(args, configs):
     logger = configs['logger']
 
-    source_net_onnx_path = Onnxu(configs['source_model'], configs['image_shape_mode'])
-    source_net_layers = get_layers(source_net_onnx_path, configs)
+    source_net_onnx = Onnxu(configs['dnn']['onnx'])
+    source_net_layers = get_layers(configs, source_net_onnx)
     
     source_net = Network(configs, None)
     source_net.set_distillation_strategies([])
-    #print(source_net_layers[0].in_shape)
-    source_net.calc_order('nb_neurons', source_net_layers, configs['image_shape'][1:])
+
+    source_net.calc_order('nb_neurons', source_net_layers, source_net_onnx.input_shape)
     source_net_neurons_per_layer = source_net.nb_neurons
     source_net_nb_neurons = np.sum(source_net_neurons_per_layer)
-    #print(source_net_nb_neurons)
-    
-    #drop_ids, scale_ids = drop_scale_ids(source_net_layers)
-    #nb_modi_layers = len(set(drop_ids).union(set(scale_ids)))
-    
+
     logger.info('Factors')
     # calculate parameters based on factors
-    net_name = configs['network_name']
+    net_name = configs['name']
+
+    # calculate fc conv ids
     conv_ids = []
     fc_ids = []
     for i,x in enumerate(source_net_layers):
@@ -80,125 +39,50 @@ def gen(args, configs):
             fc_ids += [i]
     fc_ids = fc_ids[:-1]
 
-    if net_name == 'dave':
-        assert conv_ids == [0,1,2,3,4]
-        assert fc_ids == [7,8,9,10]
-        
-        parameters = {'neurons':10,
-                   'fc_layers':5,
-                   'conv_layers':6,
-                   #'act_fun':3,
-                   'in_dim':4,
-                   'in_dom_size':4,
-                   'property':5,
-                   'epsilon':5}
+    # load parameters
+    parameters = {}
+    
+    for key in configs['ca']['parameters']:
+        level_size = configs['ca']['parameters'][key]
 
-        neuron_scale_factors = np.arange(0.1,1.1,0.1)
-        assert len(neuron_scale_factors) == parameters['neurons']
-        fc_drop_factors = np.flip(np.arange(0,1.25,0.25))
-        assert len(fc_drop_factors) == parameters['fc_layers']
-        conv_drop_factors = np.flip(np.arange(0,1.2,0.2))
-        assert len(conv_drop_factors) == parameters['conv_layers']
-        input_dimension_levels = np.arange(0.25,1.25,0.25)
-        assert len(input_dimension_levels) == parameters['in_dim']
-        input_domain_size_levels = np.arange(0.25,1.25,0.25)
-        assert len(input_domain_size_levels) == parameters['in_dom_size']
-
-        property_levels = np.arange(0,5,1)
-        assert len(property_levels) == parameters['property']
-        epsilon_levels = np.arange(0.4,2.4,0.4)
-        assert len(epsilon_levels) == parameters['epsilon']
-
-    elif net_name == 'mnist_conv_super':
-        assert conv_ids == [0,1,2,3]
-        assert fc_ids == [6,7]
-        
-        parameters = {'neurons':10,
-                   'fc_layers':3,
-                   'conv_layers':5,
-                   #'act_fun':3,
-                   'in_dim':4,
-                   'in_dom_size':4,
-                   'property':5,
-                   'epsilon':5}
-
-        neuron_scale_factors = np.arange(0.1,1.1,0.1)
-        assert len(neuron_scale_factors) == parameters['neurons']
-        fc_drop_factors = np.flip(np.arange(0,1.5,0.5))
-        assert len(fc_drop_factors) == parameters['fc_layers']
-        conv_drop_factors = np.flip(np.arange(0,1.25,0.25))
-        assert len(conv_drop_factors) == parameters['conv_layers']
-        input_dimension_levels = np.arange(0.25,1.25,0.25)
-        assert len(input_dimension_levels) == parameters['in_dim']
-        input_domain_size_levels = np.arange(0.25,1.25,0.25)
-        assert len(input_domain_size_levels) == parameters['in_dom_size']
-
-        property_levels = np.arange(0,5,1)
-        assert len(property_levels) == parameters['property']
-        epsilon_levels = np.arange(0.4,2.4,0.4)
-        assert len(epsilon_levels) == parameters['epsilon']
-
-    elif net_name == 'mnist_dense50x2':
-        assert conv_ids == []
-        assert fc_ids == [1,2]
-        
-        parameters = {'neurons':4,
-                   'fc_layers':3,
-                   #'conv_layers':0,
-                   #'act_fun':3,
-                   'in_dim':4,
-                   'in_dom_size':4,
-                   'property':5,
-                   'epsilon':5}
-
-        neuron_scale_factors = np.arange(0.25,1.25,0.25)
-        assert len(neuron_scale_factors) == parameters['neurons']
-        fc_drop_factors = np.flip(np.arange(0,1.5,0.5))
-        assert len(fc_drop_factors) == parameters['fc_layers']
-        #conv_drop_factors = np.flip(np.arange(0,1.25,0.25))
-        conv_drop_factors = None
-        #assert len(conv_drop_factors) == parameters['conv_layers']
-        input_dimension_levels = np.arange(0.25,1.25,0.25)
-        assert len(input_dimension_levels) == parameters['in_dim']
-        input_domain_size_levels = np.arange(0.25,1.25,0.25)
-        assert len(input_domain_size_levels) == parameters['in_dom_size']
-
-        property_levels = np.arange(0,5,1)
-        assert len(property_levels) == parameters['property']
-        epsilon_levels = np.arange(0.4,2.4,0.4)
-        assert len(epsilon_levels) == parameters['epsilon']
-
-    else:
-        assert False
+        if key in ['fc','conv']:
+            level = np.arange(0,1+1/(level_size-1),1/(level_size-1))
+        elif key in ['prop']:
+            level = np.arange(0,level_size,1)
+        else:
+            level = np.arange(1/level_size,1+1/level_size,1/level_size)
+        parameters[key] = level
+        assert len(parameters[key]) == level_size
     
     logger.info('Covering Array')
 
     # compute the covering array
     lines = [
         '[System]',
-        f'Name: {configs["network_name"]}',
+        f'Name: {configs["name"]}',
         '',
         '[Parameter]']
     
-    for x in parameters:
-        xx = [str(xx) for xx in range(parameters[x])]
-        y = ','.join(xx)
-        lines += [f'{x}(int) : {y}']
-        #lines += [f'{x}(int) : {parameters[x]}']
-    
-    # TODO constraints
-    '''
-    lines += ['[Constraint]']
-    lines += ['conv_layers=5 => in_dim!=0']
-    '''
+    for key in parameters:
+        bits = [str(x) for x in range(len(parameters[key]))]
+        bits = ','.join(bits)
+        lines += [f'{key}(int) : {bits}']
+
+    if 'constraints' in configs['ca']:
+        lines += ['[Constraint]']
+        constraints = configs['ca']['constraints']['value']
+        for con in constraints:
+            lines += [con]
     
     lines = [x +'\n' for x in lines]
 
+    strength = configs['ca']['strength']
+    
     open('./tmp/ca_config.txt','w').writelines(lines)
-    cmd = 'java  -Ddoi=2 -jar lib/acts_3.2.jar ./tmp/ca_config.txt ./tmp/ca.txt > /dev/null'
+    cmd = f'java  -Ddoi={strength} -jar lib/acts_3.2.jar ./tmp/ca_config.txt ./tmp/ca.txt > /dev/null'
     os.system(cmd)
     os.remove("./tmp/ca_config.txt")
-    
+
     vp_configs = []
     lines = open('./tmp/ca.txt','r').readlines()
     os.remove("./tmp/ca.txt")
@@ -207,7 +91,7 @@ def gen(args, configs):
         l = lines[i]
         if 'Number of configurations' in l:
             nb_tests = int(l.strip().split(' ')[-1])
-            logger.info(f'# tests: {nb_tests}')
+            logger.info(f'# Tests: {nb_tests}')
 
         if 'Configuration #' in l:
             vp = []
@@ -221,10 +105,6 @@ def gen(args, configs):
     assert len(vp_configs) == nb_tests
     vp_configs = sorted(vp_configs)
 
-    #print(vp_configs)
-    
-    # gen networks
-
     vp_configs_ = []
     for vpc in vp_configs:
         assert len(vpc) == len(parameters)
@@ -233,26 +113,14 @@ def gen(args, configs):
             tmp[key] = vpc[i]
         vp_configs_ += [tmp]
     vp_configs = vp_configs_
-    
-    #for x in parameters:
-    #    print(x)
-    #print(vp_configs)
 
     nets = []
     for vpc in vp_configs:
-        '''
-        if ids_f != 1 and id_f != 1:
-            print(id_f, ids_f)
-            print(height,width, mean, max_value)
-            print(new_height, [x*ids_f for x in mean], max_value*ids_f)
-        '''
-
         # generate network
-        
-        neuron_scale_factor = neuron_scale_factors[vpc['neurons']]
-        drop_fc_ids = sorted(random.sample(fc_ids, int(round(len(fc_ids)*fc_drop_factors[vpc['fc_layers']]))))
-        if conv_drop_factors is not None:
-            drop_conv_ids = sorted(random.sample(conv_ids, int(round(len(conv_ids)*conv_drop_factors[vpc['conv_layers']]))))
+        neuron_scale_factor = parameters['neu'][vpc['neu']]
+        drop_fc_ids = sorted(random.sample(fc_ids, int(round(len(fc_ids)*(1-parameters['fc'][vpc['fc']])))))
+        if 'conv' in parameters:
+            drop_conv_ids = sorted(random.sample(conv_ids, int(round(len(conv_ids)*(1-parameters['conv'][vpc['conv']])))))
             drop_ids = drop_fc_ids + drop_conv_ids
         else:
             drop_ids = drop_fc_ids
@@ -262,38 +130,37 @@ def gen(args, configs):
         dis_strats = [['drop', x, 1] for x in drop_ids]
         if neuron_scale_factor != 1:
             dis_strats += [['scale', x, 1] for x in scale_ids]
-        #print(dis_strats)
-        n.set_distillation_strategies(dis_strats)
+
 
         # calculate data transformaions, input demensions
         transform = n.distillation_config['distillation']['data']['transform']['student']
         height = transform['height']
         width = transform['width']
         assert height == width
-        id_f = input_dimension_levels[vpc['in_dim']]
+        id_f = parameters['idm'][vpc['idm']]
 
-        new_height = int(np.sqrt(height*width*id_f))
+        new_height = int(round(np.sqrt(height*width*id_f)))
         transform['height'] = new_height
         transform['width'] = new_height
         if new_height != height:
-            n.scale_input = True
-            n.scale_input_factor = new_height/height
-        
+            dis_strats += [['scale_input', new_height/height, None]]
+
         mean = transform['mean']
         max_value = transform['max_value']
-        ids_f = input_domain_size_levels[vpc['in_dom_size']]
+        ids_f = parameters['ids'][vpc['ids']]
 
         transform['mean'] = [float(x*ids_f) for x in mean]
         transform['max_value'] = float(max_value*ids_f)
 
-        if configs['image_shape_mode'] == 'NCHW':
-            nb_channel = configs['image_shape'][1]
-        elif configs['image_shape_mode'] == 'NHWC':
-            nb_channel = configs['image_shape'][3]
+        if source_net_onnx.input_format == 'NCHW':
+            nb_channel = source_net_onnx.input_shape[0]
+        elif source_net_onnx.input_format == 'NHWC':
+            nb_channel = source_net_onnx.input_shape[2]
         else:
             assert False
         input_shape = [nb_channel, new_height, new_height]
-        
+
+        n.set_distillation_strategies(dis_strats)                                   
         n.calc_order('nb_neurons', source_net_layers, input_shape)
 
         neurons_drop_only = np.sum(n.nb_neurons)
@@ -319,15 +186,36 @@ def gen(args, configs):
             input_shape = [nb_channel, new_height, new_height]
             n.calc_order('nb_neurons', source_net_layers, input_shape)
 
+        '''
+        if n.input_too_small():
+            ca_lines_constraints += [f'conv_layers={vpc["conv_layers"]} => in_dim!={vpc["in_dim"]}']
+            #refine_constraints = True
+
+        if n.untrainable(configs['parameter_limit']):
+            if conv_drop_factors is None and fc_drop_factors is None:
+                assert False
+            elif conv_drop_factors is None:
+                ca_lines_constraints += [f'fc_layers={vpc["fc_layers"]} => in_dim!={vpc["in_dim"]}']
+            elif fc_drop_factors is None:
+                ca_lines_constraints += [f'conv_layers={vpc["conv_layers"]} => in_dim!={vpc["in_dim"]}']
+            else:
+                ca_lines_constraints += [f'(fc_layers={vpc["fc_layers"]} && conv_layers={vpc["conv_layers"]}) => in_dim!={vpc["in_dim"]}']
+            refine_constraints = True
+        '''
         nets += [n]
-
-    logger.info(f'# NN: {len(nets)}')
     
+    logger.info(f'# NN: {len(nets)}')
 
+    ms2= []
+
+    #TODO: dont distill repeated networks
     if args.task == 'train':
         logger.info('Training ...')
         for n in nets:
             print(n.name)
+            if n.name in ms2:
+                print('repeat')
+            ms2 +=[n.name]
             n.distill()
 
     elif args.task == 'gen_prop':
@@ -341,17 +229,15 @@ def gen(args, configs):
             with open('tmp/data.toml', 'w') as f:
                 f.write(formatted_data)
 
-            prop_dir = f'{configs["props_dir"]}/{configs["network_name"]}.{input_dimension_levels[n.vpc["in_dim"]]}.{input_domain_size_levels[n.vpc["in_dom_size"]]}'
+            prop_dir = f'{configs["props_dir"]}/{n.name}/'
+            #prop_dir = f'{configs["props_dir"]}/{configs["network_name"]}.{input_dimension_levels[n.vpc["in_dim"]]}.{input_domain_size_levels[n.vpc["in_dom_size"]]}.{epsilon_levels[n.vpc["epsilon"]]}'
 
             if configs['network_name'] == 'dave':
                 cmd = f'python ../r4v/tools/generate_dave_properties.py tmp/data.toml {prop_dir} -g 15'
-            elif configs['network_name'] in ['mnist_conv_super', 'mnist_dense50x2']:
+            elif configs['network_name'] in ['mnist_conv_super', 'mnist_dense50x2','mnist_conv_big']:
                 cmd = f'python ../r4v/tools/generate_mnist_properties.py tmp/data.toml {prop_dir}'
             cmd += f' -e {epsilon_levels[n.vpc["epsilon"]]} -N {len(property_levels)}'
-            print(cmd)
-            print(n.name)
             os.system(cmd)
-            exit()
 
     elif args.task == 'verify':
         logger.info('Verifying ...')
@@ -360,22 +246,26 @@ def gen(args, configs):
         count = 0
         for v in verifiers:
             for n in nets:
-                model = f'{n.dis_model_dir}/{n.name}.onnx'
-                prop_dir = f'{configs["props_dir"]}/dave.{input_dimension_levels[n.vc[3]]}.{input_domain_size_levels[n.vc[4]]}'
+                prop_dir = f'{configs["props_dir"]}/{n.name}/'
+                #prop_dir = f'{configs["props_dir"]}/{configs["network_name"]}.{input_dimension_levels[n.vpc["in_dim"]]}.{input_domain_size_levels[n.vpc["in_dom_size"]]}.{epsilon_levels[n.vpc["epsilon"]]}'
                 prop_levels = sorted([x for x in os.listdir(prop_dir) if '.py' in x])
-                prop = prop_levels[n.vc[6]]
-                cmd = f'python ../dnna/tools/resmonitor.py -T 14400 -M 64G python -m dnnv {model} {prop_dir}/{prop} --{v}'
-
-                NODES = ['slurm1', 'slurm2', 'slurm3', 'slurm4']#, 'slurm5']
-                TASK_NODE = {'slurm1':7,'slurm2':7,'slurm3':7,'slurm4':7}#,'slurm5':3}
+                prop = prop_levels[n.vpc['property']]
+                cmd = f'python ../dnna/tools/resmonitor.py -T 14400 -M 64G python -m dnnv {n.dis_model_path} {prop_dir}/{prop} --{v}'
+                
+                NODES = ['slurm1', 'slurm2', 'slurm3', 'slurm4', 'slurm5']
+                TASK_NODE = {'slurm1':7,'slurm2':7,'slurm3':7,'slurm4':7,'slurm5':3}
                 count += 1
                 logger.info(f'Verifying ...{count}/{len(verifiers)*len(nets)}')
-                vc = ''.join([str(x) for x in n.vc])
+                vpc = ''.join([str(n.vpc[x]) for x in n.vpc])
 
-                veri_log = f'{n.config["veri_log_dir"]}/{vc}_{v}.out'
+                veri_log = f'{n.config["veri_log_dir"]}/{vpc}_{v}.out'
                 if os.path.exists(veri_log):
                     lines = open(veri_log, 'r').readlines()
 
+                    #TODO edit this
+                    print('done')
+                    continue
+                
                     rerun = False
                     for l in lines:
                         if 'Traceback' in l:
@@ -431,19 +321,25 @@ def gen(args, configs):
                             break
                     if node_avl_flag:
                         break
-                
+
+                tmp_dir = f'./tmp/{configs["network_name"]}_{vpc}_{v}'
                 lines = ['#!/bin/sh',
                          '#SBATCH --job-name=GB_V',
-                         f'#SBATCH --output={n.config["veri_log_dir"]}/{vc}_{v}.out',
-                         f'#SBATCH --error={n.config["veri_log_dir"]}/{vc}_{v}.out',
-                         cmd
+                         f'#SBATCH --output={n.config["veri_log_dir"]}/{vpc}_{v}.out',
+                         f'#SBATCH --error={n.config["veri_log_dir"]}/{vpc}_{v}.out',
+                         f'export TMPDIR={tmp_dir}',
+                         f'mkdir $TMPDIR',
+                         f'echo $TMPDIR',
+                         cmd,
+                         f'rm -rf $TMPDIR'
                 ]
                 lines = [x+'\n' for x in lines]
-                slurm_path = os.path.join(n.config['veri_slurm_dir'],'{}_{}.slurm'.format(vc, v),)
+                slurm_path = os.path.join(n.config['veri_slurm_dir'],'{}_{}.slurm'.format(vpc, v),)
                 open(slurm_path,'w').writelines(lines)
-
+                
                 task = 'sbatch -w {} --reservation=dls2fc_7 {}'.format(na, slurm_path)
                 os.system(task)
+                
 
     elif args.task == 'ana_res':
         verifiers = ['eran','planet','reluplex','neurify','mipverify']
@@ -451,8 +347,9 @@ def gen(args, configs):
 
         for n in nets:
             for v in verifiers:
-                vpc = ''.join([str(x) for x in n.vc])
-                log = f"{n.config['veri_log_dir']}/{vpc}_{v}.out"
+                vpc = ''.join([str(n.vpc[x]) for x in n.vpc])
+                #log = f"{n.config['veri_log_dir']}/{vpc}_{v}.out"
+                log = f"res.mnist_conv_big/veri_log0/{vpc}_{v}.out"
                 lines = open(log,'r').readlines()
 
                 error = False
@@ -486,11 +383,19 @@ def gen(args, configs):
                         lines = lines[-10:]
                         for i,l in enumerate(lines):
                             if 'result'in l:
-                                res = lines[i].strip().split(' ')[-1]
+                                if 'Unsupported' in l or 'not supported' in l or 'Unknown MIPVerify result' in l or 'Unknown property check result' in l :
+                                    res = 'unsup'
+                                elif 'OSError' in l:
+                                    res = 'error'
+                                else:
+                                    res = lines[i].strip().split(' ')[-1]
                                 v_time = float(lines[i+1].strip().split(' ')[-1])
                                 results[v][vpc] = [res,v_time]
                                 break
-
+                if res not in ['sat','unsat','unknown','timeout','memout','error', 'unsup']:
+                    print(res,log)
+                    exit()
+        '''
         untrained_tests = ['91003', '81003', '71003', '61003', '51002', '34030', '23001', '12031']
         print(untrained_tests)
         for v_k in results:
@@ -499,6 +404,7 @@ def gen(args, configs):
                 if vpc_k[:-2] in untrained_tests:
                     results[v_k][vpc_k] = ['untrain','']
                     #print(vpc_k, results[v_k][vpc_k])
+        '''
                     
         print(results)
 
@@ -514,12 +420,12 @@ def gen(args, configs):
                 if res in ['sat','unsat']:
                     scr += 1
                     sums += [vtime]
-                elif res in ['unknown','timeout','memout','error']:
+                elif res in ['unknown','timeout','memout','error','unsup']:
                     sums += [14400*2]
                 elif res in ['untrain']:
                     pass
                 else:
-                    assert False
+                    assert False, res
                 
 
             par_2 = int(round(np.mean(np.array(sums))))
@@ -528,3 +434,13 @@ def gen(args, configs):
 
     else:
         assert False
+
+
+def get_layers(configs, onnx_dnn):
+    supported_layers = configs['dnn']['supported_layers']
+    start_layer = configs['dnn']['start_layer']
+    layers = []
+    for l in onnx_dnn.arch:
+        if l.type in supported_layers:
+            layers += [l]
+    return layers[start_layer:]

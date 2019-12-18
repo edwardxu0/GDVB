@@ -4,6 +4,7 @@ image_shape_mode = "NCHW"
 source_model = "configs/networks/mnist_dense50x2.onnx"
 source_distillation_config = "configs/networks/mnist_dense50x2.toml"
 data_config = "configs/data/mnist.toml"
+parameter_limit = 2116983
 veri_time = 14400
 veri_mem = 64
 verifiers = [ "neurify",]

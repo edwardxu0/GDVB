@@ -1,0 +1,41 @@
+name = 'mcb'
+
+[dnn]
+	onnx = './configs/networks/mnist_conv_big.onnx'
+	r4v_config = './configs/networks/mnist_conv_big.toml'
+	data_config = './configs/data/mnist.toml'
+	supported_layers= ['Conv', 'FC', 'Transpose', 'Flatten']
+	start_layer = 0
+
+[ca]
+	strength = 2
+
+    [ca.parameters]
+		neu = 5
+		fc = 3
+    	conv = 5
+		idm = 5
+		ids = 5
+		eps = 5
+		prop = 5
+	
+	[ca.constraints]
+		value = ['fc=0 => conv!=0',
+		'conv=0 => neu<4',
+		'(fc=2 && conv=1) => neu<3']
+
+[train]
+	epoches = 10
+
+[verify]
+	time = 14400
+	memory = 64
+	verifiers = ['eran-deepzono','eran-deeppoly','eran-refinezono','eran-refinepoly','neurify','planet','bab','mipverify','reluplex']
+
+[dispatch]
+	dispacher = 'slurm'
+
+[dispatch.slurm]
+	nodes = ['slurm1','slurm2','slurm3','slurm4','slurm5']
+	task_per_node = [7,7,7,7,3]
+	reservation = 'dls2fc_7'
