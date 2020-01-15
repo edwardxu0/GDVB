@@ -3,9 +3,12 @@ import toml
 
 
 def configure(args):
-    config_file = open(args.config,'r').read()
+    config_file = open(args.configs,'r').read()
     configs = toml.loads(config_file)
-    configs['root'] = f'{args.root}.{configs["name"]}'
+    configs['root'] = f'{args.root}.{configs["name"]}.{args.seed}'
+    #configs['root'] = args.root
+    configs['seed'] = args.seed
+    configs['task'] = args.task
 
     if not os.path.exists(configs['root']):
         os.mkdir(configs['root'])

@@ -8,7 +8,7 @@ name = 'mcb'
 	start_layer = 0
 
 [ca]
-	strength = 2
+	strength = 3
 
     [ca.parameters]
 		neu = 5

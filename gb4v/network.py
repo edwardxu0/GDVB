@@ -15,7 +15,6 @@ import gb4v.verify.neurify
 
 from nn.layers import Dense, Conv, Transpose, Flatten
 
-SEED = 0
 NODES = ['slurm1', 'slurm2', 'slurm3', 'slurm4', 'slurm5']
 TASK_NODE = {'slurm1':7,'slurm2':7,'slurm3':7,'slurm4':7,'slurm5':3}
 
@@ -24,7 +23,7 @@ class Network():
     def __init__(self, config, vpc):
         self.name = config['name']
         if vpc is not None:
-            self.name += '.'+''.join([str(vpc[x]) for x in list(vpc)[:-2]])
+            self.name += '.'+''.join([str(vpc[x]) for x in list(vpc)[:-2]])            
         self.vpc = vpc
         self.config = config
         self.distillation_configled = False
@@ -58,6 +57,12 @@ class Network():
             else:
                 assert False, 'Unkown strategy'+ ds
 
+        strats = [x[0] for x in dis_strats]
+        if 'scale' in strats:
+            self.name+=f'_{dis_strats[strats.index("scale")][2]:.3f}'
+        else:
+            self.name+=f'_{1:.3f}'
+        
         '''
         if drop_ids:
             self.name += '.D.' + '.'.join([str(x) for x in sorted(drop_ids)])
@@ -146,7 +151,6 @@ class Network():
     def distill(self):
         logging.info('Distilling network: ' + self.name)
 
-
         if os.path.exists(self.dis_log_path):
             lines = open(self.dis_log_path).readlines()
             successful = True
@@ -223,7 +227,7 @@ class Network():
 
         #cmd = 'sbatch {} {}'.format(run_node, self.dis_slurm_path)
         '''
-        cmd = 'sbatch --exclude=artemis4,artemis5,artemis6,artemis7 {}'.format(self.dis_slurm_path)
+        cmd = 'sbatch --reservation=dx3yy_9 --exclude=artemis4,artemis5,artemis6,artemis7 {}'.format(self.dis_slurm_path)
         os.system(cmd)
 
 
@@ -370,7 +374,7 @@ class Network():
         for v in self.config['verifiers']:
             props = [x for x in all_props if v in x]
             # Verification Proxy, sample properties
-            random.seed(SEED)
+            random.seed(self.config['seed'])
             props_sampled = random.sample(props, self.config['proxy_nb_props'])
             
             for p in props_sampled:
@@ -447,7 +451,7 @@ class Network():
         veri_jobs = []
         for v in self.config['verifiers']:
             props = [x for x in all_props if v in x]
-            random.seed(SEED)
+            random.seed(self.config['seed'])
             props_sampled = random.sample(props, self.config['proxy_nb_props'])
             for p in props_sampled:
                 p_name = os.path.splitext(p)[0]

@@ -3,9 +3,9 @@ import logging
 
 logging.basicConfig(stream=sys.stdout,
                        format='%(asctime)s %(message)s',
-                       datefmt='%m/%d/%Y %I:%M:%S %p')
+                       datefmt='%m/%d/%Y %I:%M:%S %p :')
 
-def initialize(args):
+def initialize(configs):
     logger = logging.getLogger()
     logger.setLevel(level=logging.DEBUG)
-    return logger
+    configs['logger'] = logger
