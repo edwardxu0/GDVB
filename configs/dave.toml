@@ -10,7 +10,7 @@ name = 'dave'
 [ca]
 	strength = 2
 
-    [ca.parameters]
+    [ca.parameters.level]
 		neu = 5
 		fc = 5
     	conv = 6
@@ -18,6 +18,16 @@ name = 'dave'
 		ids = 5
 		eps = 5
 		prop = 5
+
+	[ca.parameters.range]
+		neu = [0.2,1.0]
+		fc = [0,1]
+    	conv = [0,1]
+		idm = [0.2,1.0]
+		ids = [0.2,1.0]
+		eps = [0.2,1.0]
+		prop = [0,1]
+
 	
 	[ca.constraints]
 		value = [

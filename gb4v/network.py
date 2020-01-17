@@ -81,10 +81,6 @@ class Network():
         self.dis_model_path = os.path.join(self.config['dis_model_dir'], self.name +'.onnx')
         self.dis_log_path = os.path.join(self.config['dis_log_dir'], self.name + '.out')
         self.dis_slurm_path = os.path.join(self.config['dis_slurm_dir'], self.name + '.slurm')
-        self.dis_done_path = os.path.join(self.config['dis_done_dir'], self.name + '.done')
-        self.test_log_path = os.path.join(self.config['test_log_dir'], self.name + '.out')
-        self.test_done_path = os.path.join(self.config['test_done_dir'], self.name + '.done')
-        self.test_slurm_path = os.path.join(self.config['test_slurm_dir'], self.name + '.slurm')
 
         # TODO: use better toml api
         #self.distillation_config['distillation']['student'] = {}
@@ -201,8 +197,8 @@ class Network():
                        '#SBATCH --partition=gpu',
                        '#SBATCH --gres=gpu:1',
                        'cat /proc/sys/kernel/hostname',
-                       'python -m r4v distill {} --debug'.format(self.dis_config_path),
-                       'touch {}'.format(self.dis_done_path)]
+                       'python -m r4v distill {} --debug'.format(self.dis_config_path)
+        ]
         slurm_lines = [x+'\n' for x in slurm_lines]
         open(self.dis_slurm_path, 'w').writelines(slurm_lines)
         

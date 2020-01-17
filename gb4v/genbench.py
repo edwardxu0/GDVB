@@ -43,18 +43,22 @@ def gen(configs):
     # load parameters
     parameters = {}
     
-    for key in configs['ca']['parameters']:
-        level_size = configs['ca']['parameters'][key]
-
-        if key in ['fc','conv']:
-            level = np.arange(0,1+1/(level_size-1),1/(level_size-1))
-        elif key in ['prop']:
+    for key in configs['ca']['parameters']['level']:
+        if key in ['prop']:
+            level_size = configs['ca']['parameters']['level'][key]
             level = np.arange(0,level_size,1)
         else:
-            level = np.arange(1/level_size,1+1/level_size,1/level_size)
+            level_size = configs['ca']['parameters']['level'][key]
+            level_min = configs['ca']['parameters']['range'][key][0]
+            level_max = configs['ca']['parameters']['range'][key][1]
+            level_range = level_max - level_min
+            level_step = level_range/(level_size-1)
+            assert level_range > 0
+            level = np.array([x*level_step+level_min for x in range(level_size)])
         parameters[key] = level
+
         assert len(parameters[key]) == level_size
-    
+
     logger.info('Covering Array')
 
     # compute the covering array
@@ -203,7 +207,7 @@ def gen(configs):
             refine_constraints = True
         '''
         nets += [n]
-    
+
     logger.info(f'# NN: {len(nets)}')
 
     #TODO: dont distill repeated networks
@@ -226,6 +230,7 @@ def gen(configs):
                 f.write(formatted_data)
 
             prop_dir = f'{configs["props_dir"]}/{n.name}/'
+            
             eps = (parameters['eps']*configs['verify']['eps'])[n.vpc['eps']]
             
             if 'dave' in configs['name']:
@@ -255,7 +260,7 @@ def gen(configs):
             else:
                 v_name = v
                 verifier_parameters = ""
-                
+
             for n in nets:
                 prop_dir = f'{configs["props_dir"]}/{n.name}/'
                 #prop_dir = f'{configs["props_dir"]}/{configs["network_name"]}.{input_dimension_levels[n.vpc["in_dim"]]}.{input_domain_size_levels[n.vpc["in_dom_size"]]}.{epsilon_levels[n.vpc["epsilon"]]}'
@@ -264,11 +269,13 @@ def gen(configs):
                 prop_levels = [ x for x in prop_levels if str(eps) in '.'.join(x.split('.')[2:-1])]
                 prop = prop_levels[n.vpc['prop']]
                 
-                cmd = f'python ../dnna/tools/resmonitor.py -T {time_limit} -M {memory_limit}'
+                cmd = f'python ../dnnv/tools/resmonitor.py -T {time_limit} -M {memory_limit}'
                 cmd += f' python -m dnnv {n.dis_model_path} {prop_dir}/{prop} --{v_name} {verifier_parameters} --debug'
 
                 NODES = ['slurm1', 'slurm2', 'slurm3', 'slurm4', 'slurm5']
                 TASK_NODE = {'slurm1':7,'slurm2':7,'slurm3':7,'slurm4':7,'slurm5':3}
+                NODES = [f'cortado0{x}' for x in range(1,8)]
+                TASK_NODE = {x:7 for x in NODES}
                 count += 1
                 logger.info(f'Verifying ...{count}/{len(verifiers)*len(nets)}')
                 vpc = ''.join([str(n.vpc[x]) for x in n.vpc])
@@ -306,7 +313,7 @@ def gen(configs):
                 while(True):
                     node_avl_flag = False
                     tmp_file = './tmp/squeue_results.txt'
-                    sqcmd = f'squeue | grep slurm > {tmp_file}'
+                    sqcmd = f'squeue | grep cortado > {tmp_file}'
                     time.sleep(5)
                     os.system(sqcmd)
                     sq_lines = open(tmp_file, 'r').readlines()
@@ -334,7 +341,8 @@ def gen(configs):
                     #print(nodes_avl)
             
                     for na in nodes_avl:
-                        if nodes_avl[na] < TASK_NODE[na]:
+                        #if nodes_avl[na] < TASK_NODE[na]:
+                        if nodes_avl[na] < 7:
                             node_avl_flag = True
                             break
                     if node_avl_flag:
@@ -346,7 +354,7 @@ def gen(configs):
                          f'#SBATCH --mem={memory_limit}',
                          f'#SBATCH --output={n.config["veri_log_dir"]}/{vpc}_{v}.out',
                          f'#SBATCH --error={n.config["veri_log_dir"]}/{vpc}_{v}.out',
-                         f'export GRB_LICENSE_FILE="/p/d4v/dx3yy/Apps/gurobi_keys/{na}.gurobi.lic"',
+                         f'export GRB_LICENSE_FILE="/p/d4v/dx3yy/Apps/gurobi_keys/`hostname`.gurobi.lic"',
                          f'export TMPDIR={tmp_dir}',
                          f'mkdir $TMPDIR',
                          f'echo $TMPDIR',
@@ -357,7 +365,7 @@ def gen(configs):
                 slurm_path = os.path.join(n.config['veri_slurm_dir'],f'{vpc}_{v}.slurm')
                 open(slurm_path,'w').writelines(lines)
 
-                task = f'sbatch -w {na} --reservation=dls2fc_7 {slurm_path}'
+                task = f'sbatch -w {na} --reservation=dx3yy_10 {slurm_path}'
                 print(task)
                 os.system(task)
                 
@@ -370,23 +378,26 @@ def gen(configs):
             for v in verifiers:
                 vpc = ''.join([str(n.vpc[x]) for x in n.vpc])
                 log = f"{n.config['veri_log_dir']}/{vpc}_{v}.out"
-                lines = open(log,'r').readlines()
+                if not os.path.exists(log):
+                    res = 'torun'
+                else:
+                    rlines = [x for x in reversed(open(log,'r').readlines())]
 
-                res = None
-                v_time = None
-                for l in lines:
-                    if 'Traceback' in l:
-                        res = 'error'
-                    elif 'Timeout' in l:
-                        res = 'timeout'
-                    elif 'Out of Memory' in l:
-                        res = 'memout'
-                    elif 'Error' in l:
-                        res = 'error'
-                if res is None:
-                    lines = lines[-20:]
-                    for i,l in enumerate(lines):
-                        if 'result'in l:
+                    res = None
+                    v_time = None
+
+                    for i,l in enumerate(rlines):
+                        if l.startswith('INFO') or l.startswith('DEBUG'):
+                            continue
+
+                        if 'Timeout' in l:
+                            res = 'timeout'
+                            break
+                        elif 'Out of Memory' in l:
+                            res = 'memout'
+                            break
+
+                        if l.startswith('  result: '):
                             if 'Unsupported' in l or 'not support' in l or 'Unknown MIPVerify' in l or 'Unknown property check result' in l:
                                 res = 'unsup'
                                 break
@@ -394,17 +405,18 @@ def gen(configs):
                                 res = 'error'
                                 break
                             else:
-                                res = lines[i].strip().split(' ')[-1]
-                                v_time = float(lines[i+1].strip().split(' ')[-1])
-                                assert res in ['sat','unsat','unknown','timeout','memout','error', 'unsup']
+                                res = l.strip().split(' ')[-1]
+                                v_time = float(rlines[i-1].strip().split(' ')[-1])
                                 break
-                if res in ['unknown','timeout','memout','error', 'unsup']:
-                    v_time = 14400
-                if res is None and v == 'eran_refinezono':
-                    print(log)
-                    res = 'error'
-                assert res is not None, log
 
+                    # remove this
+                    if i == len(rlines)-1:
+                        res = 'running'
+                    
+                if res not in ['sat','unsat']:
+                    v_time = 14400
+
+                assert res in ['sat','unsat','unknown','timeout','memout','error', 'unsup', 'running', 'torun'], log
                 results[v][vpc] = [res,v_time]
         
         assert len(set([len(results[x]) for x in results.keys()])) == 1
@@ -416,9 +428,9 @@ def gen(configs):
         for n in nets:
             config_dist[''.join([str(n.vpc[x]) for x in n.vpc])] = n.vpc
 
-        with open(f'results/config_dist_{configs["name"]}_{configs["seed"]}.pickle', 'wb') as handle:
+        with open(f'results/data/config_dist_{configs["name"]}_{configs["seed"]}.pickle', 'wb') as handle:
             pickle.dump(config_dist, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        
+
     else:
         assert False
 

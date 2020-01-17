@@ -12,6 +12,6 @@ def _parse_args():
     parser.add_argument('configs', type=str, help='configs')
     parser.add_argument('task', type=str, help='task')
     parser.add_argument('seed', type=int)
-    parser.add_argument('--root', type=str, default='./res',help='root directory')
+    parser.add_argument('--root', type=str, default='./results/',help='root directory')
 
     return parser.parse_args()
