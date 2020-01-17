@@ -4,6 +4,8 @@ import random
 import toml
 import time
 import pickle
+import string
+
 
 from itertools import combinations
 
@@ -272,10 +274,17 @@ def gen(configs):
                 cmd = f'python ../dnnv/tools/resmonitor.py -T {time_limit} -M {memory_limit}'
                 cmd += f' python -m dnnv {n.dis_model_path} {prop_dir}/{prop} --{v_name} {verifier_parameters} --debug'
 
-                NODES = ['slurm1', 'slurm2', 'slurm3', 'slurm4', 'slurm5']
-                TASK_NODE = {'slurm1':7,'slurm2':7,'slurm3':7,'slurm4':7,'slurm5':3}
-                NODES = [f'cortado0{x}' for x in range(1,8)]
-                TASK_NODE = {x:7 for x in NODES}
+                #NODES = ['slurm1', 'slurm2', 'slurm3', 'slurm4', 'slurm5']
+                NODES = configs['dispatch']['slurm']['nodes']
+                #TASK_NODE = {'slurm1':7,'slurm2':7,'slurm3':7,'slurm4':7,'slurm5':3}
+                TASK_NODE = configs['dispatch']['slurm']['task_per_node']
+                reservation = configs['dispatch']['slurm']['reservation']
+                #print(NODES,TASK_NODE,reservation)
+
+                #NODES = [f'cortado0{x}' for x in range(1,8)]
+                #TASK_NODE = {x:7 for x in NODES}
+
+                print(TASK_NODE)
                 count += 1
                 logger.info(f'Verifying ...{count}/{len(verifiers)*len(nets)}')
                 vpc = ''.join([str(n.vpc[x]) for x in n.vpc])
@@ -312,12 +321,13 @@ def gen(configs):
 
                 while(True):
                     node_avl_flag = False
-                    tmp_file = './tmp/squeue_results.txt'
-                    sqcmd = f'squeue | grep cortado > {tmp_file}'
+                    tmp_file = './tmp/'+''.join(random.choice(string.ascii_lowercase) for i in range(16))
+                    node_ran = ''.join([x for x in NODES[0] if not x.isdigit()])
+                    sqcmd = f'squeue | grep {node_ran} > {tmp_file}'
                     time.sleep(5)
                     os.system(sqcmd)
                     sq_lines = open(tmp_file, 'r').readlines()
-                    #os.remove(tmp_file)
+                    os.remove(tmp_file)
                     
                     nodes_avl = {}
                     for node in NODES:
@@ -365,7 +375,7 @@ def gen(configs):
                 slurm_path = os.path.join(n.config['veri_slurm_dir'],f'{vpc}_{v}.slurm')
                 open(slurm_path,'w').writelines(lines)
 
-                task = f'sbatch -w {na} --reservation=dx3yy_10 {slurm_path}'
+                task = f'sbatch -w {na} --reservation={reservation} {slurm_path}'
                 print(task)
                 os.system(task)
                 

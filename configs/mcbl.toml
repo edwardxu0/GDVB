@@ -47,6 +47,6 @@ name = 'mcbl'
 	mode = 'slurm'
 
 	[dispatch.slurm]
-		nodes = ['slurm1','slurm2','slurm3','slurm4','slurm5']
-		task_per_node = [7,7,7,7,3]
-		reservation = 'dls2fc_7'
+		nodes = ['cortado01','cortado02','cortado03','cortado04','cortado05','cortado06','cortado07']
+		task_per_node = [7,7,7,7,7,7,7]
+		reservation = 'dx3yy_10'
