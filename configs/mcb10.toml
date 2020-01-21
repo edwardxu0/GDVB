@@ -1,4 +1,4 @@
-name = 'mcbl'
+name = 'mcb10'
 
 [dnn]
 	onnx = './configs/networks/mnist_conv_big.onnx'
@@ -12,27 +12,26 @@ name = 'mcbl'
 
     [ca.parameters]
 		[ca.parameters.level]
-			neu = 5
+			neu = 10
 			fc = 3		# 0,1,2
-			conv = 3	# 0,1,2,3,4
-			idm = 5	
-			ids = 5
-			eps = 5
-			prop = 5
+			conv = 5	# 0,1,2,3,4
+			idm = 10
+			ids = 10
+			eps = 10
+			prop = 10
 
 		[ca.parameters.range] # 0~1
-			neu = [0.6,1.0]
+			neu = [0.1,1.0]
 			fc = [0,1]
-    		conv = [0.5,1.0]
-			idm = [0.6,1.0]
-			ids = [0.6,1.0]
-			eps = [0.6,1.0]
+    		conv = [0,1]
+			idm = [0.1,1.0]
+			ids = [0.1,1.0]
+			eps = [0.1,1.0]
 			prop = [0,1]
 
-
-	#[ca.constraints]
-		#value = ['fc=0 => conv!=0',
-		#'(fc=2 && conv=0 && idm=0) => neu<4']
+	[ca.constraints]
+		value = ['fc=0 => conv!=0',
+		'(fc=2 && conv=0 && idm=0) => neu<4']
 
 [train]
 	epoches = 10
@@ -41,11 +40,11 @@ name = 'mcbl'
 	eps = 0.02
 	time = 14400
 	memory = '64G'
-	verifiers = ['eran_deepzono','eran_deeppoly','eran_refinezono','eran_refinepoly','neurify']
+	verifiers = ['eran_deepzono','eran_deeppoly','eran_refinezono','eran_refinepoly','neurify','planet','bab','bab_sb','reluplex']
 
 [dispatch]
 	mode = 'slurm'
-
+	
 	[dispatch.slurm]
 		nodes = ['cortado01','cortado02','cortado03','cortado04','cortado05','cortado06','cortado07']
 		task_per_node = [7,7,7,7,7,7,7]

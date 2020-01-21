@@ -390,6 +390,7 @@ def gen(configs):
                 log = f"{n.config['veri_log_dir']}/{vpc}_{v}.out"
                 if not os.path.exists(log):
                     res = 'torun'
+                    print(res)
                 else:
                     rlines = [x for x in reversed(open(log,'r').readlines())]
 
@@ -397,9 +398,16 @@ def gen(configs):
                     v_time = None
 
                     for i,l in enumerate(rlines):
-                        if l.startswith('INFO') or l.startswith('DEBUG'):
+                        if l.startswith('INFO'):# or l.startswith('DEBUG'):
                             continue
-
+                        
+                        if '[STDERR]:Error: GLP returned error 5 (GLP_EFAIL)' in l:
+                            res = 'error'
+                            break
+                        if 'Cannot serialize protocol buffer of type ' in l:
+                            res = 'error'
+                            break
+                        
                         if 'Timeout' in l:
                             res = 'timeout'
                             break
@@ -411,7 +419,7 @@ def gen(configs):
                             if 'Unsupported' in l or 'not support' in l or 'Unknown MIPVerify' in l or 'Unknown property check result' in l:
                                 res = 'unsup'
                                 break
-                            elif 'NeurifyError' in l:
+                            elif 'NeurifyError' in l or 'PlanetError' in l:
                                 res = 'error'
                                 break
                             else:
@@ -422,6 +430,7 @@ def gen(configs):
                     # remove this
                     if i == len(rlines)-1:
                         res = 'running'
+                        print(log)
                     
                 if res not in ['sat','unsat']:
                     v_time = 14400
@@ -431,7 +440,7 @@ def gen(configs):
         
         assert len(set([len(results[x]) for x in results.keys()])) == 1
 
-        with open(f'results/verification_results_{configs["name"]}_{configs["seed"]}.pickle', 'wb') as handle:
+        with open(f'results/data/verification_results_{configs["name"]}_{configs["seed"]}.pickle', 'wb') as handle:
             pickle.dump(results, handle, protocol=pickle.HIGHEST_PROTOCOL)
     
         config_dist = {}

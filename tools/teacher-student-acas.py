@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import tensorflow as tf
 import numpy as np
 import os
@@ -13,9 +14,32 @@ from torchvision import datasets, transforms
 from torch.optim.lr_scheduler import StepLR
 
     
-from student_model import lenet
+def lenet(args, x, size):
+    shape = args.studentargs
+
+    output = tf.reshape(x, shape=[-1, size])
+    layer_sizes = [int(arg) for arg in shape[1:]]
+    for i, layer_size in enumerate(layer_sizes[:-1]):
+        output = tf.layers.dense(output,
+                                 layer_size,
+                                 kernel_regularizer=tf.contrib.layers.l2_regularizer(
+                                     scale=0.01),
+                                 bias_regularizer=tf.contrib.layers.l2_regularizer(
+                                     scale=0.01),
+                                 activation=tf.nn.relu,
+                                 name='student_dense%d_layer' % i)
+    output = tf.layers.dense(output,
+                             layer_sizes[-1],
+                             kernel_regularizer=tf.contrib.layers.l2_regularizer(
+                                 scale=0.01),
+                             bias_regularizer=tf.contrib.layers.l2_regularizer(
+                                 scale=0.01),
+                             name='student_output_layer')
+    return tf.identity(output, name='student_model_output')
+
 
 VERTICAL_SEPARATIONS = [0, 1, 5, 10, 20, 40, 60, 80, 100]
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description='teacher-student model')
@@ -147,7 +171,7 @@ def test_student(args):
     f.close()
 
 
-def load_teacher(nnet):
+def load_caffe_teacher(nnet):
     rpx_infile = open(nnet, 'r')
     readline = lambda: rpx_infile.readline().strip()
 
@@ -232,6 +256,7 @@ def load_teacher(nnet):
                                  nodes_in_layer[i+1],
                                  kernel_initializer = tf.constant_initializer(parameters[i][0]),
                                  bias_initializer = tf.constant_initializer(parameters[i][1]),
+                                 activation=tf.nn.relu,
                                  use_bias = True)
                                  #,name='teacher_dense%d_layer' % i)
     output = tf.layers.dense(output,
@@ -245,7 +270,7 @@ def load_teacher(nnet):
     return data, output
 
 
-def load_teacher2(nnet):
+def load_torch_teacher(nnet):
     rpx_infile = open(nnet, 'r')
     readline = lambda: rpx_infile.readline().strip()
 
@@ -322,35 +347,35 @@ def load_teacher2(nnet):
 
 
     # create the pytorch model
-    tnet = TorchNet(parameters)
+    net = TorchNet(parameters)
     
-    return tnet
+    return net
 
 
 class TorchNet(nn.Module):
     def __init__(self,  parameters):
         super(TorchNet, self).__init__()
         self.fc1 = nn.Linear(5, 50)
-        self.fc1.weight.data = torch.Tensor(parameters[0][0])
-        self.fc1.bias.data = torch.Tensor(parameters[0][1])
+        self.fc1.weight.data = torch.Tensor(parameters[0][0].T)
+        self.fc1.bias.data = torch.Tensor(parameters[0][1].T)
         self.fc2 = nn.Linear(50, 50)
-        self.fc2.weight.data = torch.Tensor(parameters[1][0])
-        self.fc2.bias.data = torch.Tensor(parameters[1][1])
+        self.fc2.weight.data = torch.Tensor(parameters[1][0].T)
+        self.fc2.bias.data = torch.Tensor(parameters[1][1].T)
         self.fc3 = nn.Linear(50, 50)
-        self.fc3.weight.data = torch.Tensor(parameters[2][0])
-        self.fc3.bias.data = torch.Tensor(parameters[2][1])
+        self.fc3.weight.data = torch.Tensor(parameters[2][0].T)
+        self.fc3.bias.data = torch.Tensor(parameters[2][1].T)
         self.fc4 = nn.Linear(50, 50)
-        self.fc4.weight.data = torch.Tensor(parameters[3][0])
-        self.fc4.bias.data = torch.Tensor(parameters[3][1])
+        self.fc4.weight.data = torch.Tensor(parameters[3][0].T)
+        self.fc4.bias.data = torch.Tensor(parameters[3][1].T)
         self.fc5 = nn.Linear(50, 50)
-        self.fc5.weight.data = torch.Tensor(parameters[4][0])
-        self.fc5.bias.data = torch.Tensor(parameters[4][1])
+        self.fc5.weight.data = torch.Tensor(parameters[4][0].T)
+        self.fc5.bias.data = torch.Tensor(parameters[4][1].T)
         self.fc6 = nn.Linear(50, 50)
-        self.fc6.weight.data = torch.Tensor(parameters[5][0])
-        self.fc6.bias.data = torch.Tensor(parameters[5][1])
+        self.fc6.weight.data = torch.Tensor(parameters[5][0].T)
+        self.fc6.bias.data = torch.Tensor(parameters[5][1].T)
         self.fc7 = nn.Linear(50, 5)
-        self.fc7.weight.data = torch.Tensor(parameters[6][0])
-        self.fc7.bias.data = torch.Tensor(parameters[6][1])
+        self.fc7.weight.data = torch.Tensor(parameters[6][0].T)
+        self.fc7.bias.data = torch.Tensor(parameters[6][1].T)
 
     def forward(self, x):
         x = self.fc1(x)
@@ -369,7 +394,6 @@ class TorchNet(nn.Module):
         return output
 
 
-
 def load_training_data():
     data = np.load('./acas/train_data.npy')
     label = np.load('./acas/train_label.npy')
@@ -385,6 +409,18 @@ def load_testing_data():
 
 
 def generate_acas_data(size):
+    '''
+    x_min = np.array([0.0,-3.141593,-3.141593,100.0,0.0,])
+    x_max = np.array([60760.0,3.141593,3.141593,1200.0,1200.0,])
+    x_mean = np.array([1.9791091e+04,0.0,0.0,650.0,600.0,])
+    x_range = np.array([60261.0,6.28318530718,6.28318530718,1100.0,1200.0,])
+
+    x_min_norm = (x_min - x_mean)/x_range
+    x_max_norm = (x_max - x_mean)/x_range
+    print(x_min_norm)
+    print(x_max_norm)
+    '''
+
     data = []
     for i in range(size):
         input1 = np.random.uniform(low=-0.328422877151, high=0.679857768706)
@@ -402,7 +438,7 @@ def generate_acas_data(size):
 
 def gen_data(args):
 
-    data = generate_acas_data(100000)
+    data = generate_acas_data(1000)
     label = []
 
     #data_res = [[],[],[],[],[]]
@@ -411,19 +447,23 @@ def gen_data(args):
     data_res = []
     label_res = []
 
-    teachers = []
+    tf_teachers = []
     for a in range(1,2):#,6):
         for b in range(1,2):#,10):
             DEFAULT_MODEL = './acas/nnet/ACASXU_run2a_'+str(a)+'_'+ str(b)+'_batch_2000.nnet'
-            x = load_teacher(DEFAULT_MODEL)
-            teachers += [(x)]
+            x = load_caffe_teacher(DEFAULT_MODEL)
+            tf_teachers += [(x)]
 
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.5)
     sess = tf.InteractiveSession(config=tf.ConfigProto(gpu_options=gpu_options, allow_soft_placement=True))
     sess.run(tf.global_variables_initializer())
 
-    print(len(teachers))
-    
+    torch_teacher = load_torch_teacher(DEFAULT_MODEL)
+    torch_teacher.eval()
+    torch.onnx.export(torch_teacher, torch.zeros(1,5), 'acas_1_1.onnx', verbose=True)
+
+
+    flag = True
     for x in data:
         '''
         a = int(x[-2])
@@ -433,17 +473,11 @@ def gen_data(args):
             continue
         X, teacher = teachers[c]
         '''
-        X, teacher = teachers[0]
-        pred = sess.run(teacher, feed_dict={X : [x[0:5]]})
-        pred_argmin = np.argmin(pred)
-
-        teacher2 = load_teacher2(DEFAULT_MODEL)
-        teacher2.eval()
-        x = torch.Tensor([x])
-        print(x.shape)
-        pred2 = teacher2.forward(x)
-
-        print(pred,pred2)
+        X, tf_teacher = tf_teachers[0]
+        tf_pred = sess.run(tf_teacher, feed_dict={X : [x]})
+        torch_pred = torch_teacher.forward(torch.Tensor(x))
+        print(x, tf_pred, torch_pred)
+        
         exit()
 
         data_res += [x]
