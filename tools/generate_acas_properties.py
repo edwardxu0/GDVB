@@ -22,11 +22,8 @@ def prop_skeleton(scale):
         "x_max = np.array([60760.0,3.141593,3.141593,1200.0,1200.0,])",
         "x_mean = np.array([1.9791091e+04,0.0,0.0,650.0,600.0,])",
         "x_range = np.array([60261.0,6.28318530718,6.28318530718,1100.0,1200.0,])",
-        "x_min = (x_min-x_mean)/x_range",
-        "x_max = (x_max-x_mean)/x_range",
-        "x_mean = np.mean(np.array([x_min, x_max]), axis=0)",
-        f"x_min = x_mean-(x_mean - x_min) * {scale}",
-        f"x_max = x_mean+(x_max - x_mean) * {scale}",
+        "x_min = (x_min-x_mean)/x_range * {scale}",
+        "x_max = (x_max-x_mean)/x_range * {scale}",
         "y_mean = 7.5188840201005975",
         "y_range = 373.94992"]
 

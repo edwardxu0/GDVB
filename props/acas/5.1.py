@@ -15,11 +15,8 @@ x_min[3] = 100
 x_max[3] = 400
 x_min[4] = 0
 x_max[4] = 400
-x_min = (x_min-x_mean)/x_range
-x_max = (x_max-x_mean)/x_range
-x_mean = np.mean(np.array([x_min, x_max]), axis=0)
-x_min = x_mean-(x_mean - x_min) * 1
-x_max = x_mean+(x_max - x_mean) * 1
+x_min = (x_min-x_mean)/x_range * {scale}
+x_max = (x_max-x_mean)/x_range * {scale}
 y_mean = 7.5188840201005975
 y_range = 373.94992
 Forall(

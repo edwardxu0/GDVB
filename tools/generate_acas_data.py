@@ -19,13 +19,9 @@ def generate_acas_data(scale, size):
     x_mean = np.array([1.9791091e+04,0.0,0.0,650.0,600.0,])
     x_range = np.array([60261.0,6.28318530718,6.28318530718,1100.0,1200.0,])
 
-    x_min_norm = (x_min - x_mean)/x_range
-    x_max_norm = (x_max - x_mean)/x_range
+    x_min_norm = (x_min - x_mean)/x_range * scale
+    x_max_norm = (x_max - x_mean)/x_range * scale
     
-    x_mean_norm = np.mean(np.array([x_min_norm, x_max_norm]), axis=0)
-    x_min_norm = x_mean_norm-(x_mean_norm - x_min_norm) * scale
-    x_max_norm = x_mean_norm+(x_max_norm - x_mean_norm) * scale
-
     data = []
     for i in range(len(x_min)):
         data+=[np.random.uniform(low = x_min_norm[i], high=x_max_norm[i], size=size)]

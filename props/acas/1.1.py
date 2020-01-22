@@ -8,11 +8,8 @@ x_range = np.array([60261.0,6.28318530718,6.28318530718,1100.0,1200.0,])
 x_min[0] = 55947.691
 x_min[3] = 11
 x_max[4] = 60
-x_min = (x_min-x_mean)/x_range
-x_max = (x_max-x_mean)/x_range
-x_mean = np.mean(np.array([x_min, x_max]), axis=0)
-x_min = x_mean-(x_mean - x_min) * 1
-x_max = x_mean+(x_max - x_mean) * 1
+x_min = (x_min-x_mean)/x_range * {scale}
+x_max = (x_max-x_mean)/x_range * {scale}
 y_mean = 7.5188840201005975
 y_range = 373.94992
 Forall(
