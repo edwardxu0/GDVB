@@ -212,6 +212,14 @@ def gen(configs):
 
     logger.info(f'# NN: {len(nets)}')
 
+    # print pplot
+    '''
+    for n in nets:
+        a = n.vpc
+        print(f'[{np.sum(n.nb_neurons)},{a["fc"]},{a["conv"]},{parameters["idm"][a["idm"]]*784:.0f},{parameters["ids"][a["ids"]]:.1f},{parameters["eps"][a["eps"]]:.1f},{a["prop"]}],')
+    exit()
+    '''
+
     #TODO: dont distill repeated networks
     if configs['task'] == 'train':
         logger.info('Training ...')
@@ -323,10 +331,11 @@ def gen(configs):
                     node_avl_flag = False
                     tmp_file = './tmp/'+''.join(random.choice(string.ascii_lowercase) for i in range(16))
                     node_ran = ''.join([x for x in NODES[0] if not x.isdigit()])
-                    sqcmd = f'squeue | grep {node_ran} > {tmp_file}'
-                    time.sleep(5)
+                    #sqcmd = f'squeue | grep {node_ran} > {tmp_file}'
+                    sqcmd = f'squeue -u dx3yy > {tmp_file}'
+                    time.sleep(2)
                     os.system(sqcmd)
-                    sq_lines = open(tmp_file, 'r').readlines()
+                    sq_lines = open(tmp_file, 'r').readlines()[1:]
                     os.remove(tmp_file)
                     
                     nodes_avl = {}
@@ -335,7 +344,7 @@ def gen(configs):
 
                     nodenodavil_flag = False
                     for l in sq_lines:
-                        if 'ReqNodeNotAvail' in l and 'dx3yy' in l:
+                        if 'ReqNodeNotAvail' in l and 'dx3yy' in l or 'Priority' in l:
                             nodenodavil_flag = True
                             break
                     
@@ -390,7 +399,7 @@ def gen(configs):
                 log = f"{n.config['veri_log_dir']}/{vpc}_{v}.out"
                 if not os.path.exists(log):
                     res = 'torun'
-                    print(res)
+                    print(res, log)
                 else:
                     rlines = [x for x in reversed(open(log,'r').readlines())]
 
@@ -399,18 +408,27 @@ def gen(configs):
 
                     for i,l in enumerate(rlines):
                         if l.startswith('INFO'):# or l.startswith('DEBUG'):
-                            continue
-                        
+                            continue 
+                       
                         if '[STDERR]:Error: GLP returned error 5 (GLP_EFAIL)' in l:
                             res = 'error'
+                            print(log)
                             break
+                        
+                        if "*** Error in `python':" in l:
+                            res = 'error'
+                            print(log)
+                            break
+                        
                         if 'Cannot serialize protocol buffer of type ' in l:
                             res = 'error'
+                            print(log)
                             break
                         
                         if 'Timeout' in l:
                             res = 'timeout'
                             break
+                        
                         elif 'Out of Memory' in l:
                             res = 'memout'
                             break
@@ -430,7 +448,7 @@ def gen(configs):
                     # remove this
                     if i == len(rlines)-1:
                         res = 'running'
-                        print(log)
+                        print(res, log)
                     
                 if res not in ['sat','unsat']:
                     v_time = 14400
