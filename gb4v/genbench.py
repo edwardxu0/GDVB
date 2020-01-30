@@ -5,26 +5,33 @@ import toml
 import time
 import pickle
 import string
-
+import datetime
 
 from itertools import combinations
 
 import nn
 from nn.onnxu import Onnxu
+from nn.layers import Dense
 from gb4v.network import Network
 
 
 def gen(configs):
+    start_time = datetime.datetime.now()
     random.seed(configs['seed'])
     logger = configs['logger']
-
-    source_net_onnx = Onnxu(configs['dnn']['onnx'])
-    source_net_layers = get_layers(configs, source_net_onnx)
+    
+    if configs['name'] == 'acas':
+        source_net_layers = acas_layers()
+        input_shape = [1,5]
+    else:
+        source_net_onnx = Onnxu(configs['dnn']['onnx'])
+        source_net_layers = get_layers(configs, source_net_onnx)
+        input_shape = source_net_onnx.input_shape
     
     source_net = Network(configs, None)
     source_net.set_distillation_strategies([])
 
-    source_net.calc_order('nb_neurons', source_net_layers, source_net_onnx.input_shape)
+    source_net.calc_order('nb_neurons', source_net_layers, input_shape)
     source_net_neurons_per_layer = source_net.nb_neurons
     source_net_nb_neurons = np.sum(source_net_neurons_per_layer)
 
@@ -46,20 +53,27 @@ def gen(configs):
     parameters = {}
     
     for key in configs['ca']['parameters']['level']:
-        if key in ['prop']:
-            level_size = configs['ca']['parameters']['level'][key]
-            level = np.arange(0,level_size,1)
-        else:
-            level_size = configs['ca']['parameters']['level'][key]
+        level_size = configs['ca']['parameters']['level'][key]
+        if level_size == 1:
             level_min = configs['ca']['parameters']['range'][key][0]
             level_max = configs['ca']['parameters']['range'][key][1]
-            level_range = level_max - level_min
-            level_step = level_range/(level_size-1)
-            assert level_range > 0
-            level = np.array([x*level_step+level_min for x in range(level_size)])
+            assert level_min == level_max
+            level = np.array([level_min])
+            pass
+        else:
+            if key in ['prop']:
+                level = np.arange(0,level_size,1)
+            else:
+                level_min = configs['ca']['parameters']['range'][key][0]
+                level_max = configs['ca']['parameters']['range'][key][1]
+                level_range = level_max - level_min
+                level_step = level_range/(level_size-1)
+                assert level_range > 0
+                level = np.array([x*level_step+level_min for x in range(level_size)])
         parameters[key] = level
 
         assert len(parameters[key]) == level_size
+    #print(parameters)
 
     logger.info('Covering Array')
 
@@ -93,6 +107,7 @@ def gen(configs):
     vp_configs = []
     lines = open('./tmp/ca.txt','r').readlines()
     os.remove("./tmp/ca.txt")
+    
     i = 0
     while i < len(lines):
         l = lines[i]
@@ -121,6 +136,11 @@ def gen(configs):
         vp_configs_ += [tmp]
     vp_configs = vp_configs_
 
+    '''
+    for vpc in vp_configs:
+        print(vpc)
+    '''
+
     nets = []
     for vpc in vp_configs:
         # generate network
@@ -137,37 +157,44 @@ def gen(configs):
         dis_strats = [['drop', x] for x in drop_ids]
 
         # calculate data transformaions, input demensions
-        transform = n.distillation_config['distillation']['data']['transform']['student']
-        height = transform['height']
-        width = transform['width']
-        assert height == width
-        id_f = parameters['idm'][vpc['idm']]
+        if not configs['name'] == 'acas':
+            transform = n.distillation_config['distillation']['data']['transform']['student']
+            height = transform['height']
+            width = transform['width']
+            assert height == width
+            id_f = parameters['idm'][vpc['idm']]
 
-        new_height = int(round(np.sqrt(height*width*id_f)))
-        transform['height'] = new_height
-        transform['width'] = new_height
-        if new_height != height:
-            dis_strats += [['scale_input', new_height/height]]
+            new_height = int(round(np.sqrt(height*width*id_f)))
+            transform['height'] = new_height
+            transform['width'] = new_height
+            if new_height != height:
+                dis_strats += [['scale_input', new_height/height]]
 
-        mean = transform['mean']
-        max_value = transform['max_value']
-        ids_f = parameters['ids'][vpc['ids']]
+            mean = transform['mean']
+            max_value = transform['max_value']
+            ids_f = parameters['ids'][vpc['ids']]
 
-        transform['mean'] = [float(x*ids_f) for x in mean]
-        transform['max_value'] = float(max_value*ids_f)
+            transform['mean'] = [float(x*ids_f) for x in mean]
+            transform['max_value'] = float(max_value*ids_f)
 
-        if source_net_onnx.input_format == 'NCHW':
-            nb_channel = source_net_onnx.input_shape[0]
-        elif source_net_onnx.input_format == 'NHWC':
-            nb_channel = source_net_onnx.input_shape[2]
+            if source_net_onnx.input_format == 'NCHW':
+                nb_channel = source_net_onnx.input_shape[0]
+            elif source_net_onnx.input_format == 'NHWC':
+                nb_channel = source_net_onnx.input_shape[2]
+            else:
+                assert False
         else:
-            assert False
-
+            ids_f = parameters['ids'][vpc['ids']]
+            n.distillation_config['distillation']['data']['train']['student']['path'] = f'data/acas/acas_train_{ids_f}.npy'
+            n.distillation_config['distillation']['data']['validation']['student']['path'] = f'data/acas/acas_valid_{ids_f}.npy'
+            #print(ids_f)
+            #print(n.distillation_config)
 
         #print('before:')
         #print(dis_strats)
         n.set_distillation_strategies(dis_strats)
-        input_shape = [nb_channel, new_height, new_height]
+        if not configs['name'] == 'acas':
+            input_shape = [nb_channel, new_height, new_height]
         n.calc_order('nb_neurons', source_net_layers, input_shape)
 
         neurons_drop_only = np.sum(n.nb_neurons)
@@ -188,10 +215,31 @@ def gen(configs):
             #print(dis_strats)
             
             n = Network(configs, vpc)
-            n.distillation_config['distillation']['data']['transform']['student'] = transform
+
+            if not configs['name'] == 'acas':
+                n.distillation_config['distillation']['data']['transform']['student'] = transform
             n.set_distillation_strategies(dis_strats)
             n.calc_order('nb_neurons', source_net_layers, input_shape)
 
+            '''
+            containsScale = False
+            for i in dis_strats:
+                if i[0] == 'scale':
+                    containsScale = True
+            print(containsScale)
+            '''
+        else:
+            '''
+            containsScale = False
+            for i in dis_strats:
+                if i[0] == 'scale':
+                    containsScale = True
+            print(containsScale)
+            if not containsScale:
+                print(dis_strats)
+            '''
+            pass
+            
         '''
         if n.input_too_small():
             ca_lines_constraints += [f'conv_layers={vpc["conv_layers"]} => in_dim!={vpc["in_dim"]}']
@@ -219,7 +267,11 @@ def gen(configs):
         print(f'[{np.sum(n.nb_neurons)},{a["fc"]},{a["conv"]},{parameters["idm"][a["idm"]]*784:.0f},{parameters["ids"][a["ids"]]:.1f},{parameters["eps"][a["eps"]]:.1f},{a["prop"]}],')
     exit()
     '''
-
+    gen_props(nets, parameters, configs, logger)
+    end_time = datetime.datetime.now()
+    duration = (end_time - start_time).total_seconds()
+    print(duration)
+    
     #TODO: dont distill repeated networks
     if configs['task'] == 'train':
         logger.info('Training ...')
@@ -228,29 +280,7 @@ def gen(configs):
             n.distill()
 
     elif configs['task'] == 'gen_props':
-        logger.info('Generating properties ...')
-        for n in nets:
-            data_config = open(configs['dnn']['data_config'],'r').read()
-            data_config = toml.loads(data_config)
-            transform = n.distillation_config['distillation']['data']['transform']['student']
-            data_config['transform'] = transform
-
-            formatted_data = toml.dumps(data_config)
-            with open('./tmp/data.toml', 'w') as f:
-                f.write(formatted_data)
-
-            prop_dir = f'{configs["props_dir"]}/{n.name}/'
-            
-            eps = (parameters['eps']*configs['verify']['eps'])[n.vpc['eps']]
-            
-            if 'dave' in configs['name']:
-                cmd = f'python ../r4v/tools/generate_dave_properties.py ./tmp/data.toml {prop_dir} -g 15'
-            elif 'mcb' in configs['name']:
-                cmd = f'python ../r4v/tools/generate_mnist_properties.py ./tmp/data.toml {prop_dir}'
-            cmd += f' -e {eps} -N {len(parameters["prop"])}'
-            os.system(cmd)
-            os.system('rm ./tmp/data.toml')
-
+        gen_props(nets, configs)
 
     elif configs['task'] == 'verify':
         logger.info('Verifying ...')
@@ -272,7 +302,10 @@ def gen(configs):
                 verifier_parameters = ""
 
             for n in nets:
-                prop_dir = f'{configs["props_dir"]}/{n.name}/'
+                if not configs['name'] == 'acas':
+                    prop_dir = f'{configs["props_dir"]}/{n.name}/'
+                else:
+                    prop_dir = 'props/acas/'
                 #prop_dir = f'{configs["props_dir"]}/{configs["network_name"]}.{input_dimension_levels[n.vpc["in_dim"]]}.{input_domain_size_levels[n.vpc["in_dom_size"]]}.{epsilon_levels[n.vpc["epsilon"]]}'
                 eps = (parameters['eps']*configs['verify']['eps'])[n.vpc['eps']]
                 prop_levels = sorted([x for x in os.listdir(prop_dir) if '.py' in x])
@@ -292,7 +325,7 @@ def gen(configs):
                 #NODES = [f'cortado0{x}' for x in range(1,8)]
                 #TASK_NODE = {x:7 for x in NODES}
 
-                print(TASK_NODE)
+                #print(TASK_NODE)
                 count += 1
                 logger.info(f'Verifying ...{count}/{len(verifiers)*len(nets)}')
                 vpc = ''.join([str(n.vpc[x]) for x in n.vpc])
@@ -344,7 +377,7 @@ def gen(configs):
 
                     nodenodavil_flag = False
                     for l in sq_lines:
-                        if 'ReqNodeNotAvail' in l and 'dx3yy' in l or 'Priority' in l:
+                        if 'ReqNodeNotAvail' in l and 'dx3yy' in l or ('Priority' in l and 'GB_D' not in l) or ('None' in l and 'GB_D' not in l):
                             nodenodavil_flag = True
                             break
                     
@@ -480,3 +513,42 @@ def get_layers(configs, onnx_dnn):
         if l.type in supported_layers:
             layers += [l]
     return layers[start_layer:]
+
+
+def acas_layers():
+
+    layers = [
+        Dense(50, np.zeros((50,5)), np.zeros((50)), 5),
+        Dense(50, np.zeros((50,50)), np.zeros((50)), 50),
+        Dense(50, np.zeros((50,50)), np.zeros((50)), 50),
+        Dense(50, np.zeros((50,50)), np.zeros((50)), 50),
+        Dense(50, np.zeros((50,50)), np.zeros((50)), 50),
+        Dense(50, np.zeros((50,50)), np.zeros((50)), 50),
+        Dense(5, np.zeros((5,50)), np.zeros((5)), 50)
+    ]
+    return layers
+
+
+def gen_props(nets, parameters, configs, logger):
+    logger.info('Generating properties ...')
+    for n in nets:
+        data_config = open(configs['dnn']['data_config'],'r').read()
+        data_config = toml.loads(data_config)
+        transform = n.distillation_config['distillation']['data']['transform']['student']
+        data_config['transform'] = transform
+
+        formatted_data = toml.dumps(data_config)
+        with open('./tmp/data.toml', 'w') as f:
+            f.write(formatted_data)
+
+        prop_dir = f'{configs["props_dir"]}/{n.name}/'
+
+        eps = (parameters['eps']*configs['verify']['eps'])[n.vpc['eps']]
+
+        if 'dave' in configs['name']:
+            cmd = f'python ../r4v/tools/generate_dave_properties.py ./tmp/data.toml {prop_dir} -g 15'
+        elif 'mcb' in configs['name']:
+            cmd = f'python ../r4v/tools/generate_mnist_properties.py ./tmp/data.toml {prop_dir}'
+        cmd += f' -e {eps} -N {len(parameters["prop"])}'
+        os.system(cmd)
+        os.system('rm ./tmp/data.toml')

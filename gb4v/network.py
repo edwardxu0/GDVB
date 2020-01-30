@@ -23,7 +23,10 @@ class Network():
     def __init__(self, config, vpc):
         self.name = config['name']
         if vpc is not None:
-            self.name += '.'+''.join([str(vpc[x]) for x in list(vpc)[:-2]])            
+            if not config['name'] == 'acas':
+                self.name += '.'+''.join([str(vpc[x]) for x in list(vpc)[:-2]])
+            else:
+                self.name += '.'+''.join([str(vpc[x]) for x in list(vpc)[:-1]])
         self.vpc = vpc
         self.config = config
         self.distillation_configled = False

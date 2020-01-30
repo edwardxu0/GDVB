@@ -36,7 +36,7 @@ if __name__ == '__main__':
         os.mkdir(args.root)
         
     data = generate_acas_data(args.scale, args.size)
-    np.save(os.path.join(args.root,f'acas.train.{args.scale}'), data)
+    np.save(os.path.join(args.root,f'acas_train_{args.scale}'), data)
 
     data = generate_acas_data(args.scale, int(args.size/10))
-    np.save(os.path.join(args.root,f'acas.valid.{args.scale}'), data)
+    np.save(os.path.join(args.root,f'acas_valid_{args.scale}'), data)

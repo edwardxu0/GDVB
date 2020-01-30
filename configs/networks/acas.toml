@@ -4,6 +4,7 @@ threshold=1e-9
 cuda=true
 type="regression" #type="classification" # argmin vs argmax WRONG
 precompute_teacher=true
+save_intermediate=true
 
 [distillation.parameters]
 epochs=50
@@ -24,16 +25,16 @@ model="./configs/networks/acas_1_1.onnx"
 shuffle=true
 
 [distillation.data.train.teacher]
-path="data/acas.train.1.csv"
+path="data/acas/acas_train_1.0.npy"
 
 [distillation.data.train.student]
-path="data/acas.train.x.csv"
+path="data/acas/acas_train_1.0.npy"
 
 [distillation.data.validation]
 shuffle=false
 
 [distillation.data.validation.teacher]
-path="data/acas.valid.1.csv"
+path="data/acas/acas_valid_1.0.npy"
 
 [distillation.data.validation.student]
-path="data/acas.valid.x.csv"
+path="data/acas/acas_valid_1.0.npy"
