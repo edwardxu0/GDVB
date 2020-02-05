@@ -9,9 +9,8 @@ import datetime
 
 from itertools import combinations
 
-import nn
-from nn.onnxu import Onnxu
-from nn.layers import Dense
+from gb4v.nn.onnxu import Onnxu
+from gb4v.nn.layers import Dense
 from gb4v.network import Network
 
 
