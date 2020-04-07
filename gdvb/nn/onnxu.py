@@ -3,7 +3,7 @@ import numpy as np
 import onnx
 
 from onnx import numpy_helper, shape_inference
-from gb4v.nn.layers import Input, Dense, Conv, ReLU, Flatten, Pool, Transpose
+from gdvb.nn.layers import Input, Dense, Conv, ReLU, Flatten, Pool, Transpose
 
 
 class Onnxu():

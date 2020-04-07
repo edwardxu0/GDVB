@@ -9,9 +9,9 @@ import datetime
 
 from itertools import combinations
 
-from gb4v.nn.onnxu import Onnxu
-from gb4v.nn.layers import Dense
-from gb4v.network import Network
+from gdvb.nn.onnxu import Onnxu
+from gdvb.nn.layers import Dense, Conv
+from gdvb.network import Network
 
 
 def gen(configs):
@@ -42,9 +42,9 @@ def gen(configs):
     conv_ids = []
     fc_ids = []
     for i,x in enumerate(source_net_layers):
-        if isinstance(x, nn.layers.Conv):
+        if isinstance(x, Conv):
             conv_ids+=[i]
-        elif isinstance(x, nn.layers.Dense):
+        elif isinstance(x, Dense):
             fc_ids += [i]
     fc_ids = fc_ids[:-1]
 

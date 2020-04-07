@@ -11,9 +11,8 @@ logging.basicConfig(stream=sys.stdout,
                     format='%(asctime)s %(message)s',
                     datefmt='%m/%d/%Y %I:%M:%S %p')
 
-import gb4v.verify.neurify
 
-from nn.layers import Dense, Conv, Transpose, Flatten
+from gdvb.nn.layers import Dense, Conv, Transpose, Flatten
 
 NODES = ['slurm1', 'slurm2', 'slurm3', 'slurm4', 'slurm5']
 TASK_NODE = {'slurm1':7,'slurm2':7,'slurm3':7,'slurm4':7,'slurm5':3}
