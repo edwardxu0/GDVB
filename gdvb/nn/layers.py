@@ -10,6 +10,7 @@ class Layer(object):
     def __str__(self):
         return "{}: {} -> {}".format(self.type, self.in_shape, self.out_shape)
 
+
 class WeightedLayer(Layer):
     def __init__(self, type, size, weights, bias, in_shape, out_shape):
         super().__init__(type, in_shape, out_shape)

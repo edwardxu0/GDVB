@@ -9,16 +9,16 @@ import datetime
 
 from itertools import combinations
 
-from gdvb.nn.onnxu import Onnxu
-from gdvb.nn.layers import Dense, Conv
-from gdvb.network import Network
+from .nn.onnxu import Onnxu
+from .nn.layers import Dense, Conv
+from .network import Network
 
 
 def gen(configs):
     start_time = datetime.datetime.now()
     random.seed(configs['seed'])
     logger = configs['logger']
-    
+
     if configs['name'] == 'acas':
         source_net_layers = acas_layers()
         input_shape = [1,5]
@@ -26,7 +26,7 @@ def gen(configs):
         source_net_onnx = Onnxu(configs['dnn']['onnx'])
         source_net_layers = get_layers(configs, source_net_onnx)
         input_shape = source_net_onnx.input_shape
-    
+
     source_net = Network(configs, None)
     source_net.set_distillation_strategies([])
 
@@ -34,7 +34,7 @@ def gen(configs):
     source_net_neurons_per_layer = source_net.nb_neurons
     source_net_nb_neurons = np.sum(source_net_neurons_per_layer)
 
-    logger.info('Factors')
+    logger.info('Computing Factors')
     # calculate parameters based on factors
     net_name = configs['name']
 
@@ -50,7 +50,7 @@ def gen(configs):
 
     # load parameters
     parameters = {}
-    
+
     for key in configs['ca']['parameters']['level']:
         level_size = configs['ca']['parameters']['level'][key]
         if level_size == 1:
@@ -93,11 +93,11 @@ def gen(configs):
         constraints = configs['ca']['constraints']['value']
         for con in constraints:
             lines += [con]
-    
+
     lines = [x +'\n' for x in lines]
 
     strength = configs['ca']['strength']
-    
+
     open('./tmp/ca_config.txt','w').writelines(lines)
     cmd = f'java  -Ddoi={strength} -jar lib/acts_3.2.jar ./tmp/ca_config.txt ./tmp/ca.txt > /dev/null'
     os.system(cmd)
@@ -106,7 +106,7 @@ def gen(configs):
     vp_configs = []
     lines = open('./tmp/ca.txt','r').readlines()
     os.remove("./tmp/ca.txt")
-    
+
     i = 0
     while i < len(lines):
         l = lines[i]
@@ -212,296 +212,41 @@ def gen(configs):
                     dis_strats += [['scale', x, neuron_scale_factor]]
             #print('after:')
             #print(dis_strats)
-            
+
             n = Network(configs, vpc)
 
             if not configs['name'] == 'acas':
                 n.distillation_config['distillation']['data']['transform']['student'] = transform
             n.set_distillation_strategies(dis_strats)
             n.calc_order('nb_neurons', source_net_layers, input_shape)
-
-            '''
-            containsScale = False
-            for i in dis_strats:
-                if i[0] == 'scale':
-                    containsScale = True
-            print(containsScale)
-            '''
-        else:
-            '''
-            containsScale = False
-            for i in dis_strats:
-                if i[0] == 'scale':
-                    containsScale = True
-            print(containsScale)
-            if not containsScale:
-                print(dis_strats)
-            '''
-            pass
-            
-        '''
-        if n.input_too_small():
-            ca_lines_constraints += [f'conv_layers={vpc["conv_layers"]} => in_dim!={vpc["in_dim"]}']
-            #refine_constraints = True
-
-        if n.untrainable(configs['parameter_limit']):
-            if conv_drop_factors is None and fc_drop_factors is None:
-                assert False
-            elif conv_drop_factors is None:
-                ca_lines_constraints += [f'fc_layers={vpc["fc_layers"]} => in_dim!={vpc["in_dim"]}']
-            elif fc_drop_factors is None:
-                ca_lines_constraints += [f'conv_layers={vpc["conv_layers"]} => in_dim!={vpc["in_dim"]}']
-            else:
-                ca_lines_constraints += [f'(fc_layers={vpc["fc_layers"]} && conv_layers={vpc["conv_layers"]}) => in_dim!={vpc["in_dim"]}']
-            refine_constraints = True
-        '''
         nets += [n]
 
     logger.info(f'# NN: {len(nets)}')
 
-    # print pplot
-    '''
-    for n in nets:
-        a = n.vpc
-        print(f'[{np.sum(n.nb_neurons)},{a["fc"]},{a["conv"]},{parameters["idm"][a["idm"]]*784:.0f},{parameters["ids"][a["ids"]]:.1f},{parameters["eps"][a["eps"]]:.1f},{a["prop"]}],')
-    exit()
-    '''
-    gen_props(nets, parameters, configs, logger)
-    end_time = datetime.datetime.now()
-    duration = (end_time - start_time).total_seconds()
-    print(duration)
-    
-    #TODO: dont distill repeated networks
-    if configs['task'] == 'train':
+    if configs['task'] == 'gen_ca':
+        pass
+
+    elif configs['task'] == 'train':
         logger.info('Training ...')
-        for n in nets:
-            print(n.name)
-            n.distill()
+        train(nets, logger)
 
     elif configs['task'] == 'gen_props':
-        gen_props(nets, configs)
+        logger.info('Generating properties ...')
+        gen_props(nets, parameters, configs, logger)
 
     elif configs['task'] == 'verify':
         logger.info('Verifying ...')
-        verifiers = configs['verify']['verifiers']
-        time_limit = configs['verify']['time']
-        memory_limit = configs['verify']['memory']
+        verify(nets, configs, parameters, logger)
 
-        lines = []
-        count = 0
-        for v in verifiers:
-            if 'eran' in v:
-                v_name = 'eran'
-                verifier_parameters = f'--eran.domain {v.split("_")[1]}'
-            elif v == 'bab_sb':
-                v_name = 'bab'
-                verifier_parameters = '--bab.smart_branching'
-            else:
-                v_name = v
-                verifier_parameters = ""
-
-            for n in nets:
-                if not configs['name'] == 'acas':
-                    prop_dir = f'{configs["props_dir"]}/{n.name}/'
-                else:
-                    prop_dir = 'props/acas/'
-                #prop_dir = f'{configs["props_dir"]}/{configs["network_name"]}.{input_dimension_levels[n.vpc["in_dim"]]}.{input_domain_size_levels[n.vpc["in_dom_size"]]}.{epsilon_levels[n.vpc["epsilon"]]}'
-                eps = (parameters['eps']*configs['verify']['eps'])[n.vpc['eps']]
-                prop_levels = sorted([x for x in os.listdir(prop_dir) if '.py' in x])
-                prop_levels = [ x for x in prop_levels if str(eps) in '.'.join(x.split('.')[2:-1])]
-                prop = prop_levels[n.vpc['prop']]
-                
-                cmd = f'python ../dnnv/tools/resmonitor.py -T {time_limit} -M {memory_limit}'
-                cmd += f' python -m dnnv {n.dis_model_path} {prop_dir}/{prop} --{v_name} {verifier_parameters} --debug'
-
-                #NODES = ['slurm1', 'slurm2', 'slurm3', 'slurm4', 'slurm5']
-                NODES = configs['dispatch']['slurm']['nodes']
-                #TASK_NODE = {'slurm1':7,'slurm2':7,'slurm3':7,'slurm4':7,'slurm5':3}
-                TASK_NODE = configs['dispatch']['slurm']['task_per_node']
-                reservation = configs['dispatch']['slurm']['reservation']
-                #print(NODES,TASK_NODE,reservation)
-
-                #NODES = [f'cortado0{x}' for x in range(1,8)]
-                #TASK_NODE = {x:7 for x in NODES}
-
-                #print(TASK_NODE)
-                count += 1
-                logger.info(f'Verifying ...{count}/{len(verifiers)*len(nets)}')
-                vpc = ''.join([str(n.vpc[x]) for x in n.vpc])
-
-                veri_log = f'{n.config["veri_log_dir"]}/{vpc}_{v}.out'
-                if os.path.exists(veri_log):
-                    lines = open(veri_log, 'r').readlines()
-
-                    #TODO edit this
-                    print('done')
-                    continue
-                
-                    rerun = False
-                    for l in lines:
-                        if 'Traceback' in l:
-                            rerun = True                            
-                            break
-                    '''
-                    if error:
-                        for l in lines:
-                            if 'FileNotFoundError' in l:
-                                rerun = False
-                                break
-                            if 'Unsupported layer type' in l and 'reluplex' in log:
-                                rerun = False
-                                break
-                    '''
-
-                    if not rerun:
-                        print('done')
-                        continue
-                    else:
-                        print('rerun')
-
-                while(True):
-                    node_avl_flag = False
-                    tmp_file = './tmp/'+''.join(random.choice(string.ascii_lowercase) for i in range(16))
-                    node_ran = ''.join([x for x in NODES[0] if not x.isdigit()])
-                    #sqcmd = f'squeue | grep {node_ran} > {tmp_file}'
-                    sqcmd = f'squeue -u dx3yy > {tmp_file}'
-                    time.sleep(2)
-                    os.system(sqcmd)
-                    sq_lines = open(tmp_file, 'r').readlines()[1:]
-                    os.remove(tmp_file)
-                    
-                    nodes_avl = {}
-                    for node in NODES:
-                        nodes_avl[node] = 0
-
-                    nodenodavil_flag = False
-                    for l in sq_lines:
-                        if 'ReqNodeNotAvail' in l and 'dx3yy' in l or ('Priority' in l and 'GB_D' not in l) or ('None' in l and 'GB_D' not in l):
-                            nodenodavil_flag = True
-                            break
-                    
-                        if ' R ' in l and l != '':
-                            node = l.strip().split(' ')[-1]
-                            if node in NODES:
-                                nodes_avl[node] += 1
-
-                    if nodenodavil_flag == True:
-                        print('node unavialiable. waiting ...')
-                        continue
-
-                    #print(nodes_avl)
-            
-                    for na in nodes_avl:
-                        #if nodes_avl[na] < TASK_NODE[na]:
-                        if nodes_avl[na] < 7:
-                            node_avl_flag = True
-                            break
-                    if node_avl_flag:
-                        break
-
-                tmp_dir = f'./tmp/{configs["name"]}_{configs["seed"]}_{vpc}_{v}'
-                lines = ['#!/bin/sh',
-                         f'#SBATCH --job-name=GB_{v}',
-                         f'#SBATCH --mem={memory_limit}',
-                         f'#SBATCH --output={n.config["veri_log_dir"]}/{vpc}_{v}.out',
-                         f'#SBATCH --error={n.config["veri_log_dir"]}/{vpc}_{v}.out',
-                         f'export GRB_LICENSE_FILE="/p/d4v/dx3yy/Apps/gurobi_keys/`hostname`.gurobi.lic"',
-                         f'export TMPDIR={tmp_dir}',
-                         f'mkdir $TMPDIR',
-                         f'echo $TMPDIR',
-                         cmd,
-                         f'rm -rf $TMPDIR'
-                ]
-                lines = [x+'\n' for x in lines]
-                slurm_path = os.path.join(n.config['veri_slurm_dir'],f'{vpc}_{v}.slurm')
-                open(slurm_path,'w').writelines(lines)
-
-                task = f'sbatch -w {na} --reservation={reservation} {slurm_path}'
-                print(task)
-                os.system(task)
-                
-
-    elif configs['task'] == 'ana_res':
-        verifiers = configs['verify']['verifiers']
-        results = {x:{} for x in verifiers}
-
-        for n in nets:
-            for v in verifiers:
-                vpc = ''.join([str(n.vpc[x]) for x in n.vpc])
-                log = f"{n.config['veri_log_dir']}/{vpc}_{v}.out"
-                if not os.path.exists(log):
-                    res = 'torun'
-                    print(res, log)
-                else:
-                    rlines = [x for x in reversed(open(log,'r').readlines())]
-
-                    res = None
-                    v_time = None
-
-                    for i,l in enumerate(rlines):
-                        if l.startswith('INFO'):# or l.startswith('DEBUG'):
-                            continue 
-                       
-                        if '[STDERR]:Error: GLP returned error 5 (GLP_EFAIL)' in l:
-                            res = 'error'
-                            print(log)
-                            break
-                        
-                        if "*** Error in `python':" in l:
-                            res = 'error'
-                            print(log)
-                            break
-                        
-                        if 'Cannot serialize protocol buffer of type ' in l:
-                            res = 'error'
-                            print(log)
-                            break
-                        
-                        if 'Timeout' in l:
-                            res = 'timeout'
-                            break
-                        
-                        elif 'Out of Memory' in l:
-                            res = 'memout'
-                            break
-
-                        if l.startswith('  result: '):
-                            if 'Unsupported' in l or 'not support' in l or 'Unknown MIPVerify' in l or 'Unknown property check result' in l:
-                                res = 'unsup'
-                                break
-                            elif 'NeurifyError' in l or 'PlanetError' in l:
-                                res = 'error'
-                                break
-                            else:
-                                res = l.strip().split(' ')[-1]
-                                v_time = float(rlines[i-1].strip().split(' ')[-1])
-                                break
-
-                    # remove this
-                    if i == len(rlines)-1:
-                        res = 'running'
-                        print(res, log)
-                    
-                if res not in ['sat','unsat']:
-                    v_time = 14400
-
-                assert res in ['sat','unsat','unknown','timeout','memout','error', 'unsup', 'running', 'torun'], log
-                results[v][vpc] = [res,v_time]
-        
-        assert len(set([len(results[x]) for x in results.keys()])) == 1
-
-        with open(f'results/data/verification_results_{configs["name"]}_{configs["seed"]}.pickle', 'wb') as handle:
-            pickle.dump(results, handle, protocol=pickle.HIGHEST_PROTOCOL)
-    
-        config_dist = {}
-        for n in nets:
-            config_dist[''.join([str(n.vpc[x]) for x in n.vpc])] = n.vpc
-
-        with open(f'results/data/config_dist_{configs["name"]}_{configs["seed"]}.pickle', 'wb') as handle:
-            pickle.dump(config_dist, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    elif configs['task'] == 'analyze':
+        analyze(nets, configs)
 
     else:
-        assert False
+        raise Exception("Unknown task.")
+
+    end_time = datetime.datetime.now()
+    duration = (end_time - start_time).total_seconds()
+    logger.info(f'Spent {duration} seconds.')
 
 
 def get_layers(configs, onnx_dnn):
@@ -515,7 +260,6 @@ def get_layers(configs, onnx_dnn):
 
 
 def acas_layers():
-
     layers = [
         Dense(50, np.zeros((50,5)), np.zeros((50)), 5),
         Dense(50, np.zeros((50,50)), np.zeros((50)), 50),
@@ -526,6 +270,14 @@ def acas_layers():
         Dense(5, np.zeros((5,50)), np.zeros((5)), 50)
     ]
     return layers
+
+
+def train(nets, logger):
+    for n in nets:
+        logger.info(f'Training network {n.name} ...')
+        n.train()
+        logger.info(f'Training network {n.name} done.')
+        break
 
 
 def gen_props(nets, parameters, configs, logger):
@@ -545,9 +297,100 @@ def gen_props(nets, parameters, configs, logger):
         eps = (parameters['eps']*configs['verify']['eps'])[n.vpc['eps']]
 
         if 'dave' in configs['name']:
-            cmd = f'python ../r4v/tools/generate_dave_properties.py ./tmp/data.toml {prop_dir} -g 15'
-        elif 'mcb' in configs['name']:
-            cmd = f'python ../r4v/tools/generate_mnist_properties.py ./tmp/data.toml {prop_dir}'
+            cmd = f'python ./tools/generate_dave_properties.py ./tmp/data.toml {prop_dir} -g 15'
+        elif 'mcb' in configs['name'] or 'ms' in configs['name']:
+            cmd = f'python ./tools/generate_mnist_properties.py ./tmp/data.toml {prop_dir}'
+        else:
+            raise NotImplementedError
         cmd += f' -e {eps} -N {len(parameters["prop"])}'
         os.system(cmd)
         os.system('rm ./tmp/data.toml')
+
+
+def verify(nets, configs, parameters, logger):
+    for n in nets:
+        logger.info(f'Verifying network {n.name} ...')
+        n.verify(parameters,logger)
+        logger.info(f'Verifying network {n.name} done.')
+        break
+
+
+def analyze(nets, configs):
+    verifiers = configs['verify']['verifiers']
+    results = {x:{} for x in verifiers}
+
+    for n in nets:
+        for v in verifiers:
+            vpc = ''.join([str(n.vpc[x]) for x in n.vpc])
+            log = f"{n.config['veri_log_dir']}/{vpc}_{v}.out"
+            if not os.path.exists(log):
+                res = 'torun'
+                print(res, log)
+            else:
+                rlines = [x for x in reversed(open(log,'r').readlines())]
+
+                res = None
+                v_time = None
+
+                for i,l in enumerate(rlines):
+                    if l.startswith('INFO'):# or l.startswith('DEBUG'):
+                        continue 
+
+                    if '[STDERR]:Error: GLP returned error 5 (GLP_EFAIL)' in l:
+                        res = 'error'
+                        print(log)
+                        break
+
+                    if "*** Error in `python':" in l:
+                        res = 'error'
+                        print(log)
+                        break
+
+                    if 'Cannot serialize protocol buffer of type ' in l:
+                        res = 'error'
+                        print(log)
+                        break
+
+                    if 'Timeout' in l:
+                        res = 'timeout'
+                        break
+
+                    elif 'Out of Memory' in l:
+                        res = 'memout'
+                        break
+
+                    if l.startswith('  result: '):
+                        if 'Unsupported' in l or 'not support' in l or 'Unknown MIPVerify' in l or 'Unknown property check result' in l:
+                            res = 'unsup'
+                            break
+                        elif 'NeurifyError' in l or 'PlanetError' in l:
+                            res = 'error'
+                            break
+                        else:
+                            res = l.strip().split(' ')[-1]
+                            v_time = float(rlines[i-1].strip().split(' ')[-1])
+                            break
+
+                # remove this
+                if i == len(rlines)-1:
+                    res = 'running'
+                    print(res, log)
+
+            if res not in ['sat','unsat']:
+                v_time = 14400
+
+            assert res in ['sat','unsat','unknown','timeout','memout','error', 'unsup', 'running', 'torun'], log
+            results[v][vpc] = [res,v_time]
+
+    assert len(set([len(results[x]) for x in results.keys()])) == 1
+
+    with open(f'./results/verification_results_{configs["name"]}_{configs["seed"]}.pickle', 'wb') as handle:
+        pickle.dump(results, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+    config_dist = {}
+    for n in nets:
+        config_dist[''.join([str(n.vpc[x]) for x in n.vpc])] = n.vpc
+
+    with open(f'./results/config_dist_{configs["name"]}_{configs["seed"]}.pickle', 'wb') as handle:
+        pickle.dump(config_dist, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
