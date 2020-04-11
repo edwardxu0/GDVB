@@ -10,10 +10,10 @@ name = 'ms'
 [ca]
 	strength = 2
 
-    [ca.parameters]
+	[ca.parameters]
 		[ca.parameters.level]
 			neu = 2
-			fc = 3		# 0,1,2
+			fc = 4		# 0,1,2,3
 			idm = 2
 			ids = 2
 			eps = 2
@@ -22,7 +22,6 @@ name = 'ms'
 		[ca.parameters.range] # 0~1
 			neu = [0.5,1.0]
 			fc = [0,1]
-    		conv = [0,1]
 			idm = [0.5,1.0]
 			ids = [0.5,1.0]
 			eps = [0.5,1.0]
@@ -31,7 +30,7 @@ name = 'ms'
 [train]
 	epoches = 2
 	[train.dispatch]
-		mode = 'direct'
+		mode = 'local'
 		gpu = false
 
 [verify]
@@ -42,5 +41,5 @@ name = 'ms'
 	verifiers = ['eran_deepzono','eran_deeppoly','eran_refinezono','eran_refinepoly','neurify','planet','bab','bab_sb','reluplex']
 
 	[verify.dispatch]
-		mode = 'direct'
+		mode = 'local'
 

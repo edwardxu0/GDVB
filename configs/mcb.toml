@@ -10,7 +10,7 @@ name = 'mcb'
 [ca]
 	strength = 2
 
-    [ca.parameters]
+	[ca.parameters]
 		[ca.parameters.level]
 			neu = 5
 			fc = 3		# 0,1,2

@@ -35,11 +35,13 @@ class Task():
     def run(self):
         if self.mode == 'slurm':
             cmd = f'sbatch {self.slurm_path}'
-        elif self.mode == 'direct':
+        elif self.mode == 'local':
             for cmd in self.cmds:
                 if 'dnnv' in cmd or 'r4v' in cmd:
                     #cmd += f' > {self.log_path} 2>&1'
-                    cmd += f' > {self.log_path} 2>/dev/null'
+                    #cmd += f' > {self.log_path} 2>/dev/null'
+                    cmd += f' > {self.log_path} 2>{self.log_path}.err'
+                print(cmd)
                 os.system(cmd)
         else:
             assert False

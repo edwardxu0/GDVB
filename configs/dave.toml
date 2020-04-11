@@ -10,7 +10,7 @@ name = 'dave'
 [ca]
 	strength = 2
 
-    [ca.parameters.level]
+	[ca.parameters.level]
 		neu = 5
 		fc = 5
     	conv = 6

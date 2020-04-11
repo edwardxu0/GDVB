@@ -277,7 +277,7 @@ def train(nets, logger):
         logger.info(f'Training network {n.name} ...')
         n.train()
         logger.info(f'Training network {n.name} done.')
-        break
+        #break
 
 
 def gen_props(nets, parameters, configs, logger):
@@ -312,7 +312,7 @@ def verify(nets, configs, parameters, logger):
         logger.info(f'Verifying network {n.name} ...')
         n.verify(parameters,logger)
         logger.info(f'Verifying network {n.name} done.')
-        break
+        #break
 
 
 def analyze(nets, configs):

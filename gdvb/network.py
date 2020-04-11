@@ -196,14 +196,18 @@ class Network():
             vpc = ''.join([str(self.vpc[x]) for x in self.vpc])
 
             veri_log = f'{self.config["veri_log_dir"]}/{vpc}_{v}.out'
-            tmp_dir = f'./tmp/{configs["name"]}_{configs["seed"]}_{vpc}_{v}'
+            tmp_dir = f'"./tmp/{configs["name"]}_{configs["seed"]}_{vpc}_{v}"'
 
             grb_license_file = self.config['verify']['GRB_LICENSE_FILE']
+            
             cmds = [f'export GRB_LICENSE_FILE="{grb_license_file}"',
                     f'export TMPDIR={tmp_dir}',
-                    f'mkdir $TMPDIR',
+                    f'echo $TMPDIR',
+                    f'mkdir -p $TMPDIR',
                     cmd,
                     f'rm -rf $TMPDIR']
+
+            cmds = [cmd]
             
             task = Task(cmds,
                         self.config['verify']['dispatch'],
