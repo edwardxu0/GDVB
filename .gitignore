@@ -3,6 +3,8 @@ tmp/
 res*
 attic/
 data/
+lib/dnnv/
+lib/r4v/
 
 ## https://raw.githubusercontent.com/github/gitignore/master/Python.gitignore
 # Byte-compiled / optimized / DLL files
