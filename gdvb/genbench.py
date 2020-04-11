@@ -98,15 +98,20 @@ def gen(configs):
 
     strength = configs['ca']['strength']
 
-    open('./tmp/ca_config.txt','w').writelines(lines)
-    cmd = f'java  -Ddoi={strength} -jar lib/acts_3.2.jar ./tmp/ca_config.txt ./tmp/ca.txt > /dev/null'
+    ca_dir = f'./results/{configs["name"]}.{configs["seed"]}'
+    ca_config_path = os.path.join(ca_dir,'ca_config.txt')
+    ca_path = os.path.join(ca_dir,'ca.txt')
+
+    open(ca_config_path,'w').writelines(lines)
+    
+    cmd = f'java  -Ddoi={strength} -jar lib/acts_3.2.jar {ca_config_path} {ca_path} > /dev/null'
     os.system(cmd)
-    os.remove("./tmp/ca_config.txt")
+    #os.remove(ca_config_path)
+
+    lines = open(ca_path,'r').readlines()
+    #os.remove(ca_path)
 
     vp_configs = []
-    lines = open('./tmp/ca.txt','r').readlines()
-    os.remove("./tmp/ca.txt")
-
     i = 0
     while i < len(lines):
         l = lines[i]
@@ -298,7 +303,7 @@ def gen_props(nets, parameters, configs, logger):
 
         if 'dave' in configs['name']:
             cmd = f'python ./tools/generate_dave_properties.py ./tmp/data.toml {prop_dir} -g 15'
-        elif 'mcb' in configs['name'] or 'ms' in configs['name']:
+        elif 'mcb' in configs['name'] or 'mnist' in configs['name']:
             cmd = f'python ./tools/generate_mnist_properties.py ./tmp/data.toml {prop_dir}'
         else:
             raise NotImplementedError

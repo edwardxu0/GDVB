@@ -1,4 +1,4 @@
-name = 'ms'
+name = 'mnist_tiny'
 
 [dnn]
 	onnx = './configs/networks/mnist_3x50.onnx'
@@ -37,8 +37,9 @@ name = 'ms'
 	eps = 0.02
 	time = 60
 	memory = '2G'
-	GRB_LICENSE_FILE="/home/edward/gurobi.lic"
-	verifiers = ['eran_deepzono','eran_deeppoly','eran_refinezono','eran_refinepoly','neurify','planet','bab','bab_sb','reluplex']
+	GRB_LICENSE_FILE="[path_to_gurobi.lic]"
+	#verifiers = ['eran_deepzono','eran_deeppoly','eran_refinezono','eran_refinepoly','neurify','planet','bab','bab_sb','reluplex']
+	verifiers = ['eran_deepzono','eran_deeppoly','neurify','planet','reluplex']
 
 	[verify.dispatch]
 		mode = 'local'

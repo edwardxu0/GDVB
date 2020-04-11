@@ -1,3 +1,5 @@
+source .venv/bin/activate
+
 # GDVB
 export GDVB=`pwd`
 export PYTHONPATH="${PYTHONPATH}:${GDVB}"
