@@ -39,17 +39,17 @@ name = 'dave'
 
 [train]
 	epoches = 10
+	[train.dispatch]
+		mode = 'local'
+		gpu = false
+
 
 [verify]
 	eps = 2
 	time = 14400
 	memory = '64G'
+	GRB_LICENSE_FILE="./lib/gurobi.lic"
 	verifiers = ['eran_deepzono','eran_deeppoly','eran_refinezono','eran_refinepoly','neurify','planet','bab','bab_sb','mipverify','reluplex']
 
-[dispatch]
-	mode = 'slurm'
-	
-	[dispatch.slurm]
-		nodes = ['slurm1','slurm2','slurm3','slurm4','slurm5']
-		task_per_node = [7,7,7,7,3]
-		reservation = 'dls2fc_7'
+	[verify.dispatch]
+		mode = 'local'

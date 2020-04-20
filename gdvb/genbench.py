@@ -6,6 +6,7 @@ import time
 import pickle
 import string
 import datetime
+import progressbar
 
 from itertools import combinations
 
@@ -14,6 +15,7 @@ from .nn.layers import Dense, Conv
 from .network import Network
 
 
+# main benchmark generation function
 def gen(configs):
     start_time = datetime.datetime.now()
     random.seed(configs['seed'])
@@ -140,14 +142,10 @@ def gen(configs):
         vp_configs_ += [tmp]
     vp_configs = vp_configs_
 
-    '''
-    for vpc in vp_configs:
-        print(vpc)
-    '''
 
+    # calculate network descriptions
     nets = []
     for vpc in vp_configs:
-        # generate network
         neuron_scale_factor = parameters['neu'][vpc['neu']]
         drop_fc_ids = sorted(random.sample(fc_ids, int(round(len(fc_ids)*(1-parameters['fc'][vpc['fc']])))))
         if 'conv' in parameters:
@@ -228,6 +226,7 @@ def gen(configs):
 
     logger.info(f'# NN: {len(nets)}')
 
+    #  perform tasks
     if configs['task'] == 'gen_ca':
         pass
 
@@ -278,7 +277,8 @@ def acas_layers():
 
 
 def train(nets, logger):
-    for n in nets:
+    for i in progressbar.progressbar(range(len(nets))):
+        n = nets[i]
         logger.info(f'Training network {n.name} ...')
         n.train()
         logger.info(f'Training network {n.name} done.')
@@ -287,7 +287,10 @@ def train(nets, logger):
 
 def gen_props(nets, parameters, configs, logger):
     logger.info('Generating properties ...')
-    for n in nets:
+    #for n in nets:
+    for i in progressbar.progressbar(range(len(nets))):
+        n = nets[i]
+
         data_config = open(configs['dnn']['data_config'],'r').read()
         data_config = toml.loads(data_config)
         transform = n.distillation_config['distillation']['data']['transform']['student']
@@ -302,9 +305,9 @@ def gen_props(nets, parameters, configs, logger):
         eps = (parameters['eps']*configs['verify']['eps'])[n.vpc['eps']]
 
         if 'dave' in configs['name']:
-            cmd = f'python ./tools/generate_dave_properties.py ./tmp/data.toml {prop_dir} -g 15'
+            cmd =f'python ./tools/generate_dave_properties.py ./tmp/data.toml {prop_dir} -g 15 > /dev/null 2>&1'
         elif 'mcb' in configs['name'] or 'mnist' in configs['name']:
-            cmd = f'python ./tools/generate_mnist_properties.py ./tmp/data.toml {prop_dir}'
+            cmd = f'python ./tools/generate_mnist_properties.py ./tmp/data.toml {prop_dir} > /dev/null 2>&1'
         else:
             raise NotImplementedError
         cmd += f' -e {eps} -N {len(parameters["prop"])}'
@@ -313,7 +316,8 @@ def gen_props(nets, parameters, configs, logger):
 
 
 def verify(nets, configs, parameters, logger):
-    for n in nets:
+    for i in progressbar.progressbar(range(len(nets))):
+        n = nets[i]
         logger.info(f'Verifying network {n.name} ...')
         n.verify(parameters,logger)
         logger.info(f'Verifying network {n.name} done.')
@@ -330,7 +334,7 @@ def analyze(nets, configs):
             log = f"{n.config['veri_log_dir']}/{vpc}_{v}.out"
             if not os.path.exists(log):
                 res = 'torun'
-                print(res, log)
+                #print(res, log)
             else:
                 rlines = [x for x in reversed(open(log,'r').readlines())]
 
@@ -343,17 +347,17 @@ def analyze(nets, configs):
 
                     if '[STDERR]:Error: GLP returned error 5 (GLP_EFAIL)' in l:
                         res = 'error'
-                        print(log)
+                        #print(log)
                         break
 
                     if "*** Error in `python':" in l:
                         res = 'error'
-                        print(log)
+                        #print(log)
                         break
 
                     if 'Cannot serialize protocol buffer of type ' in l:
                         res = 'error'
-                        print(log)
+                        #print(log)
                         break
 
                     if 'Timeout' in l:
@@ -379,7 +383,7 @@ def analyze(nets, configs):
                 # remove this
                 if i == len(rlines)-1:
                     res = 'running'
-                    print(res, log)
+                    #print(res, log)
 
             if res not in ['sat','unsat']:
                 v_time = 14400
@@ -392,10 +396,57 @@ def analyze(nets, configs):
     with open(f'./results/verification_results_{configs["name"]}_{configs["seed"]}.pickle', 'wb') as handle:
         pickle.dump(results, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
+    # calculate scr and par2 scores
+    scr_dict = {}
+    par_2_dict = {}
+    for v in verifiers:
+        sums = []
+        scr = 0
+        for vpc_k in results[v]:
+            res = results[v][vpc_k][0]
+            vtime = results[v][vpc_k][1]
+            if res == "running":
+                print(f"running: {v} {vpc_k}")
+            if res in ["sat", "unsat"]:
+                scr += 1
+                sums += [vtime]
+            elif res in [
+                "unknown",
+                "timeout",
+                "memout",
+                "error",
+                "unsup",
+                "running",
+            ]:
+                sums += [configs['verify']['time'] * 2]
+            elif res in ["untrain"]:
+                pass
+            else:
+                assert False, res
+
+        par_2 = np.mean(np.array(sums))
+
+        if v not in scr_dict.keys():
+            scr_dict[v] = [scr]
+            par_2_dict[v] = [par_2]
+        else:
+            scr_dict[v] += [scr]
+            par_2_dict[v] += [par_2]
+
+
+    print('{:>15}  {:>15}  {:>15}'.format('Verifier','SCR','PAR-2'))
+    print('-------------------------------------------------')
+    for v in verifiers:
+        print('{:>15}  {:>15}  {:>15}'.format(v, scr_dict[v][0], par_2_dict[v][0]))
+
+    '''
+    # save ca configurations
     config_dist = {}
     for n in nets:
         config_dist[''.join([str(n.vpc[x]) for x in n.vpc])] = n.vpc
 
     with open(f'./results/config_dist_{configs["name"]}_{configs["seed"]}.pickle', 'wb') as handle:
         pickle.dump(config_dist, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    '''
+        
 

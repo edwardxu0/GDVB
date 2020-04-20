@@ -3,7 +3,7 @@ maxmemory="32G"
 threshold=1e-9
 cuda=true
 type="classification"
-precompute_teacher=true
+precompute_teacher=false
 
 [distillation.parameters]
 epochs=10
