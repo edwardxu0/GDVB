@@ -41,17 +41,17 @@ width=100
 shuffle=true
 
 [distillation.data.train.teacher]
-path=".data/udacity.sdc.100/training"
+path="data/udacity.sdc.100/training"
 
 [distillation.data.train.student]
-path=".data/udacity.sdc.100/training"
+path="data/udacity.sdc.100/training"
 
 [distillation.data.validation]
 shuffle=false
 
 [distillation.data.validation.teacher]
-path=".data/udacity.sdc.100/validation"
+path="data/udacity.sdc.100/validation"
 
 [distillation.data.validation.student]
-path=".data/udacity.sdc.100/validation"
+path="data/udacity.sdc.100/validation"
 

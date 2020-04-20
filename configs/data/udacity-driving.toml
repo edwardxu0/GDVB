@@ -3,10 +3,10 @@ batchsize=100
 presized=false
 
 [student]
-path=".data/udacity.sdc.100/testing"
+path="data/udacity.sdc.100/testing"
 
 [teacher]
-path=".data/udacity.sdc.100/testing"
+path="data/udacity.sdc.100/testing"
 
 [transform]
 bgr=true
