@@ -1,4 +1,4 @@
-# GDVB(Generative Diverse DNN Verification Benchmarks) V1.0.0
+# Systematic Generation of Diverse Benchmarks for DNN Verifiers(GDVB) V1.0.2
 
 ## Directory Structure
 * configs: configuration files of GDVB.
@@ -9,7 +9,7 @@
 * tmp: temporary folder.
 * tools: tools to generate properties and so on.
 
-## Sample Usage
+## How to Use
 1. Load the virtual environment and get help.
 ```
 source openenv.sh

@@ -286,7 +286,6 @@ def train(nets, logger):
 
 
 def gen_props(nets, parameters, configs, logger):
-    logger.info('Generating properties ...')
     #for n in nets:
     for i in progressbar.progressbar(range(len(nets))):
         n = nets[i]

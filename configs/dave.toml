@@ -49,7 +49,7 @@ name = 'dave'
 	time = 14400
 	memory = '64G'
 	GRB_LICENSE_FILE="./lib/gurobi.lic"
-	verifiers = ['eran_deepzono','eran_deeppoly','eran_refinezono','eran_refinepoly','neurify','planet','bab','bab_sb','mipverify','reluplex']
+	verifiers = ['eran_deepzono','eran_deeppoly','eran_refinezono','eran_refinepoly','neurify','planet','bab','bab_sb','reluplex']
 
 	[verify.dispatch]
 		mode = 'local'
