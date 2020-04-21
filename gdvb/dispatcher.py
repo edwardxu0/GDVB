@@ -1,4 +1,5 @@
 import os
+import subprocess
 
 
 class Task():
@@ -43,7 +44,7 @@ class Task():
                     #cmd += f' > {self.log_path} 2>/dev/null'
                     #cmd += f' > {self.log_path} 2>{self.log_path}.err'
                 #print(cmd)
-                os.system(cmd)
+                subprocess.call(cmd, shell=True)
         else:
             assert False
 

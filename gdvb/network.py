@@ -200,14 +200,17 @@ class Network():
 
             grb_license_file = self.config['verify']['GRB_LICENSE_FILE']
             
+            os.environ["GRB_LICENSE_FILE"] = f"{grb_license_file}"
+            cmds = [cmd]
+
+            '''
             cmds = [f'export GRB_LICENSE_FILE="{grb_license_file}"',
                     f'export TMPDIR={tmp_dir}',
                     f'echo $TMPDIR',
                     f'mkdir -p $TMPDIR',
                     cmd,
                     f'rm -rf $TMPDIR']
-
-            cmds = [cmd]
+            '''
             
             task = Task(cmds,
                         self.config['verify']['dispatch'],

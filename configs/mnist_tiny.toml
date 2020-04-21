@@ -39,7 +39,7 @@ name = 'mnist_tiny'
 	memory = '2G'
 	GRB_LICENSE_FILE="./lib/gurobi.lic"
 	#verifiers = ['eran_deepzono','eran_deeppoly','eran_refinezono','eran_refinepoly','neurify','planet','bab','bab_sb','reluplex']
-	verifiers = ['eran_deepzono','eran_deeppoly','neurify','planet','reluplex']
+	verifiers = ['eran_deepzono','eran_deeppoly','neurify','planet','reluplex']	
 
 	[verify.dispatch]
 		mode = 'local'
