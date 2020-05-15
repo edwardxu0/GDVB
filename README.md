@@ -37,7 +37,7 @@ This project is built based on [R4V](https://arxiv.org/abs/1908.08026) and [DNNV
 
 2. Install dependencies.(Use the following command for Ubuntu based OSes.)
 ```
-sudo apt install python3-venv python3-dev default-jre cmake qt4-qmake
+sudo apt install python3-venv python3-dev cmake protobuf-compiler default-jre cmake qt4-qmake
 ```
 3. Create a virtual environment
 ```
