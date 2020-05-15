@@ -37,7 +37,7 @@ This project is built based on [R4V](https://arxiv.org/abs/1908.08026) and [DNNV
 
 2. Install dependencies.(Use the following command for Ubuntu based OSes.)
 ```
-sudo apt install default-jre cmake qt4-qmake
+sudo apt install python3-venv python3-dev default-jre cmake qt4-qmake
 ```
 3. Create a virtual environment
 ```
@@ -150,3 +150,6 @@ The "gdvb" directory contains the source code of the implementation in addition 
 
 ## Disclaimer
 1. [R4V](https://arxiv.org/abs/1908.08026) is still a private project that is under development. We included a snapshot of R4V in `lib/R4V` as it is a crucial part of GDVB. Please consider not to use R4V for other purposes than GDVB until it is officially released to the public. At that point, we will also update GDVB to accommodate the changes in the latest R4V.
+
+## Acknowledgements
+This material is based in part upon work supported by the National Science Foundation under grant numbers 1901769 and 1900676, by the U.S. Army Research Office under grant number W911NF-19-1-0054.
