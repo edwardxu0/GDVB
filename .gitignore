@@ -3,8 +3,7 @@ tmp/
 res*
 attic/
 data/
-lib/dnnv/
-lib/r4v/
+lib/DNNV/
 lib/acts.jar
 lib/gurobi.lic
 
