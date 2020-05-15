@@ -106,7 +106,7 @@ def gen(configs):
 
     open(ca_config_path,'w').writelines(lines)
     
-    cmd = f'java  -Ddoi={strength} -jar lib/acts_3.2.jar {ca_config_path} {ca_path} > /dev/null'
+    cmd = f'java  -Ddoi={strength} -jar lib/acts.jar {ca_config_path} {ca_path} > /dev/null'
     os.system(cmd)
     #os.remove(ca_config_path)
 

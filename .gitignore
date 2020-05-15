@@ -5,6 +5,8 @@ attic/
 data/
 lib/dnnv/
 lib/r4v/
+lib/acts.jar
+lib/gurobi.lic
 
 ## https://raw.githubusercontent.com/github/gitignore/master/Python.gitignore
 # Byte-compiled / optimized / DLL files
