@@ -10,7 +10,6 @@
     + [Directory Structure](#directory-structure)
   * [Disclaimer](#disclaimer)
 
-
 ## Overview
 GDVB allows for the generation of diverse DNN verification benchmarks.  While its focus is on benchmark generation, to illustrate its utility in this artifact we also include support for running a set of verifiers on the generated benchmarks.
 
@@ -30,15 +29,13 @@ Modularity was an important consideration when implementing GDVB. The implementa
 | ERAN_RZ  | Reachability          |
 | ERAN_RZ  | Reachability          |
 
-## Description of MCA
-
 ## Installation
 ### Dependencies
 This project is built based on [R4V](https://arxiv.org/abs/1908.08026) and [DNNV](https://github.com/dlshriver/DNNV).
 
-1. Aquire the [ACTS](https://csrc.nist.gov/projects/automated-combinatorial-testing-for-software) covering array generation tool. Store the `jar` file as `lib/acts.jar`.
+1. Acquire the [ACTS](https://csrc.nist.gov/projects/automated-combinatorial-testing-for-software) covering array generation tool. Store the `jar` file as `lib/acts.jar`.
 
-2. Install dependencies.(Use the following command for ubuntu based OSes.)
+2. Install dependencies.(Use the following command for Ubuntu based OSes.)
 ```
 sudo apt install default-jre cmake qt4-qmake
 ```
@@ -52,8 +49,12 @@ sudo apt install default-jre cmake qt4-qmake
 ```
 5. Install R4V and DNNV
 ```
-.env.d/manage.sh install R4V DNVN
+.env.d/manage.sh install R4V DNNV
 ```
+6. (Optional) Get a [Gurobi Lisense](https://www.gurobi.com/) and store it at `lib/gurobi.lic`. This step is required if you plan to use the eran_refinezono, eran_refinepoly, bab, or babsb verification tools.
+
+## Description of MCA
+
 
 ## Usage - Toy Example
 In this section, we focus on the MNIST_tiny as an example, and how to use the GDVB to generate the DNN verification benchmark and run verification with several tools, and finally we will analyze the results and depict useful information.
@@ -62,8 +63,7 @@ GDVB starts from a seed verification problem. In this case, it involves verifyin
 
 1. The GDVB uses a command-line interface, firstly we open a terminal, load the virtual environment and show tool's help.
 ```
-cd /home/user/GDVB/GDVB_code
-source openenv.sh
+. .env.d/openenv.sh
 python -m gdvb -h
 ```
 
@@ -128,7 +128,7 @@ Note that the results you get may differ slightly, e.g., due to stochasticity in
 5. The above commands for "MNIST_tiny" can also be run in the combined script `./scripts/run_mnist_tiny.sh`. The example results can be found in the `../example_results` folder and a sample execution log is stored at `../mnist_tiny.log.txt` file.
 
 ## Usage - Full Study
-!!! WARNING: The full study of two artifacts(MNIST-conv_big and DAVE-2) took 426.1 and 930.6 hours to run respectively with NVIDIA 1080Ti GPUs for training and 2.3/2.2GHz Xeon processors for verification. We do not recommend running it with a virtual machine.
+!!! WARNING: The full study of two artifacts(MNIST-conv_big and DAVE-2) took 426.1 and 930.6 hours to run respectively with NVIDIA 1080Ti GPUs for training and 2.3/2.2GHz Xeon processors for verification. We do not recommend running it without extensive resource.
 
 This following script will run the full study test cases to be used to generate results that are described in the paper.
 ```
@@ -149,6 +149,4 @@ This following script will run the full study test cases to be used to generate 
 The "gdvb" directory contains the source code of the implementation in addition to the "tools" folder. The "tools" folder contains the code to generate the properties to the verification problems. Except to the helper code, there are four main components in the "gdvb" directory. The "nn" component contains the methods to parse neural network in the "onnx" format and some utility functions. The "network.py" contains the methods to configure, train, and verify a neural network with the connection of "R4V" and "DNNV". The "genbench.py" contains the main functions to configure the MCA from GDVB configuration file, generating the MCA, creating the GDVB benchmark code, training, verifying, and depicting results, etc.
 
 ## Disclaimer
-1. We used the covering array generation tool "ACTS". This included tool is ONLY used for artifact evaluation purpose. If you are interested in this tool, it can be obtained at `https://csrc.nist.gov/projects/automated-combinatorial-testing-for-software`.
-
-2. To run the full study, you need to acquire a Gurobi license, and store it at `./lib/gurobi.lic` or a custom location with modification to the 'GRB_LICENSE_FILE' field in the configuration file. The Gurobi license can be obtained at `https://www.gurobi.com/`.
+1. [R4V](https://arxiv.org/abs/1908.08026) is still a private project that is under development. We included a snapshot of R4V in `lib/R4V` as it is a crucial part of GDVB. Please consider not to use R4V for other purposes than GDVB until it is officially released to the public. At that point, we will also update GDVB to accommodate the changes in the latest R4V.
