@@ -27,9 +27,7 @@ then
 			cd lib
 			git clone https://github.com/dlshriver/DNNV.git
 			cd DNNV
-			git checkout develop
-			#./manage.sh install reluplex planet mipverify neurify eran
-			./manage.sh install eran
+			./manage.sh install reluplex planet mipverify neurify eran
 			cd ../../
 			echo "Done."
         else
