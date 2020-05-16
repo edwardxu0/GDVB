@@ -36,8 +36,13 @@ This project is built based on [R4V](https://arxiv.org/abs/1908.08026) and [DNNV
 1. Acquire the [ACTS](https://csrc.nist.gov/projects/automated-combinatorial-testing-for-software) covering array generation tool. Store the `jar` file as `lib/acts.jar`.
 
 2. Install dependencies.(Use the following command for Ubuntu based OSes.)
++ GDVB dependencies
 ```
-sudo apt install python3-venv python3-dev cmake protobuf-compiler default-jre cmake qt4-qmake
+sudo apt install python3.6-venv python3.6-dev cmake protobuf-compiler default-jre
+```
++ Planet dependencies
+```
+sudo apt install libglpk-dev libltdl-dev qt5-default valgrind
 ```
 3. Create a virtual environment
 ```

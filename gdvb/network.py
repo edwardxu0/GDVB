@@ -188,7 +188,7 @@ class Network():
             prop_levels = [ x for x in prop_levels if str(eps) in '.'.join(x.split('.')[2:-1])]
             prop = prop_levels[self.vpc['prop']]
 
-            cmd = f'python -W ignore ./lib/dnnv/tools/resmonitor.py -T {time_limit} -M {memory_limit}'
+            cmd = f'python -W ignore ./lib/DNNV/tools/resmonitor.py -T {time_limit} -M {memory_limit}'
             cmd += f' python -m dnnv {self.dis_model_path} {prop_dir}/{prop} --{v_name} {verifier_parameters}'
 
             count += 1

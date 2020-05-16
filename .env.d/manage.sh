@@ -2,9 +2,9 @@
 
 if [ "$1" == "init" ]
 then
-    python3 -m venv .venv
+    python3.6 -m venv .venv
     . .venv/bin/activate
-    python -m pip install --upgrade pip setuptools wheel
+    python3.6 -m pip install --upgrade pip setuptools wheel
     while read req || [ -n "$req" ]
     do
         echo "pip install $req"
@@ -27,7 +27,9 @@ then
 			cd lib
 			git clone https://github.com/dlshriver/DNNV.git
 			cd DNNV
-			./manage.sh install reluplex planet mipverify neurify eran
+			git checkout develop
+			#./manage.sh install reluplex planet mipverify neurify eran
+			./manage.sh install eran
 			cd ../../
 			echo "Done."
         else

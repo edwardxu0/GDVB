@@ -296,6 +296,7 @@ def gen_props(nets, parameters, configs, logger):
         data_config['transform'] = transform
 
         formatted_data = toml.dumps(data_config)
+
         with open('./tmp/data.toml', 'w') as f:
             f.write(formatted_data)
 

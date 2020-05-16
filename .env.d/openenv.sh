@@ -7,10 +7,10 @@ export GDVB=`pwd`
 export PYTHONPATH="${PYTHONPATH}:${GDVB}"
 
 # r4v
-export PYTHONPATH="${PYTHONPATH}:${GDVB}/lib/r4v/"
+export PYTHONPATH="${PYTHONPATH}:${GDVB}/lib/R4V/"
 
 # dnnv
-export DNNV_DIR="${GDVB}/lib/dnnv"
+export DNNV_DIR="${GDVB}/lib/DNNV"
 export PATH=$DNNV_DIR/bin/:$PATH
 export LD_LIBRARY_PATH=$DNNV_DIR/lib/:$LD_LIBRARY_PATH
 export PYTHONPATH=$DNNV_DIR:$PYTHONPATH

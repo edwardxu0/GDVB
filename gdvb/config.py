@@ -12,8 +12,10 @@ def configure(args):
     subdirs = ['dis_config','dis_model','dis_slurm','dis_log','props','veri_slurm','veri_log']
 
     pathlib.Path(configs['root']).mkdir(parents=True, exist_ok=True)
+    pathlib.Path('./tmp').mkdir(parents=True, exist_ok=True)
     for sd in subdirs:
         configs[sd+'_dir'] = os.path.join(configs['root'],sd)
         pathlib.Path(configs[sd+'_dir']).mkdir(parents=True, exist_ok=True)
+
 
     return configs

@@ -10,3 +10,4 @@ scipy==1.3
 tensorflow==1.15.2
 keras==2.3
 pyfiglet
+progressbar2==3.50.1
