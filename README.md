@@ -10,7 +10,9 @@
   * [Acknowledgements](#acknowledgements)
 
 ## Overview
-GDVB allows for the generation of diverse DNN verification benchmarks.  While its focus is on benchmark generation, to illustrate its utility in this artifact we also include support for running a set of verifiers on the generated benchmarks.
+GDVB allows for the generation of diverse DNN verification benchmarks that is described in the this paper, [Systematic Generation of Diverse Benchmarks for DNN Verification](https://github.com/edwardxu0/GDVB).
+
+While focus of GDVB is on benchmark generation, to illustrate its utility in this artifact we also include support for running a set of verifiers on the generated benchmarks.
 
 This documentation explains the usage of the included GDVB implementation including: the commands, the inputs, and expected output.  The GDVB paper includes two large case studies applied to non-trivial DNNs.  While generating the benchmark configurations in the studies takes little time, training the test cases and running the verifiers on the benchmarks took several hundreds of hours on powerful GPU servers.  Consequently, to demonstrate the end-to-end usage of GDVB tool in a reasonable amount time, we designed a toy MNIST example(MNIST_tiny), on which this document mainly focuses.  Note that this toy example is not included in the paper.
 
