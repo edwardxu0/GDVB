@@ -10,7 +10,7 @@
   * [Acknowledgements](#acknowledgements)
 
 ## Overview
-GDVB allows for the generation of diverse DNN verification benchmarks that is described in the this paper, [Systematic Generation of Diverse Benchmarks for DNN Verification](https://github.com/edwardxu0/GDVB).
+GDVB allows for the generation of diverse DNN verification benchmarks that is described in the this paper, [Systematic Generation of Diverse Benchmarks for DNN Verification](https://link.springer.com/chapter/10.1007/978-3-030-53288-8_5).
 
 While focus of GDVB is on benchmark generation, to illustrate its utility in this artifact we also include support for running a set of verifiers on the generated benchmarks.
 
