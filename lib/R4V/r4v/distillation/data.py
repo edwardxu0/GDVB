@@ -222,34 +222,6 @@ class Dronet(TeacherStudentDataset):
             & (np.isnan(target0) == np.isnan(target1))
         ).all()
 
-
-class MNIST(data.Dataset):
-    def __init__(self, root, transforms=None, target_transforms=None, loader=default_loader):
-        self.dataset = datasets.MNIST(root, train=True, transform=None, target_transform=None, download=True)
-        self.transforms = transforms
-        self.target_transforms = target_transforms
-
-    def assert_same_targets(self, target0, target1):
-        assert target0 == target1
-
-    def __getitem__(self, index):
-        samples = []
-        targets = []
-
-        for i in range(len(self.transforms)):
-            sample, target = self.dataset[index]
-            if self.transforms is not None:
-                sample = self.transforms[i](sample)
-            if self.target_transforms is not None:
-                target = self.target_transforms[i](target)
-            samples.append(sample)
-            targets.append(target)
-            self.assert_same_targets(target, targets[0])
-
-        return tuple([index] + samples + [target])
-
-    def __len__(self):
-        return len(self.dataset)
         
 
 class DuplicateTeacher(data.Dataset):
@@ -404,6 +376,35 @@ def mnist(data_config):
     return data_loader
 
 
+class MNIST(data.Dataset):
+    def __init__(self, root, transforms=None, target_transforms=None, loader=default_loader):
+        self.dataset = datasets.MNIST(root, train=True, transform=None, target_transform=None, download=True)
+        self.transforms = transforms
+        self.target_transforms = target_transforms
+
+    def assert_same_targets(self, target0, target1):
+        assert target0 == target1
+
+    def __getitem__(self, index):
+        samples = []
+        targets = []
+
+        for i in range(len(self.transforms)):
+            sample, target = self.dataset[index]
+            if self.transforms is not None:
+                sample = self.transforms[i](sample)
+            if self.target_transforms is not None:
+                target = self.target_transforms[i](target)
+            samples.append(sample)
+            targets.append(target)
+            self.assert_same_targets(target, targets[0])
+
+        return tuple([index] + samples + [target])
+
+    def __len__(self):
+        return len(self.dataset)
+
+
 def acas(data_config):
     batch_size = data_config.batch_size
     dataset = ACAS(
@@ -420,17 +421,23 @@ def acas(data_config):
 
 class ACAS(data.Dataset):
     def __init__(self, troot, sroot):
-        self.dataset_teacher = np.load(troot).astype(np.float32)
-        self.dataset_student = np.load(sroot).astype(np.float32)
+        self.data_teacher = np.load(os.path.join(troot,'data.npy')).astype(np.float32)
+        self.labels_teacher = np.load(os.path.join(troot,'label.npy')).astype(np.float32)
+        self.data_student = np.load(os.path.join(troot,'data.npy')).astype(np.float32)
+        self.labels_student = np.load(os.path.join(troot,'label.npy')).astype(np.float32)
         
     def __getitem__(self, index):
-        sample_teacher = torch.from_numpy(self.dataset_teacher[index])
-        sample_student = torch.from_numpy(self.dataset_student[index])
-        return index,sample_teacher,sample_student,torch.zeros((5))
+        sample_data_teacher = torch.from_numpy(self.data_teacher[index])
+        sample_labels_teacher = torch.from_numpy(self.labels_teacher[index])
+        sample_data_student = torch.from_numpy(self.data_student[index])
+        sample_labels_student = torch.from_numpy(self.labels_student[index])
+        
+        assert torch.equal(sample_labels_teacher, sample_labels_student)
+        return index,sample_data_teacher,sample_data_student,sample_labels_teacher
+    
 
     def __len__(self):
-        return len(self.dataset_teacher)
-
+        return len(self.data_teacher)
 
 
 def dronet(data_config):

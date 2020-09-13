@@ -186,11 +186,8 @@ def gen(configs):
             else:
                 assert False
         else:
-            ids_f = parameters['ids'][vpc['ids']]
-            n.distillation_config['distillation']['data']['train']['student']['path'] = f'data/acas/acas_train_{ids_f}.npy'
-            n.distillation_config['distillation']['data']['validation']['student']['path'] = f'data/acas/acas_valid_{ids_f}.npy'
-            #print(ids_f)
-            #print(n.distillation_config)
+            pass
+
 
         #print('before:')
         #print(dis_strats)
@@ -243,7 +240,10 @@ def gen(configs):
         verify(nets, configs, parameters, logger)
 
     elif configs['task'] == 'analyze':
-        analyze(nets, configs)
+        if configs['name'] == 'acas':
+            analyze_acas(nets, configs)
+        else:
+            analyze(nets, configs)
 
     else:
         raise Exception("Unknown task.")
@@ -290,29 +290,35 @@ def gen_props(nets, parameters, configs, logger):
     for i in progressbar.progressbar(range(len(nets))):
         n = nets[i]
 
-        data_config = open(configs['dnn']['data_config'],'r').read()
-        data_config = toml.loads(data_config)
-        transform = n.distillation_config['distillation']['data']['transform']['student']
-        data_config['transform'] = transform
-
-        formatted_data = toml.dumps(data_config)
-
-        with open('./tmp/data.toml', 'w') as f:
-            f.write(formatted_data)
-
-        prop_dir = f'{configs["props_dir"]}/{n.name}/'
-
-        eps = (parameters['eps']*configs['verify']['eps'])[n.vpc['eps']]
-
-        if 'dave' in configs['name']:
-            cmd =f'python ./tools/generate_dave_properties.py ./tmp/data.toml {prop_dir} -g 15 > /dev/null 2>&1'
-        elif 'mcb' in configs['name'] or 'mnist' in configs['name']:
-            cmd = f'python ./tools/generate_mnist_properties.py ./tmp/data.toml {prop_dir} > /dev/null 2>&1'
+        if configs['name'] == 'acas':
+            prop_dir = f'{configs["props_dir"]}/{n.name}/'
+            cmd =f'python ./tools/generate_acas_properties.py -d {prop_dir} -s 1'
+            os.system(cmd)
+            
         else:
-            raise NotImplementedError
-        cmd += f' -e {eps} -N {len(parameters["prop"])}'
-        os.system(cmd)
-        os.system('rm ./tmp/data.toml')
+            data_config = open(configs['dnn']['data_config'],'r').read()
+            data_config = toml.loads(data_config)
+            transform = n.distillation_config['distillation']['data']['transform']['student']
+            data_config['transform'] = transform
+
+            formatted_data = toml.dumps(data_config)
+
+            with open('./tmp/data.toml', 'w') as f:
+                f.write(formatted_data)
+
+            prop_dir = f'{configs["props_dir"]}/{n.name}/'
+
+            eps = (parameters['eps']*configs['verify']['eps'])[n.vpc['eps']]
+
+            if 'dave' in configs['name']:
+                cmd =f'python ./tools/generate_dave_properties.py ./tmp/data.toml {prop_dir} -g 15 > /dev/null 2>&1'
+            elif 'mcb' in configs['name'] or 'mnist' in configs['name']:
+                cmd = f'python ./tools/generate_mnist_properties.py ./tmp/data.toml {prop_dir} > /dev/null 2>&1'
+            else:
+                raise NotImplementedError
+            cmd += f' -e {eps} -N {len(parameters["prop"])}'
+            os.system(cmd)
+            os.system('rm ./tmp/data.toml')
 
 
 def verify(nets, configs, parameters, logger):
@@ -321,7 +327,6 @@ def verify(nets, configs, parameters, logger):
         logger.info(f'Verifying network {n.name} ...')
         n.verify(parameters,logger)
         logger.info(f'Verifying network {n.name} done.')
-        #break
 
 
 def analyze(nets, configs):
@@ -386,7 +391,7 @@ def analyze(nets, configs):
                     #print(res, log)
 
             if res not in ['sat','unsat']:
-                v_time = 14400
+                v_time = configs['verify']['time']
 
             assert res in ['sat','unsat','unknown','timeout','memout','error', 'unsup', 'running', 'torun'], log
             results[v][vpc] = [res,v_time]
@@ -449,4 +454,138 @@ def analyze(nets, configs):
         pickle.dump(config_dist, handle, protocol=pickle.HIGHEST_PROTOCOL)
     '''
         
+def analyze_acas(nets, configs):
+    verifiers = configs['verify']['verifiers']
+    results = {x:{} for x in verifiers}
 
+    for n in nets:
+        for v in verifiers:
+            vpc = ''.join([str(n.vpc[x]) for x in n.vpc])
+            
+            all_logs = [x for x in os.listdir(f"{n.config['veri_log_dir']}") if f'{vpc}_{v}' in x]
+
+            for log in all_logs:              
+                log = f"{n.config['veri_log_dir']}/{log}"
+                vpc2 = vpc+log.split('_')[-1].split('.')[0]
+                if not os.path.exists(log):
+                    res = 'torun'
+                    #print(res, log)
+                else:
+                    rlines = [x for x in reversed(open(log,'r').readlines())]
+
+                    res = None
+                    v_time = None
+
+                    for i,l in enumerate(rlines):
+                        if l.startswith('INFO'):# or l.startswith('DEBUG'):
+                            continue 
+
+                        if '[STDERR]:Error: GLP returned error 5 (GLP_EFAIL)' in l:
+                            res = 'error'
+                            #print(log)
+                            break
+
+                        if "*** Error in `python':" in l:
+                            res = 'error'
+                            #print(log)
+                            break
+
+                        if 'Cannot serialize protocol buffer of type ' in l:
+                            res = 'error'
+                            #print(log)
+                            break
+
+                        if 'OverflowError: integer division res' in l:
+                            res = 'error'
+                            break
+
+                        if 'Timeout' in l:
+                            res = 'timeout'
+                            break
+
+                        elif 'Out of Memory' in l:
+                            res = 'memout'
+                            break
+
+                        if l.startswith('  result: '):
+                            if 'Unsupported' in l or 'not support' in l or 'Unknown MIPVerify' in l or 'Unknown property check result' in l:
+                                res = 'unsup'
+                                break
+                            elif 'NeurifyError' in l or 'PlanetError' in l:
+                                res = 'error'
+                                break
+                            else:
+                                res = l.strip().split(' ')[-1]
+                                v_time = float(rlines[i-1].strip().split(' ')[-1])
+                                break
+
+                    # remove this
+                    if i == len(rlines)-1:
+                        res = 'running'
+                        #print(res, log)
+
+                if res not in ['sat','unsat']:
+                    v_time = configs['verify']['time']
+
+                assert res in ['sat','unsat','unknown','timeout','memout','error', 'unsup', 'running', 'torun'], log
+                results[v][vpc2] = [res,v_time]
+
+    assert len(set([len(results[x]) for x in results.keys()])) == 1
+
+    with open(f'./results/verification_results_{configs["name"]}_{configs["seed"]}.pickle', 'wb') as handle:
+        pickle.dump(results, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+    
+    # calculate scr and par2 scores
+    scr_dict = {}
+    par_2_dict = {}
+    for v in verifiers:
+        sums = []
+        scr = 0
+        for vpc_k in results[v]:
+            res = results[v][vpc_k][0]
+            vtime = results[v][vpc_k][1]
+            if res == "running":
+                print(f"running: {v} {vpc_k}")
+            if res in ["sat", "unsat"]:
+                scr += 1
+                sums += [vtime]
+            elif res in [
+                "unknown",
+                "timeout",
+                "memout",
+                "error",
+                "unsup",
+                "running",
+            ]:
+                sums += [configs['verify']['time'] * 2]
+            elif res in ["untrain"]:
+                pass
+            else:
+                assert False, res
+
+        par_2 = np.mean(np.array(sums))
+
+        if v not in scr_dict.keys():
+            scr_dict[v] = [scr]
+            par_2_dict[v] = [par_2]
+        else:
+            scr_dict[v] += [scr]
+            par_2_dict[v] += [par_2]
+
+
+    print('{:>15}  {:>15}  {:>15}'.format('Verifier','SCR','PAR-2'))
+    print('-------------------------------------------------')
+    for v in verifiers:
+        print('{:>15}  {:>15}  {:>15}'.format(v, scr_dict[v][0], par_2_dict[v][0]))
+
+    '''
+    # save ca configurations
+    config_dist = {}
+    for n in nets:
+        config_dist[''.join([str(n.vpc[x]) for x in n.vpc])] = n.vpc
+
+    with open(f'./results/config_dist_{configs["name"]}_{configs["seed"]}.pickle', 'wb') as handle:
+        pickle.dump(config_dist, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    '''
+        

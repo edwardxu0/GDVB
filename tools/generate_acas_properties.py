@@ -8,8 +8,8 @@ import copy
 
 def _parse_args():
     parser = argparse.ArgumentParser(description='generate data for the ACAS network.')
-    parser.add_argument('--scale', type=float, default=1, help='scale the range of the data')
-    parser.add_argument('--output_dir', type=str, default='./props/acas/', help='')
+    parser.add_argument('-s','--scale', type=float, default=1, help='scale the range of the data')
+    parser.add_argument('-d','--output_dir', type=str, default='./props/acas/', help='')
     
     return parser.parse_args()
 
@@ -169,4 +169,4 @@ if __name__ == '__main__':
     properties = {x:globals()[f'p{x}'](copy.deepcopy(mmmr), args.scale) for x in properties}
 
     for k in properties:
-        open(os.path.join(args.output_dir, f'{k}.{args.scale}.py'),'w').writelines(properties[k])
+        open(os.path.join(args.output_dir, f'{k}_{args.scale}.py'),'w').writelines(properties[k])

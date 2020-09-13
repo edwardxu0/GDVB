@@ -25,16 +25,16 @@ model="./configs/networks/acas_1_1.onnx"
 shuffle=true
 
 [distillation.data.train.teacher]
-path="data/acas/acas_train_1.0.npy"
+path="data/acas/train"
 
 [distillation.data.train.student]
-path="data/acas/acas_train_1.0.npy"
+path="data/acas/train"
 
 [distillation.data.validation]
 shuffle=false
 
 [distillation.data.validation.teacher]
-path="data/acas/acas_valid_1.0.npy"
+path="data/acas/valid"
 
 [distillation.data.validation.student]
-path="data/acas/acas_valid_1.0.npy"
+path="data/acas/valid"

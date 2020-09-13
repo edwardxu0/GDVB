@@ -178,44 +178,69 @@ class Network():
                 v_name = v
                 verifier_parameters = ""
 
-            if not configs['name'] == 'acas':
-                prop_dir = f'{configs["props_dir"]}/{self.name}/'
+            prop_dir = f'{configs["props_dir"]}/{self.name}/'
+
+            if configs['name'] == 'acas':
+                props = sorted(os.listdir(prop_dir))
+                for p in props:
+                    cmd = f'python -W ignore ./lib/DNNV/tools/resmonitor.py -T {time_limit} -M {memory_limit}'
+                    cmd += f' python -m dnnv {self.dis_model_path} {prop_dir}/{p} --{v_name} {verifier_parameters}'
+
+                    count += 1
+                    logger.info(f'Verifying with {v} {count}/{len(verifiers)}')
+                    vpc = ''.join([str(self.vpc[x]) for x in self.vpc])
+
+                    veri_log = f'{self.config["veri_log_dir"]}/{vpc}_{v}.out'
+                    tmp_dir = f'"./tmp/{configs["name"]}_{configs["seed"]}_{vpc}_{v}"'
+
+                    grb_license_file = self.config['verify']['GRB_LICENSE_FILE']
+
+                    os.environ["GRB_LICENSE_FILE"] = f"{grb_license_file}"
+                    cmds = [cmd]
+                    print(cmd)
+                    task = Task(cmds,
+                                self.config['verify']['dispatch'],
+                                "GDVB_Verify",
+                                f'{self.config["veri_log_dir"]}/{vpc}_{v}_{p[0]}.out',
+                                os.path.join(self.config['veri_slurm_dir'],f'{vpc}_{v}.slurm')
+                    )
+                    task.run()
+
             else:
-                prop_dir = 'props/acas/'
-            #prop_dir = f'{configs["props_dir"]}/{configs["network_name"]}.{input_dimension_levels[n.vpc["in_dim"]]}.{input_domain_size_levels[n.vpc["in_dom_size"]]}.{epsilon_levels[n.vpc["epsilon"]]}'
-            eps = (parameters['eps']*configs['verify']['eps'])[self.vpc['eps']]
-            prop_levels = sorted([x for x in os.listdir(prop_dir) if '.py' in x])
-            prop_levels = [ x for x in prop_levels if str(eps) in '.'.join(x.split('.')[2:-1])]
-            prop = prop_levels[self.vpc['prop']]
+                eps = (parameters['eps']*configs['verify']['eps'])[self.vpc['eps']]
+                prop_levels = sorted([x for x in os.listdir(prop_dir) if '.py' in x])
+                prop_levels = [ x for x in prop_levels if str(eps) in '.'.join(x.split('.')[2:-1])]
+                prop = prop_levels[self.vpc['prop']]
 
-            cmd = f'python -W ignore ./lib/DNNV/tools/resmonitor.py -T {time_limit} -M {memory_limit}'
-            cmd += f' python -m dnnv {self.dis_model_path} {prop_dir}/{prop} --{v_name} {verifier_parameters}'
+                cmd = f'python -W ignore ./lib/DNNV/tools/resmonitor.py -T {time_limit} -M {memory_limit}'
+                cmd += f' python -m dnnv {self.dis_model_path} {prop_dir}/{prop} --{v_name} {verifier_parameters}'
 
-            count += 1
-            logger.info(f'Verifying with {v} {count}/{len(verifiers)}')
-            vpc = ''.join([str(self.vpc[x]) for x in self.vpc])
+                count += 1
+                logger.info(f'Verifying with {v} {count}/{len(verifiers)}')
+                vpc = ''.join([str(self.vpc[x]) for x in self.vpc])
 
-            veri_log = f'{self.config["veri_log_dir"]}/{vpc}_{v}.out'
-            tmp_dir = f'"./tmp/{configs["name"]}_{configs["seed"]}_{vpc}_{v}"'
+                veri_log = f'{self.config["veri_log_dir"]}/{vpc}_{v}.out'
+                tmp_dir = f'"./tmp/{configs["name"]}_{configs["seed"]}_{vpc}_{v}"'
 
-            grb_license_file = self.config['verify']['GRB_LICENSE_FILE']
-            
-            os.environ["GRB_LICENSE_FILE"] = f"{grb_license_file}"
-            cmds = [cmd]
+                grb_license_file = self.config['verify']['GRB_LICENSE_FILE']
 
-            '''
-            cmds = [f'export GRB_LICENSE_FILE="{grb_license_file}"',
-                    f'export TMPDIR={tmp_dir}',
-                    f'echo $TMPDIR',
-                    f'mkdir -p $TMPDIR',
-                    cmd,
-                    f'rm -rf $TMPDIR']
-            '''
-            
-            task = Task(cmds,
-                        self.config['verify']['dispatch'],
-                        "GDVB_Verify",
-                        f'{self.config["veri_log_dir"]}/{vpc}_{v}.out',
-                        os.path.join(self.config['veri_slurm_dir'],f'{vpc}_{v}.slurm')
-            )
-            task.run()
+                os.environ["GRB_LICENSE_FILE"] = f"{grb_license_file}"
+                cmds = [cmd]
+
+                '''
+                cmds = [f'export GRB_LICENSE_FILE="{grb_license_file}"',
+                        f'export TMPDIR={tmp_dir}',
+                        f'echo $TMPDIR',
+                        f'mkdir -p $TMPDIR',
+                        cmd,
+                        f'rm -rf $TMPDIR']
+                '''
+
+                task = Task(cmds,
+                            self.config['verify']['dispatch'],
+                            "GDVB_Verify",
+                            f'{self.config["veri_log_dir"]}/{vpc}_{v}.out',
+                            os.path.join(self.config['veri_slurm_dir'],f'{vpc}_{v}.slurm')
+                )
+                task.run()
+
