@@ -458,9 +458,14 @@ def gen_data(args):
     sess = tf.InteractiveSession(config=tf.ConfigProto(gpu_options=gpu_options, allow_soft_placement=True))
     sess.run(tf.global_variables_initializer())
 
-    torch_teacher = load_torch_teacher(DEFAULT_MODEL)
-    torch_teacher.eval()
-    torch.onnx.export(torch_teacher, torch.zeros(1,5), 'acas_1_1.onnx', verbose=True)
+    for a in range(1,6):
+        for b in range(1,10):
+            model = './acas/nnet/ACASXU_run2a_'+str(a)+'_'+ str(b)+'_batch_2000.nnet'
+            
+            torch_teacher = load_torch_teacher(model)
+            torch_teacher.eval()
+            torch.onnx.export(torch_teacher, torch.zeros(1,5), f'acas_{a}_{b}.onnx', verbose=True)
+    exit()
 
 
     flag = True

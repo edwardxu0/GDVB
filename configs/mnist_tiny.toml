@@ -43,4 +43,3 @@ name = 'mnist_tiny'
 
 	[verify.dispatch]
 		mode = 'local'
-

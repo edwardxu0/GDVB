@@ -29,9 +29,10 @@ def prop_skeleton(mmmr,scale):
         "y_range = 373.94992"]
 
 
+# all 45 networks
 def p1(mmmr,scale):
     mmmr[0][0] = 55947.691
-    mmmr[0][3] = 11
+    mmmr[0][3] = 1145
     mmmr[1][4] = 60
     
     prop_lines = prop_skeleton(mmmr,scale)
@@ -48,6 +49,27 @@ def p1(mmmr,scale):
     return prop_lines
 
 
+# Nx,y or all x>=2 and all y
+def p2(mmmr,scale):
+    mmmr[0][0] = 55947.691
+    mmmr[0][3] = 1145
+    mmmr[1][4] = 60
+    
+    prop_lines = prop_skeleton(mmmr,scale)
+    prop_lines +=[
+        "Forall(",
+        "    x,",
+        "    Implies(",
+        "        (x_min < x < x_max),",
+        "        Or(N(x)[0,0]<N(x)[0,1], N(x)[0,0]<N(x)[0,2], N(x)[0,0]<N(x)[0,3], N(x)[0,0]<N(x)[0,4])",
+        "    ),",
+        ")"
+    ]
+    prop_lines = [x+'\n' for x  in prop_lines]
+    return prop_lines    
+
+
+# All networks except for N_1_7, N_1_8, and N_1_9
 def p3(mmmr,scale):
     mmmr[0][0] = 1500
     mmmr[1][0] = 1500
@@ -70,6 +92,7 @@ def p3(mmmr,scale):
     return prop_lines
 
 
+# All networks except for N_1_7, N_1_8, and N_1_9
 def p4(mmmr,scale):
     mmmr[0][0] = 1500
     mmmr[1][0] = 1800
@@ -94,6 +117,7 @@ def p4(mmmr,scale):
     return prop_lines
 
 
+# Tested on N_1_1
 def p5(mmmr,scale):
     mmmr[0][0] = 250
     mmmr[1][0] = 400
@@ -118,7 +142,8 @@ def p5(mmmr,scale):
     prop_lines = [x+'\n' for x  in prop_lines]
     return prop_lines
 
-    
+
+# Tested on N_1_1
 def p6(mmmr,scale):
     mmmr[0][0] = 12000
     mmmr[1][0] = 62000
@@ -154,6 +179,110 @@ def p6(mmmr,scale):
     return prop_lines
 
 
+# Tested on N_1_9
+def p7(mmmr,scale):
+    mmmr[0][0] = 0
+    mmmr[1][0] = 60760
+    mmmr[0][1] = -3.141592
+    mmmr[1][1] = 3.141592
+    mmmr[0][2] = -3.141592
+    mmmr[1][2] = 3.141592
+    mmmr[0][3] = 100
+    mmmr[1][3] = 1200
+    mmmr[0][4] = 0
+    mmmr[1][4] = 1200
+    
+    prop_lines = prop_skeleton(mmmr,scale)
+    prop_lines +=[
+        "Forall(",
+        "    x,",
+        "    Implies(",
+        "        (x_min < x < x_max),",
+        "        And(Or(N(x)[0,3]<N(x)[0,0], N(x)[0,3]<N(x)[0,1], N(x)[0,3]<N(x)[0,2]),Or(N(x)[0,4]<N(x)[0,0], N(x)[0,4]<N(x)[0,1], N(x)[0,4]<N(x)[0,2]))",
+        "    ),",
+        ")"]
+    prop_lines = [x+'\n' for x  in prop_lines]    
+    return prop_lines
+
+
+# Tested on N_2_9
+def p8(mmmr,scale):
+    mmmr[0][0] = 0
+    mmmr[1][0] = 60760
+    mmmr[0][1] = -3.141592
+    mmmr[1][1] = -0.75*3.141592
+    mmmr[0][2] = -0.1
+    mmmr[1][2] = 0.1
+    mmmr[0][3] = 600
+    mmmr[1][3] = 1200
+    mmmr[0][4] = 600
+    mmmr[1][4] = 1200
+    
+    prop_lines = prop_skeleton(mmmr,scale)
+    prop_lines +=[
+        "Forall(",
+        "    x,",
+        "    Implies(",
+        "        (x_min < x < x_max),",
+        "        Or(argmin(N(x)) == 0, argmin(N(x)) == 1)",
+        "    ),",
+        ")"]
+    prop_lines = [x+'\n' for x  in prop_lines]    
+    return prop_lines
+
+
+# Tested on N_3_3
+def p9(mmmr,scale):
+    mmmr[0][0] = 2000
+    mmmr[1][0] = 7000
+    mmmr[0][1] = -0.4
+    mmmr[1][1] = -0.14
+    mmmr[0][2] = -3.141592
+    mmmr[1][2] = -3.141592+0.01
+    mmmr[0][3] = 100
+    mmmr[1][3] = 150
+    mmmr[0][4] = 0
+    mmmr[1][4] = 150
+    
+    prop_lines = prop_skeleton(mmmr,scale)
+    prop_lines +=[
+        "Forall(",
+        "    x,",
+        "    Implies(",
+        "        (x_min < x < x_max),",
+        "        argmin(N(x)) == 3",
+        "    ),",
+        ")"]
+    prop_lines = [x+'\n' for x  in prop_lines]    
+    return prop_lines
+
+
+# Tested on N_4_5
+def p10(mmmr,scale):
+    mmmr[0][0] = 36000
+    mmmr[1][0] = 60760
+    mmmr[0][1] = 0.7
+    mmmr[1][1] = 3.141592
+    mmmr[0][2] = -3.141592
+    mmmr[1][2] = -3.141592+0.01
+    mmmr[0][3] = 900
+    mmmr[1][3] = 1200
+    mmmr[0][4] = 600
+    mmmr[1][4] = 1200
+    
+    prop_lines = prop_skeleton(mmmr,scale)
+    prop_lines +=[
+        "Forall(",
+        "    x,",
+        "    Implies(",
+        "        (x_min < x < x_max),",
+        "        argmin(N(x)) == 0",
+        "    ),",
+        ")"]
+    prop_lines = [x+'\n' for x  in prop_lines]    
+    return prop_lines
+
+
 if __name__ == '__main__':
     args = _parse_args()    
     if not os.path.exists(args.output_dir):
@@ -165,7 +294,8 @@ if __name__ == '__main__':
     x_range = [60261.0,6.28318530718,6.28318530718,1100.0,1200.0]
     mmmr = [x_min,x_max,x_mean,x_range]
 
-    properties = [1,3,4,5,6]
+    #properties = [1,3,4,5,6]
+    properties = range(1,11)
     properties = {x:globals()[f'p{x}'](copy.deepcopy(mmmr), args.scale) for x in properties}
 
     for k in properties:
