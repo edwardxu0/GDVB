@@ -54,11 +54,6 @@ class Network():
         self.scale_ids_factors = scale_ids_factors
 
         self.distillation_config['distillation']['parameters']['epochs'] = self.config['train']['epoches']
-        if self.config['train']['dispatch']['gpu'] == True:
-            self.distillation_config['distillation']['cuda'] = True
-        else:
-            self.distillation_config['distillation']['cuda'] = False
-        
         self.dis_config_path = os.path.join(self.config['dis_config_dir'], self.name + '.toml')
         self.dis_model_path = os.path.join(self.config['dis_model_dir'], self.name +'.onnx')
         self.dis_log_path = os.path.join(self.config['dis_log_dir'], self.name + '.out')
@@ -144,11 +139,9 @@ class Network():
         lines += ['path="'+self.dis_model_path+'"']
         lines = [x+'\n' for x in lines]
 
-        with open(self.dis_config_path, 'a') as f:
-            for l in lines:
-                f.write(l)
+        open(self.dis_config_path, 'a').writelines(lines)
 
-        cmds = ['python -W ignore -m r4v distill {}'.format(self.dis_config_path)]
+        cmds = ['./scripts/run_r4v.sh distill {} --debug'.format(self.dis_config_path)]
         task = Task(cmds,
                     self.config['train']['dispatch'],
                     "GDVB_Train",
@@ -173,7 +166,7 @@ class Network():
                 verifier_parameters = f'--eran.domain {v.split("_")[1]}'
             elif v == 'bab_sb':
                 v_name = 'bab'
-                verifier_parameters = '--bab.smart_branching'
+                verifier_parameters = '--bab.smart_branching True'
             else:
                 v_name = v
                 verifier_parameters = ""
@@ -184,7 +177,7 @@ class Network():
                 props = sorted(os.listdir(prop_dir))
                 for p in props:
                     cmd = f'python -W ignore ./lib/DNNV/tools/resmonitor.py -T {time_limit} -M {memory_limit}'
-                    cmd += f' python -m dnnv {self.dis_model_path} {prop_dir}/{p} --{v_name} {verifier_parameters}'
+                    cmd += f' ./scripts/run_dnnv.sh {prop_dir}/{p} --network N {self.dis_model_path} --{v_name} {verifier_parameters}'
 
                     count += 1
                     logger.info(f'Verifying with {v} {count}/{len(verifiers)}')
@@ -193,11 +186,8 @@ class Network():
                     veri_log = f'{self.config["veri_log_dir"]}/{vpc}_{v}.out'
                     tmp_dir = f'"./tmp/{configs["name"]}_{configs["seed"]}_{vpc}_{v}"'
 
-                    grb_license_file = self.config['verify']['GRB_LICENSE_FILE']
-
-                    os.environ["GRB_LICENSE_FILE"] = f"{grb_license_file}"
+                    print(f'{self.config["veri_log_dir"]}/{vpc}_{v}_{p[0]}.out')
                     cmds = [cmd]
-                    print(cmd)
                     task = Task(cmds,
                                 self.config['verify']['dispatch'],
                                 "GDVB_Verify",
@@ -205,15 +195,16 @@ class Network():
                                 os.path.join(self.config['veri_slurm_dir'],f'{vpc}_{v}.slurm')
                     )
                     task.run()
+                    exit()
 
             else:
                 eps = (parameters['eps']*configs['verify']['eps'])[self.vpc['eps']]
                 prop_levels = sorted([x for x in os.listdir(prop_dir) if '.py' in x])
                 prop_levels = [ x for x in prop_levels if str(eps) in '.'.join(x.split('.')[2:-1])]
                 prop = prop_levels[self.vpc['prop']]
-
+                
                 cmd = f'python -W ignore ./lib/DNNV/tools/resmonitor.py -T {time_limit} -M {memory_limit}'
-                cmd += f' python -m dnnv {self.dis_model_path} {prop_dir}/{prop} --{v_name} {verifier_parameters}'
+                cmd += f' ./scripts/run_dnnv.sh {prop_dir}/{prop} --network N {self.dis_model_path} --{v_name} {verifier_parameters}'
 
                 count += 1
                 logger.info(f'Verifying with {v} {count}/{len(verifiers)}')

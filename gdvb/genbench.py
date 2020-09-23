@@ -74,7 +74,16 @@ def gen(configs):
         parameters[key] = level
 
         assert len(parameters[key]) == level_size
-    #print(parameters)
+
+    # debug remaining layers
+    possible_remaining_layers_str = "Possible remaining # of FC layers: "
+    for i in range(len(parameters['fc'])):
+        possible_remaining_layers_str += f"{int(round(len(fc_ids)*(1-parameters['fc'][i])))} "
+    logger.debug(possible_remaining_layers_str)
+    possible_remaining_layers_str = "Possible remaining # of Conv layers: "
+    for i in range(len(parameters['conv'])):
+        possible_remaining_layers_str += f"{int(round(len(conv_ids)*(1-parameters['conv'][i])))} "
+    logger.debug(possible_remaining_layers_str)
 
     logger.info('Covering Array')
 
@@ -332,6 +341,18 @@ def verify(nets, configs, parameters, logger):
 def analyze(nets, configs):
     verifiers = configs['verify']['verifiers']
     results = {x:{} for x in verifiers}
+
+    print('Training relative errors,')
+    for n in nets:
+        relative_errors = []
+        lines = open(n.dis_log_path).readlines()
+        for l in lines:
+            if 'validation error' in l:
+                relative_errors += [float(l.strip().split('=')[-1])]
+        min_ra = np.min(relative_errors)
+        if min_ra > 0.1:
+            print(n.vpc,min_ra)
+    print()
 
     for n in nets:
         for v in verifiers:

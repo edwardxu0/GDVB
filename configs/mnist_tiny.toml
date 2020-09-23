@@ -30,9 +30,9 @@ name = 'mnist_tiny'
 [train]
 	epoches = 2
 	[train.dispatch]
-		mode = 'local'
 		gpu = false
-
+		platform = 'local'
+		
 [verify]
 	eps = 0.02
 	time = 60
@@ -42,4 +42,4 @@ name = 'mnist_tiny'
 	verifiers = ['eran_deepzono','eran_deeppoly','neurify','planet','reluplex']	
 
 	[verify.dispatch]
-		mode = 'local'
+		platform = 'local'

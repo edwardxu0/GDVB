@@ -58,7 +58,7 @@ def verify(args):
     setup = acas_verification_setup()
 
     dispatch_args = {}
-    dispatch_args['mode'] = args.platform
+    dispatch_args['platform'] = args.platform
     dispatch_args['nodes'] = args.nodes
     dispatch_args['task_per_node'] = args.task_per_node
     
@@ -70,7 +70,7 @@ def verify(args):
             verifier_parameters = f'--eran.domain {v.split("_")[1]}'
         elif v == 'bab_sb':
             v_name = 'bab'
-            verifier_parameters = '--bab.smart_branching'
+            verifier_parameters = '--bab.smart_branching True'
         else:
             v_name = v
             verifier_parameters = ""

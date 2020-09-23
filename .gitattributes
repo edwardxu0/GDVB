@@ -1,0 +1,2 @@
+configs/networks/vgg11_sgd_False_0.005_0.5_32.onnx filter=lfs diff=lfs merge=lfs -text
+configs/networks/vgg11_sgd_False_0.005_0.5_32.pth filter=lfs diff=lfs merge=lfs -text

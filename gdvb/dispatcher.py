@@ -8,10 +8,10 @@ import time
 class Task():
     def __init__(self, cmds, dispatch, name, log_path, slurm_path):
         self.cmds = cmds
-        self.mode = dispatch['mode']
+        self.platform = dispatch['platform']
         self.log_path = log_path
 
-        if self.mode == 'slurm':
+        if self.platform == 'slurm':
             self.slurm_path = slurm_path
 
             gpu = dispatch['gpu'] if 'gpu' in dispatch else False
@@ -38,22 +38,20 @@ class Task():
         lines = [x+'\n' for x in lines]
         open(slurm_path, 'w').writelines(lines)
 
-
     # execute task
     def run(self):
-        if self.mode == 'slurm':
+        if self.platform == 'slurm':
             node = self.request_node()
             cmd = f'sbatch -w {node} {self.slurm_path}'
+            print(cmd)
             subprocess.call(cmd, shell=True)
 
-        elif self.mode == 'local':
+        elif self.platform == 'local':
             for cmd in self.cmds:
                 if 'dnnv' in cmd or 'r4v' in cmd:
                     cmd += f' > {self.log_path} 2>&1'
                     #cmd += f' > {self.log_path} 2>/dev/null'
                     #cmd += f' > {self.log_path} 2>{self.log_path}.err'
-                #print(cmd)
-                print(cmd)
                 subprocess.call(cmd, shell=True)
         else:
             assert False
@@ -64,10 +62,10 @@ class Task():
             node_avl_flag = False
             tmp_file = './tmp/'+''.join(random.choice(string.ascii_lowercase) for i in range(16))
             
-            sqcmd = f'squeue | grep cortado > {tmp_file}'
-            
+            #sqcmd = f'squeue | grep cortado > {tmp_file}'
+            sqcmd = f'squeue  > {tmp_file}'
             #sqcmd = f'squeue -u dx3yy > {tmp_file}'
-            time.sleep(2)
+            time.sleep(5)
             os.system(sqcmd)
             sq_lines = open(tmp_file, 'r').readlines()[1:]
             os.remove(tmp_file)
