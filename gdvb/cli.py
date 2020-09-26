@@ -14,5 +14,7 @@ def _parse_args():
     parser.add_argument('task', type=str, choices=['gen_ca','train','gen_props','verify','analyze','complete'], help='Select tasks to perform.')
     parser.add_argument('seed', type=int, help='Random seed.')
     parser.add_argument('--root', type=str, default='./results/',help='Root directory')
+    parser.add_argument('--platform', type=str, choices=['local','slurm'], help='How to run jobs?')
+    parser.add_argument('--reset', type=str, choices=['no','reset'], help='Override existing logs?')
 
     return parser.parse_args()

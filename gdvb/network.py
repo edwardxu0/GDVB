@@ -67,6 +67,7 @@ class Network():
             self.layers = []
             self.nb_neurons = []
             self.remaining_layer_ids = []
+            self.conv_kernel_and_fc_sizes = []
 
             for i in range(len(orig_layers)):
                 if i not in self.drop_ids:
@@ -74,7 +75,6 @@ class Network():
                         in_shape = input_shape
                     else:
                         in_shape = self.layers[-1].out_shape
-
                     ol = orig_layers[i]
                     if ol.type == 'FC':
                         size = ol.size
@@ -82,6 +82,7 @@ class Network():
                             if x[0] == i:
                                 size = int(round(size * x[1]))
                                 break
+                        self.conv_kernel_and_fc_sizes += [size]
                         l = Dense(size, None, None, in_shape)
                         self.nb_neurons += [np.prod(l.out_shape)]
                     elif ol.type == 'Conv':
@@ -90,13 +91,16 @@ class Network():
                             if x[0] == i:
                                 size = int(round(size * x[1]))
                                 break
+                        self.conv_kernel_and_fc_sizes += [size]
                         l = Conv(size, None, None, ol.kernel_size, ol.stride, ol.padding, in_shape)
                         self.nb_neurons += [np.prod(l.out_shape)]
                     elif ol.type == 'Transpose':
                         l = Transpose(ol.order, in_shape)
+                        self.conv_kernel_and_fc_sizes += [-1]
                         self.nb_neurons += [0]
                     elif ol.type == 'Flatten':
                         l = Flatten(in_shape)
+                        self.conv_kernel_and_fc_sizes += [-1]
                         self.nb_neurons += [0]
                     else:
                         assert False
@@ -195,7 +199,6 @@ class Network():
                                 os.path.join(self.config['veri_slurm_dir'],f'{vpc}_{v}.slurm')
                     )
                     task.run()
-                    exit()
 
             else:
                 eps = (parameters['eps']*configs['verify']['eps'])[self.vpc['eps']]

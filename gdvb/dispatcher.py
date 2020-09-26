@@ -10,6 +10,7 @@ class Task():
         self.cmds = cmds
         self.platform = dispatch['platform']
         self.log_path = log_path
+        self.reservation = False if not 'reservation' in dispatch else dispatch['reservation']
 
         if self.platform == 'slurm':
             self.slurm_path = slurm_path
@@ -26,7 +27,6 @@ class Task():
                  f'#SBATCH --job-name={name}',
                  f'#SBATCH --error={log_path}',
                  f'#SBATCH --output={log_path}']
-        
         if gpu:
             lines += ['#SBATCH --partition=gpu',
                       '#SBATCH --gres=gpu:1']
@@ -42,19 +42,20 @@ class Task():
     def run(self):
         if self.platform == 'slurm':
             node = self.request_node()
-            cmd = f'sbatch -w {node} {self.slurm_path}'
-            print(cmd)
-            subprocess.call(cmd, shell=True)
-
+            cmd = f'sbatch -w {node}'
+            cmd += f' --reservation {self.reservation}' if self.reservation else ''
+            cmd +=  f' {self.slurm_path}'
         elif self.platform == 'local':
             for cmd in self.cmds:
                 if 'dnnv' in cmd or 'r4v' in cmd:
                     cmd += f' > {self.log_path} 2>&1'
                     #cmd += f' > {self.log_path} 2>/dev/null'
                     #cmd += f' > {self.log_path} 2>{self.log_path}.err'
-                subprocess.call(cmd, shell=True)
         else:
             assert False
+
+        print(cmd)
+        subprocess.call(cmd, shell=True)
 
 
     def request_node(self):
@@ -76,7 +77,7 @@ class Task():
 
             nodenodavil_flag = False
             for l in sq_lines:
-                if 'ReqNodeNotAvail' in l and 'dx3yy' in l or ('Priority' in l and 'GB_D' not in l) or ('None' in l and 'GB_D' not in l):
+                if 'ReqNodeNotAvail' in l and 'dx3yy' in l and ''.join(x for x in self.nodes[0] if x.isdigit()) in l:
                     nodenodavil_flag = True
                     break
 

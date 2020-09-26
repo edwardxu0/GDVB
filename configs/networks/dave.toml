@@ -10,6 +10,7 @@ epochs=10
 optimizer="adadelta"
 rho=0.95
 loss="MSE"
+learning_rate=0.01
 
 [distillation.data]
 format="udacity-driving"
@@ -21,7 +22,6 @@ framework="onnx"
 input_shape=[1, 100, 100, 3]
 input_format="NHWC"
 model="./configs/networks/dave.onnx"
-
 
 [distillation.data.transform.teacher]
 bgr=true

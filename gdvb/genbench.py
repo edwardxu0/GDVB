@@ -52,29 +52,26 @@ def gen(configs):
 
     # load parameters
     parameters = {}
-
     for key in configs['ca']['parameters']['level']:
-        level_size = configs['ca']['parameters']['level'][key]
-        if level_size == 1:
+        if key in configs['ca']['parameters']['range']:
             level_min = configs['ca']['parameters']['range'][key][0]
             level_max = configs['ca']['parameters']['range'][key][1]
-            assert level_min == level_max
-            level = np.array([level_min])
-            pass
-        else:
-            if key in ['prop']:
-                level = np.arange(0,level_size,1)
+            level_size = configs['ca']['parameters']['level'][key]
+            if level_size == 1:
+                assert level_min == level_max
+                level = np.array([level_min])
             else:
-                level_min = configs['ca']['parameters']['range'][key][0]
-                level_max = configs['ca']['parameters']['range'][key][1]
                 level_range = level_max - level_min
                 level_step = level_range/(level_size-1)
                 assert level_range > 0
                 level = np.array([x*level_step+level_min for x in range(level_size)])
+        elif key in configs['ca']['parameters']['enumerate']:
+            level = configs['ca']['parameters']['enumerate'][key]
+        
         parameters[key] = level
-
-        assert len(parameters[key]) == level_size
-
+        # make sure all parameters are passed
+        assert len(parameters[key]) == configs['ca']['parameters']['level'][key]
+        
     # debug remaining layers
     possible_remaining_layers_str = "Possible remaining # of FC layers: "
     for i in range(len(parameters['fc'])):
@@ -84,6 +81,11 @@ def gen(configs):
     for i in range(len(parameters['conv'])):
         possible_remaining_layers_str += f"{int(round(len(conv_ids)*(1-parameters['conv'][i])))} "
     logger.debug(possible_remaining_layers_str)
+
+    # print factor and levels
+    logger.debug('Factor and levels:')
+    for key in parameters:
+        logger.debug(f'{key}: {parameters[key]}')
 
     logger.info('Covering Array')
 
@@ -168,59 +170,50 @@ def gen(configs):
         dis_strats = [['drop', x] for x in drop_ids]
 
         # calculate data transformaions, input demensions
-        if not configs['name'] == 'acas':
-            transform = n.distillation_config['distillation']['data']['transform']['student']
-            height = transform['height']
-            width = transform['width']
-            assert height == width
-            id_f = parameters['idm'][vpc['idm']]
+        transform = n.distillation_config['distillation']['data']['transform']['student']
+        height = transform['height']
+        width = transform['width']
+        assert height == width
+        id_f = parameters['idm'][vpc['idm']]
 
-            new_height = int(round(np.sqrt(height*width*id_f)))
-            transform['height'] = new_height
-            transform['width'] = new_height
-            if new_height != height:
-                dis_strats += [['scale_input', new_height/height]]
+        new_height = int(round(np.sqrt(height*width*id_f)))
+        transform['height'] = new_height
+        transform['width'] = new_height
+        if new_height != height:
+            dis_strats += [['scale_input', new_height/height]]
 
-            mean = transform['mean']
-            max_value = transform['max_value']
-            ids_f = parameters['ids'][vpc['ids']]
+        mean = transform['mean']
+        max_value = transform['max_value']
+        ids_f = parameters['ids'][vpc['ids']]
 
-            transform['mean'] = [float(x*ids_f) for x in mean]
-            transform['max_value'] = float(max_value*ids_f)
+        transform['mean'] = [float(x*ids_f) for x in mean]
+        transform['max_value'] = float(max_value*ids_f)
 
-            if source_net_onnx.input_format == 'NCHW':
-                nb_channel = source_net_onnx.input_shape[0]
-            elif source_net_onnx.input_format == 'NHWC':
-                nb_channel = source_net_onnx.input_shape[2]
-            else:
-                assert False
+        if source_net_onnx.input_format == 'NCHW':
+            nb_channel = source_net_onnx.input_shape[0]
+        elif source_net_onnx.input_format == 'NHWC':
+            nb_channel = source_net_onnx.input_shape[2]
         else:
-            pass
+            assert False
 
-
-        #print('before:')
-        #print(dis_strats)
         n.set_distillation_strategies(dis_strats)
         if not configs['name'] == 'acas':
             input_shape = [nb_channel, new_height, new_height]
         n.calc_order('nb_neurons', source_net_layers, input_shape)
 
         neurons_drop_only = np.sum(n.nb_neurons)
-        #print('neuron percent:', scale_factors)
-        #print('neurons:', neurons_drop_only)
-
         neuron_scale_factor = (source_net_nb_neurons*neuron_scale_factor)/neurons_drop_only
-        #assert neuron_scale_factor != 1
+
+        # check if number of kernels is than 1
+        knfc = source_net.conv_kernel_and_fc_sizes
         if neuron_scale_factor != 1:
-            #print('factor:', scale_factor)
             for x in scale_ids:
-                if round(source_net_neurons_per_layer[x] * neuron_scale_factor) == 0 :
-                    neuron_scale_factor2 = 1/source_net_neurons_per_layer[x]
+                assert knfc[x] > 0
+                if round(knfc[x] * neuron_scale_factor) == 0 :
+                    neuron_scale_factor2 = 1/knfc[x]
                     dis_strats += [['scale', x, neuron_scale_factor2]]
                 else:
                     dis_strats += [['scale', x, neuron_scale_factor]]
-            #print('after:')
-            #print(dis_strats)
 
             n = Network(configs, vpc)
 
@@ -460,10 +453,10 @@ def analyze(nets, configs):
             par_2_dict[v] += [par_2]
 
 
-    print('{:>15}  {:>15}  {:>15}'.format('Verifier','SCR','PAR-2'))
-    print('-------------------------------------------------')
+    print('|{:>15} | {:>15} | {:>15}|'.format('Verifier','SCR','PAR-2'))
+    print('|---------------|-------------|---------------------')
     for v in verifiers:
-        print('{:>15}  {:>15}  {:>15}'.format(v, scr_dict[v][0], par_2_dict[v][0]))
+        print('|{:>15} | {:>15} | {:>15}|'.format(v, scr_dict[v][0], par_2_dict[v][0]))
 
     '''
     # save ca configurations
