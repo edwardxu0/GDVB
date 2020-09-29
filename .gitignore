@@ -1,6 +1,6 @@
 *~
 tmp/
-res*
+results/
 attic/
 data/
 lib/DNNV/
