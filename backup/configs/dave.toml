@@ -1,4 +1,4 @@
-name = 'dave_2x2_enu'
+name = 'dave'
 
 [dnn]
 	onnx = "./configs/networks/dave.onnx"
@@ -12,35 +12,37 @@ name = 'dave_2x2_enu'
 
 	[ca.parameters.level]
 		neu = 5
-		fc = 3
-    	conv = 4
+		fc = 5
+    	conv = 6
 		idm = 5
 		ids = 5
 		eps = 5
 		prop = 5
 
-	[ca.parameters.enumerate]
-		neu = [0.04, 0.08, 0.16, 0.32, 0.64]
-		prop = [0, 1, 2, 3, 4]
-
 	[ca.parameters.range]
-		fc = [0.5,1.0]
-		conv = [0.4,1.0]
+		neu = [0.2,1.0]
+		fc = [0,1]
+    	conv = [0,1]
 		idm = [0.2,1.0]
 		ids = [0.2,1.0]
 		eps = [0.2,1.0]
+		prop = [0,1]
 
+	
 	[ca.constraints]
-		value = ['conv=3 => idm!=0']
+		value = [
+		'fc=0 => conv!=0',
+		'conv=0 => neu=0',
+		'conv=5 => idm!=0',
+		'conv=0 && neu=0 => idm <4'
+		]
 
 [train]
 	epoches = 10
 	[train.dispatch]
-		gpu = true
-		platform = "slurm"
-		reservation = "dx3yy_9"
-		nodes = ['ristretto01','ristretto02','ristretto03','ristretto04']
-		task_per_node = 8
+		mode = 'local'
+		gpu = false
+
 
 [verify]
 	eps = 2
@@ -50,8 +52,4 @@ name = 'dave_2x2_enu'
 	verifiers = ['eran_deepzono','eran_deeppoly','eran_refinezono','eran_refinepoly','neurify','planet','bab','bab_sb','reluplex']
 
 	[verify.dispatch]
-		gpu = false
-		platform = "slurm"
-		reservation = "dx3yy_10"
-		nodes = ['cortado01','cortado02','cortado03','cortado04','cortado05','cortado06','cortado07','cortado08','cortado09','cortado10']
-		task_per_node = 7
+		mode = 'local'

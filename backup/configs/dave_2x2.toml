@@ -1,4 +1,4 @@
-name = 'dave_2x2_enu'
+name = 'dave_2x2'
 
 [dnn]
 	onnx = "./configs/networks/dave.onnx"
@@ -19,17 +19,16 @@ name = 'dave_2x2_enu'
 		eps = 5
 		prop = 5
 
-	[ca.parameters.enumerate]
-		neu = [0.04, 0.08, 0.16, 0.32, 0.64]
-		prop = [0, 1, 2, 3, 4]
-
 	[ca.parameters.range]
+		neu = [0.2,1.0]
 		fc = [0.5,1.0]
 		conv = [0.4,1.0]
 		idm = [0.2,1.0]
 		ids = [0.2,1.0]
 		eps = [0.2,1.0]
+		prop = [0,1]
 
+	
 	[ca.constraints]
 		value = ['conv=3 => idm!=0']
 
@@ -38,8 +37,7 @@ name = 'dave_2x2_enu'
 	[train.dispatch]
 		gpu = true
 		platform = "slurm"
-		reservation = "dx3yy_9"
-		nodes = ['ristretto01','ristretto02','ristretto03','ristretto04']
+		nodes = ['ristretto01','ristretto03','ristretto04']
 		task_per_node = 8
 
 [verify]
@@ -52,6 +50,5 @@ name = 'dave_2x2_enu'
 	[verify.dispatch]
 		gpu = false
 		platform = "slurm"
-		reservation = "dx3yy_10"
-		nodes = ['cortado01','cortado02','cortado03','cortado04','cortado05','cortado06','cortado07','cortado08','cortado09','cortado10']
+		nodes = ['cortado02','cortado03','cortado04','cortado05','cortado06','cortado07','cortado08','cortado09','cortado10']
 		task_per_node = 7

@@ -1,0 +1,45 @@
+name = 'mnist_tiny'
+
+[dnn]
+	onnx = './configs/networks/mnist_3x50.onnx'
+	r4v_config = './configs/networks/mnist_3x50.toml'
+	data_config = './configs/data/mnist.toml'
+	supported_layers= ['Conv', 'FC', 'Transpose', 'Flatten']
+	start_layer = 0
+
+[ca]
+	strength = 2
+
+	[ca.parameters]
+		[ca.parameters.level]
+			neu = 2
+			fc = 4		# 0,1,2,3
+			idm = 2
+			ids = 2
+			eps = 2
+			prop = 2
+
+		[ca.parameters.range] # 0~1
+			neu = [0.5,1.0]
+			fc = [0,1]
+			idm = [0.5,1.0]
+			ids = [0.5,1.0]
+			eps = [0.5,1.0]
+			prop = [0,1]
+
+[train]
+	epoches = 2
+	[train.dispatch]
+		gpu = false
+		platform = 'local'
+		
+[verify]
+	eps = 0.02
+	time = 60
+	memory = '2G'
+	GRB_LICENSE_FILE="./lib/gurobi.lic"
+	#verifiers = ['eran_deepzono','eran_deeppoly','eran_refinezono','eran_refinepoly','neurify','planet','bab','bab_sb','reluplex']
+	verifiers = ['eran_deepzono','eran_deeppoly','neurify','planet','reluplex']	
+
+	[verify.dispatch]
+		platform = 'local'

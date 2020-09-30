@@ -1,0 +1,50 @@
+name = 'mcb'
+
+[dnn]
+	onnx = './configs/networks/mnist_conv_big.onnx'
+	r4v_config = './configs/networks/mnist_conv_big.toml'
+	data_config = './configs/data/mnist.toml'
+	supported_layers= ['Conv', 'FC', 'Transpose', 'Flatten']
+	start_layer = 0
+
+[ca]
+	strength = 2
+
+	[ca.parameters]
+		[ca.parameters.level]
+			neu = 5
+			fc = 3		# 0,1,2
+			conv = 5	# 0,1,2,3,4
+			idm = 5	
+			ids = 5
+			eps = 5
+			prop = 5
+
+		[ca.parameters.range] # 0~1
+			neu = [0.2,1.0]
+			fc = [0,1]
+    		conv = [0,1]
+			idm = [0.2,1.0]
+			ids = [0.2,1.0]
+			eps = [0.2,1.0]
+			prop = [0,1]
+
+	[ca.constraints]
+		value = ['fc=0 => conv!=0',
+		'(fc=2 && conv=0 && idm=0) => neu<4']
+
+[train]
+	epoches = 10
+	[train.dispatch]
+		mode = 'local'
+		gpu = false
+
+[verify]
+	eps = 0.02
+	time = 14400
+	memory = '64G'
+	GRB_LICENSE_FILE="./lib/gurobi.lic"
+	verifiers = ['eran_deepzono','eran_deeppoly','eran_refinezono','eran_refinepoly','neurify','planet','bab','bab_sb','reluplex']
+
+	[verify.dispatch]
+		mode = 'local'
