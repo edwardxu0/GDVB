@@ -340,12 +340,15 @@ def analyze(nets, parameters, configs):
         for l in lines:
             if 'validation error' in l:
                 relative_errors += [float(l.strip().split('=')[-1])]
-        min_ra = np.min(relative_errors)
+        if len(relative_errors) == 0:
+            print('Training failed: ', n.dis_log_path)
+            min_ra = 0
+        else:
+            min_ra = np.min(relative_errors)
         csv_dict['relative_loss'] = min_ra
         
         for v in verifiers:
             c += 1
-            #csv_dict['NO.'] = c
             
             vpc = ''.join([str(n.vpc[x]) for x in n.vpc])
             log = f"{n.config['veri_log_dir']}/{vpc}_{v}.out"
@@ -364,12 +367,12 @@ def analyze(nets, parameters, configs):
 
                     if '[STDERR]:Error: GLP returned error 5 (GLP_EFAIL)' in l:
                         res = 'error'
-                        #print(log)
+                        print(log)
                         break
 
                     if "*** Error in `python':" in l:
                         res = 'error'
-                        #print(log)
+                        print(log)
                         break
                     if "nonzero(*, bool as_tuple)"in l:
                         res = 'error'
@@ -377,14 +380,22 @@ def analyze(nets, parameters, configs):
 
                     if 'Cannot serialize protocol buffer of type ' in l:
                         res = 'error'
-                        #print(log)
+                        print(log)
+                        break
+
+                    if 'Bus error'in l:
+                        res = 'error'
+                        break
+
+                    if 'No such file or directory' in l:
+                        res = 'unrun'
                         break
 
                     if 'Timeout' in l:
                         res = 'timeout'
                         break
 
-                    elif 'Out of Memory' in l:
+                    if 'Out of Memory' in l:
                         res = 'memout'
                         break
 
@@ -402,13 +413,13 @@ def analyze(nets, parameters, configs):
 
                 # remove this
                 if i == len(rlines)-1:
-                    res = 'error'
+                    res = 'Unexpected error!'
                     print(res, log)
                     
             if res not in ['sat','unsat']:
                 v_time = configs['verify']['time']
 
-            assert res in ['sat','unsat','unknown','timeout','memout','error', 'unsup', 'running', 'torun'], log
+            assert res in ['sat','unsat','unknown','timeout','memout','error', 'unsup', 'running', 'unrun'], log
             results[v][vpc] = [res,v_time]
             csv_dict[v+'_answer'] = res
             csv_dict[v+'_time'] = v_time
@@ -444,12 +455,13 @@ def analyze(nets, parameters, configs):
                 scr += 1
                 sums += [vtime]
             elif res in [
-                "unknown",
-                "timeout",
-                "memout",
-                "error",
-                "unsup",
-                "running",
+                    "unknown",
+                    "timeout",
+                    "memout",
+                    "error",
+                    "unsup",
+                    "running",
+                    "unrun",
             ]:
                 sums += [configs['verify']['time'] * 2]
             elif res in ["untrain"]:
@@ -468,7 +480,7 @@ def analyze(nets, parameters, configs):
 
 
     print('|{:>15} | {:>15} | {:>15}|'.format('Verifier','SCR','PAR-2'))
-    print('|---------------|-------------|---------------------')
+    print('|----------------|-----------------|---------------------|')
     for v in verifiers:
         print('|{:>15} | {:>15} | {:>15}|'.format(v, scr_dict[v][0], par_2_dict[v][0]))
 
