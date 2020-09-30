@@ -7,6 +7,7 @@ import pickle
 import string
 import datetime
 import progressbar
+import csv
 
 from itertools import combinations
 
@@ -245,7 +246,7 @@ def gen(configs):
         if configs['name'] == 'acas':
             analyze_acas(nets, configs)
         else:
-            analyze(nets, configs)
+            analyze(nets, parameters, configs)
 
     else:
         raise Exception("Unknown task.")
@@ -263,19 +264,6 @@ def get_layers(configs, onnx_dnn):
         if l.type in supported_layers:
             layers += [l]
     return layers[start_layer:]
-
-
-def acas_layers():
-    layers = [
-        Dense(50, np.zeros((50,5)), np.zeros((50)), 5),
-        Dense(50, np.zeros((50,50)), np.zeros((50)), 50),
-        Dense(50, np.zeros((50,50)), np.zeros((50)), 50),
-        Dense(50, np.zeros((50,50)), np.zeros((50)), 50),
-        Dense(50, np.zeros((50,50)), np.zeros((50)), 50),
-        Dense(50, np.zeros((50,50)), np.zeros((50)), 50),
-        Dense(5, np.zeros((5,50)), np.zeros((5)), 50)
-    ]
-    return layers
 
 
 def train(nets, logger):
@@ -331,24 +319,37 @@ def verify(nets, configs, parameters, logger):
         logger.info(f'Verifying network {n.name} done.')
 
 
-def analyze(nets, configs):
+def analyze(nets, parameters, configs):
     verifiers = configs['verify']['verifiers']
     results = {x:{} for x in verifiers}
 
-    print('Training relative errors,')
+    # initialize result dictionary for csv output
+    csv_data = []
+
+    # collect results
+    c = 0
     for n in nets:
+        csv_dict = {}
+        csv_dict['name'] = n.name
+        for x in n.vpc:
+            csv_dict[x] = parameters[x][n.vpc[x]]
+        
+        # find relative loss
         relative_errors = []
         lines = open(n.dis_log_path).readlines()
         for l in lines:
             if 'validation error' in l:
                 relative_errors += [float(l.strip().split('=')[-1])]
-        min_ra = np.min(relative_errors)
-        if min_ra > 0.1:
-            print(n.vpc,min_ra)
-    print()
-
-    for n in nets:
+        if len(relative_errors) == 0:
+            print('Training failed: ', n.dis_log_path)
+            min_ra = 0
+        else:
+            min_ra = np.min(relative_errors)
+        csv_dict['relative_loss'] = min_ra
+        
         for v in verifiers:
+            c += 1
+            
             vpc = ''.join([str(n.vpc[x]) for x in n.vpc])
             log = f"{n.config['veri_log_dir']}/{vpc}_{v}.out"
             if not os.path.exists(log):
@@ -366,24 +367,35 @@ def analyze(nets, configs):
 
                     if '[STDERR]:Error: GLP returned error 5 (GLP_EFAIL)' in l:
                         res = 'error'
-                        #print(log)
+                        print(log)
                         break
 
                     if "*** Error in `python':" in l:
                         res = 'error'
-                        #print(log)
+                        print(log)
+                        break
+                    if "nonzero(*, bool as_tuple)"in l:
+                        res = 'error'
                         break
 
                     if 'Cannot serialize protocol buffer of type ' in l:
                         res = 'error'
-                        #print(log)
+                        print(log)
+                        break
+
+                    if 'Bus error'in l:
+                        res = 'error'
+                        break
+
+                    if 'No such file or directory' in l:
+                        res = 'unrun'
                         break
 
                     if 'Timeout' in l:
                         res = 'timeout'
                         break
 
-                    elif 'Out of Memory' in l:
+                    if 'Out of Memory' in l:
                         res = 'memout'
                         break
 
@@ -401,19 +413,32 @@ def analyze(nets, configs):
 
                 # remove this
                 if i == len(rlines)-1:
-                    res = 'running'
-                    #print(res, log)
-
+                    res = 'Unexpected error!'
+                    print(res, log)
+                    
             if res not in ['sat','unsat']:
                 v_time = configs['verify']['time']
 
-            assert res in ['sat','unsat','unknown','timeout','memout','error', 'unsup', 'running', 'torun'], log
+            assert res in ['sat','unsat','unknown','timeout','memout','error', 'unsup', 'running', 'unrun'], log
             results[v][vpc] = [res,v_time]
-
+            csv_dict[v+'_answer'] = res
+            csv_dict[v+'_time'] = v_time
+            csv_data += [csv_dict]
+            
     assert len(set([len(results[x]) for x in results.keys()])) == 1
 
-    with open(f'./results/verification_results_{configs["name"]}_{configs["seed"]}.pickle', 'wb') as handle:
+    save_file = f'./results/verification_results_{configs["name"]}_{configs["seed"]}'
+    with open(f'{save_file}.pickle', 'wb') as handle:
         pickle.dump(results, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+    # save csv dict
+    
+    field_names = [x for x in csv_data[0]]
+    with open(f'{save_file}.csv', 'w') as handle:
+        writer = csv.DictWriter(handle, fieldnames=field_names)
+        writer.writeheader()
+        for data in csv_data:
+            writer.writerow(data)
 
     # calculate scr and par2 scores
     scr_dict = {}
@@ -430,12 +455,13 @@ def analyze(nets, configs):
                 scr += 1
                 sums += [vtime]
             elif res in [
-                "unknown",
-                "timeout",
-                "memout",
-                "error",
-                "unsup",
-                "running",
+                    "unknown",
+                    "timeout",
+                    "memout",
+                    "error",
+                    "unsup",
+                    "running",
+                    "unrun",
             ]:
                 sums += [configs['verify']['time'] * 2]
             elif res in ["untrain"]:
@@ -454,7 +480,7 @@ def analyze(nets, configs):
 
 
     print('|{:>15} | {:>15} | {:>15}|'.format('Verifier','SCR','PAR-2'))
-    print('|---------------|-------------|---------------------')
+    print('|----------------|-----------------|---------------------|')
     for v in verifiers:
         print('|{:>15} | {:>15} | {:>15}|'.format(v, scr_dict[v][0], par_2_dict[v][0]))
 

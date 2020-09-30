@@ -9,6 +9,7 @@ def configure(args):
     configs['root'] = os.path.join(args.root,f'{configs["name"]}.{args.seed}')
     configs['seed'] = args.seed
     configs['task'] = args.task
+    configs['override'] = args.override
     subdirs = ['dis_config','dis_model','dis_slurm','dis_log','props','veri_slurm','veri_log']
 
     if args.platform is not None:

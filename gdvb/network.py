@@ -120,6 +120,11 @@ class Network():
     
     # train network
     def train(self):
+        if not self.config['override']:
+            if os.path.exists(self.dis_config_path):
+                print('NN already trained. Skipping ... ', self.dis_config_path)
+                return
+        
         formatted_data = toml.dumps(self.distillation_config)
         with open(self.dis_config_path, 'w') as f:
             f.write(formatted_data)
@@ -212,6 +217,12 @@ class Network():
                 count += 1
                 logger.info(f'Verifying with {v} {count}/{len(verifiers)}')
                 vpc = ''.join([str(self.vpc[x]) for x in self.vpc])
+                
+                veri_log_path = f'{self.config["veri_log_dir"]}/{vpc}_{v}.out'
+                if not configs['override']:
+                    if os.path.exists(veri_log_path):
+                        print('Instance already verified. Skipping ... ', veri_log_path)
+                        continue
 
                 veri_log = f'{self.config["veri_log_dir"]}/{vpc}_{v}.out'
                 tmp_dir = f'"./tmp/{configs["name"]}_{configs["seed"]}_{vpc}_{v}"'
@@ -233,7 +244,7 @@ class Network():
                 task = Task(cmds,
                             self.config['verify']['dispatch'],
                             "GDVB_Verify",
-                            f'{self.config["veri_log_dir"]}/{vpc}_{v}.out',
+                            veri_log_path,
                             os.path.join(self.config['veri_slurm_dir'],f'{vpc}_{v}.slurm')
                 )
                 task.run()
