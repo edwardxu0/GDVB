@@ -74,14 +74,15 @@ def gen(configs):
         assert len(parameters[key]) == configs['ca']['parameters']['level'][key]
         
     # debug remaining layers
-    possible_remaining_layers_str = "Possible remaining # of FC layers: "
-    for i in range(len(parameters['fc'])):
-        possible_remaining_layers_str += f"{int(round(len(fc_ids)*(1-parameters['fc'][i])))} "
-    logger.debug(possible_remaining_layers_str)
-    possible_remaining_layers_str = "Possible remaining # of Conv layers: "
-    for i in range(len(parameters['conv'])):
-        possible_remaining_layers_str += f"{int(round(len(conv_ids)*(1-parameters['conv'][i])))} "
-    logger.debug(possible_remaining_layers_str)
+    prm_str = "Possible remaining # of FC layers: "
+    rml = sorted([str(int(round(len(fc_ids)*(parameters['fc'][i])))) for i in range(len(parameters['fc']))])
+    prm_str += ' '.join(rml)
+    logger.debug(prm_str)
+    
+    prm_str = "Possible remaining # of Conv layers: "
+    rml = sorted([str(int(round(len(conv_ids)*(parameters['conv'][i])))) for i in range(len(parameters['conv']))])
+    prm_str += ' '.join(rml)
+    logger.debug(prm_str)
 
     # print factor and levels
     logger.debug('Factor and levels:')
@@ -344,7 +345,7 @@ def analyze(nets, parameters, configs):
             min_ra = 0
         else:
             min_ra = np.min(relative_errors)
-        csv_dict['relative_loss'] = min_ra
+        csv_dict['relative_loss'] = round(min_ra, 4)
         
         for v in verifiers:
             c += 1
@@ -431,7 +432,7 @@ def analyze(nets, parameters, configs):
             assert res in ['sat','unsat','unknown','timeout','memout','error', 'unsup', 'running', 'unrun'], log
             results[v][vpc] = [res,v_time]
             csv_dict[v+'_answer'] = res
-            csv_dict[v+'_time'] = v_time
+            csv_dict[v+'_time'] = round(v_time,2)
         csv_data += [csv_dict]
 
     assert len(set([len(results[x]) for x in results.keys()])) == 1
@@ -489,6 +490,6 @@ def analyze(nets, parameters, configs):
 
 
     print('|{:>15} | {:>15} | {:>15}|'.format('Verifier','SCR','PAR-2'))
-    print('|----------------|-----------------|---------------------|')
+    print('|----------------|-----------------|----------------|')
     for v in verifiers:
-        print('|{:>15} | {:>15} | {:>15}|'.format(v, scr_dict[v][0], par_2_dict[v][0]))
+        print('|{:>15} | {:>15} | {:>15.2f}|'.format(v, scr_dict[v][0], round(par_2_dict[v][0],2)))
