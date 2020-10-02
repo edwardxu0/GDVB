@@ -243,10 +243,7 @@ def gen(configs):
         verify(nets, configs, parameters, logger)
 
     elif configs['task'] == 'analyze':
-        if configs['name'] == 'acas':
-            analyze_acas(nets, configs)
-        else:
-            analyze(nets, parameters, configs)
+        analyze(nets, parameters, configs)
 
     else:
         raise Exception("Unknown task.")
@@ -306,7 +303,9 @@ def gen_props(nets, parameters, configs, logger):
                 cmd = f'python ./tools/generate_mnist_properties.py ./tmp/data.toml {prop_dir} > /dev/null 2>&1'
             else:
                 raise NotImplementedError
-            cmd += f' -e {eps} -N {len(parameters["prop"])}'
+            #nb_props = len(parameters["prop"])
+            nb_props = np.max(np.array(parameters["prop"])) + 1
+            cmd += f' -e {eps} -N {nb_props}'
             os.system(cmd)
             os.system('rm ./tmp/data.toml')
 
@@ -349,12 +348,12 @@ def analyze(nets, parameters, configs):
         
         for v in verifiers:
             c += 1
-            
+
             vpc = ''.join([str(n.vpc[x]) for x in n.vpc])
             log = f"{n.config['veri_log_dir']}/{vpc}_{v}.out"
             if not os.path.exists(log):
                 res = 'torun'
-                #print(res, log)
+                print(res, log)
             else:
                 rlines = [x for x in reversed(open(log,'r').readlines())]
 
@@ -363,33 +362,7 @@ def analyze(nets, parameters, configs):
 
                 for i,l in enumerate(rlines):
                     if l.startswith('INFO'):# or l.startswith('DEBUG'):
-                        continue 
-
-                    if '[STDERR]:Error: GLP returned error 5 (GLP_EFAIL)' in l:
-                        res = 'error'
-                        print(log)
-                        break
-
-                    if "*** Error in `python':" in l:
-                        res = 'error'
-                        print(log)
-                        break
-                    if "nonzero(*, bool as_tuple)"in l:
-                        res = 'error'
-                        break
-
-                    if 'Cannot serialize protocol buffer of type ' in l:
-                        res = 'error'
-                        print(log)
-                        break
-
-                    if 'Bus error'in l:
-                        res = 'error'
-                        break
-
-                    if 'No such file or directory' in l:
-                        res = 'unrun'
-                        break
+                        continue
 
                     if 'Timeout' in l:
                         res = 'timeout'
@@ -411,9 +384,45 @@ def analyze(nets, parameters, configs):
                             v_time = float(rlines[i-1].strip().split(' ')[-1])
                             break
 
+                    if '[STDERR]:Error: GLP returned error 5 (GLP_EFAIL)' in l:
+                        res = 'error'
+                        print(res, log)
+                        break
+
+                    if "*** Error in `python':" in l:
+                        res = 'error'
+                        print(res, log)
+                        break
+                    if "nonzero(*, bool as_tuple)"in l:
+                        res = 'error'
+                        print(res, log)
+                        break
+
+                    if 'Cannot serialize protocol buffer of type ' in l:
+                        res = 'error'
+                        print(res, log)
+                        break
+
+                    if 'Bus error'in l:
+                        res = 'error'
+                        print(res, log)
+                        break
+
+                    '''
+                    if 'No such file or directory' in l:
+                        res = 'unrun'
+                        print(res, log)
+                        break
+                    '''
+
+                    if 'Unable to open Gurobi license file ' in l:
+                        res = 'unrun'
+                        print(res, log)
+                        break
+
                 # remove this
                 if i == len(rlines)-1:
-                    res = 'Unexpected error!'
+                    res = 'running'
                     print(res, log)
                     
             if res not in ['sat','unsat']:
@@ -423,11 +432,11 @@ def analyze(nets, parameters, configs):
             results[v][vpc] = [res,v_time]
             csv_dict[v+'_answer'] = res
             csv_dict[v+'_time'] = v_time
-            csv_data += [csv_dict]
-            
+        csv_data += [csv_dict]
+
     assert len(set([len(results[x]) for x in results.keys()])) == 1
 
-    save_file = f'./results/verification_results_{configs["name"]}_{configs["seed"]}'
+    save_file = f'./results/{configs["name"]}_{configs["seed"]}'
     with open(f'{save_file}.pickle', 'wb') as handle:
         pickle.dump(results, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
@@ -483,149 +492,3 @@ def analyze(nets, parameters, configs):
     print('|----------------|-----------------|---------------------|')
     for v in verifiers:
         print('|{:>15} | {:>15} | {:>15}|'.format(v, scr_dict[v][0], par_2_dict[v][0]))
-
-    '''
-    # save ca configurations
-    config_dist = {}
-    for n in nets:
-        config_dist[''.join([str(n.vpc[x]) for x in n.vpc])] = n.vpc
-
-    with open(f'./results/config_dist_{configs["name"]}_{configs["seed"]}.pickle', 'wb') as handle:
-        pickle.dump(config_dist, handle, protocol=pickle.HIGHEST_PROTOCOL)
-    '''
-        
-def analyze_acas(nets, configs):
-    verifiers = configs['verify']['verifiers']
-    results = {x:{} for x in verifiers}
-
-    for n in nets:
-        for v in verifiers:
-            vpc = ''.join([str(n.vpc[x]) for x in n.vpc])
-            
-            all_logs = [x for x in os.listdir(f"{n.config['veri_log_dir']}") if f'{vpc}_{v}' in x]
-
-            for log in all_logs:              
-                log = f"{n.config['veri_log_dir']}/{log}"
-                vpc2 = vpc+log.split('_')[-1].split('.')[0]
-                if not os.path.exists(log):
-                    res = 'torun'
-                    #print(res, log)
-                else:
-                    rlines = [x for x in reversed(open(log,'r').readlines())]
-
-                    res = None
-                    v_time = None
-
-                    for i,l in enumerate(rlines):
-                        if l.startswith('INFO'):# or l.startswith('DEBUG'):
-                            continue 
-
-                        if '[STDERR]:Error: GLP returned error 5 (GLP_EFAIL)' in l:
-                            res = 'error'
-                            #print(log)
-                            break
-
-                        if "*** Error in `python':" in l:
-                            res = 'error'
-                            #print(log)
-                            break
-
-                        if 'Cannot serialize protocol buffer of type ' in l:
-                            res = 'error'
-                            #print(log)
-                            break
-
-                        if 'OverflowError: integer division res' in l:
-                            res = 'error'
-                            break
-
-                        if 'Timeout' in l:
-                            res = 'timeout'
-                            break
-
-                        elif 'Out of Memory' in l:
-                            res = 'memout'
-                            break
-
-                        if l.startswith('  result: '):
-                            if 'Unsupported' in l or 'not support' in l or 'Unknown MIPVerify' in l or 'Unknown property check result' in l:
-                                res = 'unsup'
-                                break
-                            elif 'NeurifyError' in l or 'PlanetError' in l:
-                                res = 'error'
-                                break
-                            else:
-                                res = l.strip().split(' ')[-1]
-                                v_time = float(rlines[i-1].strip().split(' ')[-1])
-                                break
-
-                    # remove this
-                    if i == len(rlines)-1:
-                        res = 'running'
-                        #print(res, log)
-
-                if res not in ['sat','unsat']:
-                    v_time = configs['verify']['time']
-
-                assert res in ['sat','unsat','unknown','timeout','memout','error', 'unsup', 'running', 'torun'], log
-                results[v][vpc2] = [res,v_time]
-
-    assert len(set([len(results[x]) for x in results.keys()])) == 1
-
-    with open(f'./results/verification_results_{configs["name"]}_{configs["seed"]}.pickle', 'wb') as handle:
-        pickle.dump(results, handle, protocol=pickle.HIGHEST_PROTOCOL)
-
-    
-    # calculate scr and par2 scores
-    scr_dict = {}
-    par_2_dict = {}
-    for v in verifiers:
-        sums = []
-        scr = 0
-        for vpc_k in results[v]:
-            res = results[v][vpc_k][0]
-            vtime = results[v][vpc_k][1]
-            if res == "running":
-                print(f"running: {v} {vpc_k}")
-            if res in ["sat", "unsat"]:
-                scr += 1
-                sums += [vtime]
-            elif res in [
-                "unknown",
-                "timeout",
-                "memout",
-                "error",
-                "unsup",
-                "running",
-            ]:
-                sums += [configs['verify']['time'] * 2]
-            elif res in ["untrain"]:
-                pass
-            else:
-                assert False, res
-
-        par_2 = np.mean(np.array(sums))
-
-        if v not in scr_dict.keys():
-            scr_dict[v] = [scr]
-            par_2_dict[v] = [par_2]
-        else:
-            scr_dict[v] += [scr]
-            par_2_dict[v] += [par_2]
-
-
-    print('{:>15}  {:>15}  {:>15}'.format('Verifier','SCR','PAR-2'))
-    print('-------------------------------------------------')
-    for v in verifiers:
-        print('{:>15}  {:>15}  {:>15}'.format(v, scr_dict[v][0], par_2_dict[v][0]))
-
-    '''
-    # save ca configurations
-    config_dist = {}
-    for n in nets:
-        config_dist[''.join([str(n.vpc[x]) for x in n.vpc])] = n.vpc
-
-    with open(f'./results/config_dist_{configs["name"]}_{configs["seed"]}.pickle', 'wb') as handle:
-        pickle.dump(config_dist, handle, protocol=pickle.HIGHEST_PROTOCOL)
-    '''
-        

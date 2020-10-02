@@ -2,7 +2,6 @@ import subprocess
 import time
 import os
 
-
 running = False
 while True:
     time.sleep(10)
@@ -12,25 +11,21 @@ while True:
     out, err = process.communicate()
     lines = out.decode("utf-8") .split('\n')
     for l in lines:
-        print(l)
-        if '349446' in l:
-            print('wrong')
-            continue
-        
-        if 'ristretto' in l:
-            running = True
-            break
+        if 'ristretto' in l and 'R' in l:
+            if int(l.split(' ')[12]) <= 352395:
+                running = True
+                break
+            else:
+                running = False
+                break
         
     if not running:
+        print('done training.')
         break
     else:
         print('still training.')
 
-print('done training.')
-
-cmd = 'python -m gdvb configs/dave_2x2_enu2_cov3_low3.toml gen_props 10'
-cmd = 'ls'
+cmd = 'python -m gdvb configs/dave_enu2_cov3_low3.toml gen_props 10'
 os.system(cmd)
-cmd = 'python -m gdvb configs/dave_2x2_enu2_cov3_low3.toml verify 10'
-cmd = 'la'
+cmd = 'python -m gdvb configs/dave_enu2_cov3_low3.toml verify 10'
 os.system(cmd)
