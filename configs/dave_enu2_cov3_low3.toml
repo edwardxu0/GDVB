@@ -1,4 +1,4 @@
-name = 'dave_neu_eps_1'
+name = 'dave_enu2_cov3_low3'
 
 [dnn]
 	onnx = "./configs/networks/dave.onnx"
@@ -8,31 +8,30 @@ name = 'dave_neu_eps_1'
 	start_layer = 1
 
 [ca]
-	strength = 2
+	strength = 3
 
 	[ca.parameters.level]
-		neu = 5
+		neu = 3
 		fc = 3
-    	conv = 4
-		idm = 5
-		ids = 5
-		eps = 5
-		prop = 5
+    	conv = 3
+		idm = 3
+		ids = 3
+		eps = 3
+		prop = 3
 
 	[ca.parameters.enumerate]
-		neu = [0.05, 0.1, 0.15, 0.2, 0.25]
-		prop = [0, 1, 2, 3, 4]
-        eps = [0.1, 0.2, 0.3, 0.4, 0.5]
+		neu = [0.05, 0.1, 0.15]
+		prop = [0, 1, 2]
 
 	[ca.parameters.range]
-		fc = [0.5,1.0]
-		conv = [0.4,1.0]
-		idm = [0.2,1.0]
-		ids = [0.2,1.0]
+		fc = [0.0,0.5]
+		conv = [0.0,0.4]
+		idm = [0.2,0.6]
+		ids = [0.2,0.6]
+		eps = [0.2,0.6]
 
-	
 	[ca.constraints]
-		value = ['conv=3 => idm!=0']
+		value = ['fc=0 => conv!=0']
 
 [train]
 	epoches = 10
