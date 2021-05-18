@@ -29,7 +29,7 @@ table = np.chararray((nb_instance, len(log)))
 table = [[0]*len(log)]*nb_instance
 
 for i,v in enumerate(log):
-    solved = []
+    solved = [0]
     for j,vpc in enumerate(log[v]):
         if artifact == 'acas':
             r = vpc
@@ -41,10 +41,11 @@ for i,v in enumerate(log):
             solved += [r[1]]
         table[j][i] = (r[0],r[1])
     solved = sorted(solved)
-    print(solved)
     fig.add_trace(go.Scatter(x=list(range(len(solved))), y=solved, mode='lines', name = v))
 
 
+'''
+# Todo: make sloved table like VNN comp 
 line = '|Property/Verifier|'
 for v in log:
     line += f'{v} |'
@@ -55,6 +56,7 @@ for i in range(nb_instance):
         line += f'{table[i][j]} |'
     print(line)
 print(table)
+'''
 
 fig.update_layout(
     xaxis_title="Number of Instances Verified",
@@ -62,4 +64,4 @@ fig.update_layout(
     xaxis=dict(range=[0, nb_instance]), yaxis=dict(range=[0, time_lim]))
 
 fig.show()
-#fig.write_image('cactus.png')
+#fig.write_image("images/cactus.png")
