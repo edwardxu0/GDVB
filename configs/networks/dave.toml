@@ -4,13 +4,13 @@ threshold=1e-9
 cuda=true
 type="regression"
 precompute_teacher=true
+save_intermediate=false
 
 [distillation.parameters]
 epochs=10
 optimizer="adadelta"
 rho=0.95
 loss="MSE"
-learning_rate=0.01
 
 [distillation.data]
 format="udacity-driving"

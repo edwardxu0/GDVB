@@ -31,6 +31,9 @@ def _parse_args():
         "-e", "--epsilon", type=float, default=2, help="The input radius to use."
     )
     parser.add_argument(
+        "-i", "--input_dimension", type=int, default=-1, help="input_dimension"
+    )
+    parser.add_argument(
         "-g", "--gamma", type=float, default=10, help="The output radius to use."
     )
 
@@ -84,8 +87,8 @@ def main(args):
                 "from dnnv.properties import *\n"
                 "import numpy as np\n\n"
                 'N = Network("N")\n'
-                f'x = Image("{npy_img_path}")\n'
-                "input_layer = 0\n"
+                f'x = Image("{npy_img_path}")\n' # remove reshape ".reshape((1,{args.input_dimension}))"
+                "input_layer = 0\n" # start from 2 if with reshape
                 "output_layer = -2\n\n"
                 f"epsilon = {args.epsilon}\n"
                 f"gamma = {args.gamma} * np.pi / 180\n"

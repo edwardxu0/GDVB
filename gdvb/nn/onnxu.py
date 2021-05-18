@@ -79,7 +79,7 @@ class Onnxu():
                         pass
 
                 layer = Conv(B.shape[0], W, B, kernel_size, stride, padding, arch[-1].out_shape)
-
+                 
                 nb_op_add = (kernel_size ** 3) * np.prod(layer.out_shape)
                 nb_op_mul = ((kernel_size-1) * (kernel_size ** 2) +1) * np.prod(layer.out_shape)
                 self.nb_ops += [(nb_op_add, nb_op_mul)]

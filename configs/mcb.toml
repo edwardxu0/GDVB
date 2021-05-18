@@ -27,24 +27,35 @@ name = 'mcb'
 			idm = [0.2,1.0]
 			ids = [0.2,1.0]
 			eps = [0.2,1.0]
-			prop = [0,1]
+			prop = [0,4]
 
 	[ca.constraints]
 		value = ['fc=0 => conv!=0',
 		'(fc=2 && conv=0 && idm=0) => neu<4']
 
 [train]
-	epoches = 10
+	#epochs = 100
+	epochs = 10
+	
 	[train.dispatch]
-		mode = 'local'
-		gpu = false
+		gpu = true
+		platform = "slurm"
+		#reservation = "dx3yy_9"
+		#nodes = ['ristretto01','ristretto02','ristretto03','ristretto04']
+		#task_per_node = 8
 
 [verify]
 	eps = 0.02
-	time = 14400
+	#time = 14400
+	time = 3600
 	memory = '64G'
 	GRB_LICENSE_FILE="./lib/gurobi.lic"
-	verifiers = ['eran_deepzono','eran_deeppoly','eran_refinezono','eran_refinepoly','neurify','planet','bab','bab_sb','reluplex']
+	verifiers = ['eran_deepzono','eran_deeppoly','eran_refinezono','eran_refinepoly','neurify','planet','bab','bab_sb','reluplex','dnnf']
 
 	[verify.dispatch]
-		mode = 'local'
+		gpu = false
+		platform = "slurm"
+		#reservation = "dx3yy_10"
+		#nodes = ['cortado01','cortado02','cortado03','cortado04','cortado05','cortado06','cortado07','cortado08','cortado09']
+		nodes = ['slurm1','slurm2','slurm3','slurm4','cortado01','cortado02','cortado03','cortado04','cortado05','cortado06','cortado07','cortado08','cortado09']
+		task_per_node = 7

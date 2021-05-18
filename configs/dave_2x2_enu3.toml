@@ -36,7 +36,7 @@ name = 'dave_2x2_enu3'
 		value = ['conv=3 => idm!=0']
 
 [train]
-	epoches = 10
+	epochs = 10
 	[train.dispatch]
 		gpu = true
 		platform = "slurm"

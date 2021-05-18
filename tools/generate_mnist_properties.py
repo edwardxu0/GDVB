@@ -16,7 +16,7 @@ from r4v.distillation.data import get_data_loader
 
 def _parse_args():
     parser = argparse.ArgumentParser(
-        description="Generate properties for the DAVE network."
+        description="Generate properties for the mnist networks."
     )
 
     parser.add_argument("data_config", type=str, help="data configuration file")
@@ -32,7 +32,14 @@ def _parse_args():
     parser.add_argument(
         "-e", "--epsilon", type=float, default=2, help="The input radius to use."
     )
-
+    parser.add_argument(
+        "-i", "--input_dimension", type=int, default=-1, help="input_dimension"
+    )
+    
+    parser.add_argument(
+        "--rm_transpose", action='store_true', help="remove the first three layers"
+    )
+    
     parser.add_argument("--seed", type=int, default=0, help="random seed")
 
     parser.set_defaults(debug=True)
@@ -76,13 +83,31 @@ def main(args):
         np.save(npy_img_path, sx.reshape(1,height,width))
 
         property_path = os.path.join(args.output_dir, "robustness.%s.%s.py" % (idx.item(), args.epsilon))
-        with open(property_path, "w+") as property_file:
-            property_file.write(
-                "from dnnv.properties import *\n"
-                "import numpy as np\n\n"
+        if args.rm_transpose:
+            with open(property_path, "w+") as property_file:
+                property_file.write(
+                    "from dnnv.properties import *\n"
+                    "import numpy as np\n\n"
+                    'N = Network("N")\n'
+                    f'x = Image("{npy_img_path}").reshape((1,{args.input_dimension}))\n' # REMOVE RESHAPE
+                    "input_layer = 2\n" # START FROM 2(my mnist)/3(eran mnist)
+                    f"epsilon = {args.epsilon}\n"
+                    "Forall(\n"
+                    "    x_,\n"
+                    "    Implies(\n"
+                    "        ((x - epsilon) < x_ < (x + epsilon)),\n"
+                    "        argmax(N[input_layer:](x_)) == argmax(N[input_layer:](x)),\n"
+                    "    ),\n"
+                    ")\n"
+                )
+        else:
+            with open(property_path, "w+") as property_file:
+                property_file.write(
+                    "from dnnv.properties import *\n"
+                    "import numpy as np\n\n"
                 'N = Network("N")\n'
-                f'x = Image("{npy_img_path}")\n'
-                "input_layer = 0\n"
+                f'x = Image("{npy_img_path}")\n'# .reshape((1,{args.input_dimension}))\n' # REMOVE RESHAPE
+                "input_layer = 0\n" # START FROM 0
                 f"epsilon = {args.epsilon}\n"
                 "Forall(\n"
                 "    x_,\n"

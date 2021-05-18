@@ -1,0 +1,59 @@
+name = 's1_mnist_3x1024'
+
+[dnn]
+	onnx = './configs/networks/mnist_3x1024.onnx'
+	r4v_config = './configs/networks/mnist_3x1024.toml'
+	data_config = './configs/data/mnist.toml'
+	supported_layers= ['Conv', 'FC', 'Transpose', 'Flatten']
+	start_layer = 0
+
+[ca]
+	strength = 2
+
+	[ca.parameters]
+		[ca.parameters.level]
+			neu = 5
+			fc = 3		# 0,1,2
+			#conv = 5	# 0,1,2,3,4
+			idm = 5
+			ids = 5
+			eps = 5
+			prop = 5
+
+		[ca.parameters.range] # 0~1
+			neu = [0.2,1.0]
+			fc = [0.33333,1.0]
+    		#conv = [0,1]
+			idm = [0.2,1.0]
+			ids = [0.2,1.0]
+			eps = [0.2,1.0]
+			prop = [0,4]
+
+	#[ca.constraints]
+
+[train]
+	epochs = 10
+	
+	[train.dispatch]
+		gpu = true
+		platform = "slurm"
+		exclude = 'ai06,lynx01,ristretto01,ristretto02,ristretto03,ristretto04,affogato13,affogato14,affogato15'
+
+
+[verify]
+	debug = false
+	rm_transpose = true
+	eps = 0.02
+	time = 600
+	memory = '16G'
+	GRB_LICENSE_FILE="./lib/gurobi.lic"
+	verifiers = ['eran_deepzono','eran_deeppoly','eran_refinezono','eran_refinepoly','neurify','planet','bab','bab_sb','reluplex','dnnf','marabou','nnenum','mipverify','verinet']
+	#verifiers = ['eran_deepzono','eran_deeppoly','neurify','planet','reluplex','dnnf','marabou','nnenum']
+
+	[verify.dispatch]
+		gpu = false
+		platform = "slurm"
+		reservation = "dx3yy_23"
+		nb_cpus = 6
+		nodes = ['cortado01','cortado02','cortado03','cortado04','cortado05','cortado06','cortado07','cortado08','cortado09']
+		task_per_node = 7

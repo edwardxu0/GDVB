@@ -8,7 +8,7 @@ name = 'dave_enu2_cov3_low3'
 	start_layer = 1
 
 [ca]
-	strength = 3
+	strength = 4
 
 	[ca.parameters.level]
 		neu = 3
@@ -34,24 +34,25 @@ name = 'dave_enu2_cov3_low3'
 		value = ['fc=0 => conv!=0']
 
 [train]
-	epoches = 10
+	epochs = 50
 	[train.dispatch]
 		gpu = true
 		platform = "slurm"
-		reservation = "dx3yy_9"
-		nodes = ['ristretto01','ristretto03','ristretto04']
-		task_per_node = 8
+		#reservation = "dx3yy_9"
+		#nodes = ['ristretto01','ristretto02','ristretto03','ristretto04']
+		#task_per_node = 8
 
 [verify]
 	eps = 2
-	time = 14400
+	#time = 14400
+	time = 3600
 	memory = '64G'
 	GRB_LICENSE_FILE="./lib/gurobi.lic"
-	verifiers = ['eran_deepzono','eran_deeppoly','eran_refinezono','eran_refinepoly','neurify','planet','bab','bab_sb','reluplex']
+	verifiers = ['eran_deepzono','eran_deeppoly','eran_refinezono','eran_refinepoly','neurify','planet','bab','bab_sb','reluplex','dnnf']
 
 	[verify.dispatch]
 		gpu = false
 		platform = "slurm"
-		reservation = "dx3yy_10"
-		nodes = ['cortado01','cortado02','cortado03','cortado04','cortado05','cortado06','cortado07','cortado08','cortado09','cortado10']
+		#reservation = "dx3yy_10"
+		nodes = ['cortado01','cortado02','cortado03','cortado04','cortado05','cortado06','cortado07','cortado08','cortado09']
 		task_per_node = 7

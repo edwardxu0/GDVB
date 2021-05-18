@@ -36,7 +36,7 @@ name = 'dave_2x2_enu2_cov3_low3'
 		value = ['conv=3 => idm!=0']
 
 [train]
-	epoches = 10
+	epochs = 10
 	[train.dispatch]
 		gpu = true
 		platform = "slurm"
@@ -46,7 +46,7 @@ name = 'dave_2x2_enu2_cov3_low3'
 
 [verify]
 	eps = 2
-	time = 14400
+	time = 3600
 	memory = '64G'
 	GRB_LICENSE_FILE="./lib/gurobi.lic"
 	verifiers = ['eran_deepzono','eran_deeppoly','eran_refinezono','eran_refinepoly','neurify','planet','bab','bab_sb','reluplex']

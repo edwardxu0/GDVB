@@ -29,14 +29,12 @@ name = 'dave_2x2_enu2'
 		idm = [0.2,1.0]
 		ids = [0.2,1.0]
 		eps = [0.2,1.0]
-
-
 	
 	[ca.constraints]
 		value = ['conv=3 => idm!=0']
 
 [train]
-	epoches = 10
+	epochs = 10
 	[train.dispatch]
 		gpu = true
 		platform = "slurm"

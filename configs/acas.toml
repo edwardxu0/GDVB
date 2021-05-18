@@ -29,7 +29,7 @@ name = 'acas'
 			#prop = []
 
 [train]
-	epoches = 2
+	epochs = 2
 	[train.dispatch]
 		mode = 'local'
 		gpu = true

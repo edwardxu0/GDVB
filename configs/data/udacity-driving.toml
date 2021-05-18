@@ -11,4 +11,5 @@ path="data/udacity.sdc.100/testing"
 [transform]
 bgr=true
 mean=[103.939, 116.779, 123.68]
+min_value=0.0
 max_value=255.0

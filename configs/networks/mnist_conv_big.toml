@@ -4,6 +4,7 @@ threshold=1e-9
 cuda=true
 type="classification"
 precompute_teacher=true
+save_intermediate=false
 
 [distillation.parameters]
 epochs=10

@@ -28,7 +28,7 @@ name = 'mnist_tiny'
 			prop = [0,1]
 
 [train]
-	epoches = 2
+	epochs = 2
 	[train.dispatch]
 		gpu = false
 		platform = 'local'

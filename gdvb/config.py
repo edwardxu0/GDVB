@@ -10,6 +10,7 @@ def configure(args):
     configs['seed'] = args.seed
     configs['task'] = args.task
     configs['override'] = args.override
+    configs['verify_epochs'] = args.verify_epochs
     subdirs = ['dis_config','dis_model','dis_slurm','dis_log','props','veri_slurm','veri_log']
 
     if args.platform is not None:

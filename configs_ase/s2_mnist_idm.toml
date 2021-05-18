@@ -1,0 +1,55 @@
+name = 's2_mnist_idm'
+
+[dnn]
+	onnx = './configs/networks/MDR10x1000.onnx'
+	r4v_config = './configs/networks/MDR10x1000.toml'
+	data_config = './configs/data/mnist.toml'
+	supported_layers= ['Conv', 'FC', 'Transpose', 'Flatten']
+	start_layer = 0
+
+[ca]
+	strength = 3
+
+	[ca.parameters]
+		[ca.parameters.level]
+			neu = 25
+			fc = 1		# 0,1,2
+			#conv = 5	# 0,1,2,3,4
+			idm = 10
+			ids = 1
+			eps = 1
+			prop = 5
+
+		[ca.parameters.range] # 0~1
+			neu = [0.04,1.0]
+			fc = [0.4,0.4]
+    		#conv = [0,1]
+			idm = [0.1,1.0]
+			ids = [1.0,1.0]
+			eps = [1.0,1.0]
+			prop = [0,4]
+
+[train]
+	epochs = 10
+	
+	[train.dispatch]
+		gpu = false
+		platform = "slurm"
+		exclude = 'ai06,lynx02'
+
+
+[verify]
+	debug = false
+	rm_transpose = true
+	eps = 0.02
+	time = 600
+	memory = '16G'
+	verifiers = ['eran_deepzono','eran_deeppoly','eran_refinezono','eran_refinepoly','neurify','planet','bab','bab_sb','reluplex','dnnf','marabou','nnenum','mipverify','verinet']
+
+	[verify.dispatch]
+		gpu = false
+		platform = "slurm"
+		reservation = "dx3yy_23"
+		nb_cpus = 6
+		nodes = ['cortado01','cortado02','cortado03','cortado04','cortado05','cortado06','cortado07','cortado08','cortado09']
+		task_per_node = 7

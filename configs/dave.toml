@@ -38,7 +38,7 @@ name = 'dave'
 		]
 
 [train]
-	epoches = 10
+	epochs = 10
 	[train.dispatch]
 		mode = 'local'
 		gpu = false
