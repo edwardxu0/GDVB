@@ -1,108 +1,104 @@
 import os
-import sys
+import pathlib
 import numpy as np
-import random
 import toml
-import time
-import logging
-import string
+import re
 
 from decimal import Decimal as D
 
+from .artifacts.ACAS import ACAS
+from .artifacts.MNIST import MNIST
+from .artifacts.CIFAR10 import CIFAR10
+from .artifacts.DAVE2 import DAVE2
 from .nn.layers import Dense, Conv, Transpose, Flatten
 from .dispatcher import Task
+from .pipeline.R4V import R4V
+from .pipeline.DNNV import DNNV
+from .pipeline.DNNF import DNNF
 
+class VerificationProblem:
 
-class VerificationProblem():
-    def __init__(self, vp_name, config, vpc):
-        self.vp_name = vp_name
+    def __init__(self, settings, vpc, verification_benchmark):
+        self.settings = settings
+        self.vpc = vpc
+        self.verification_benchmark = verification_benchmark
+
+        self.vp_name = ''
         self.net_name = ''
-        tokens = self.vp_name.split('_')
-        for t in tokens:
-            if not t.startswith('eps=') and not t.startswith('prop='):
-                self.net_name += f'{t}_'
+        for factor, level in [(x, vpc[x]) for x in vpc]:
+            token = f'{factor}={level}_'
+            self.vp_name += token
+            if factor not in ['eps', 'prop']:
+                self.net_name += token
+        self.vp_name = self.vp_name[:-1]
         self.net_name = self.net_name[:-1]
 
-        self.name = config['name']
-        if vpc is not None:
-            if not config['name'] == 'acas':
-                temp_vpc = [x for x in vpc if x not in ['eps','prop']]
-            else:
-                temp_vpc = [vpc[x] for x in vpc if x not in ['prop']]
-            self.name += '.'+':'.join([str(vpc[x]) for x in temp_vpc])
-        self.vpc = vpc
+        self.prop_dir = os.path.join(self.settings.props_dir, self.net_name)
 
-        self.config = config
-        
-        self.scale_input = False
-
-        source_dis_config = open(self.config['dnn']['r4v_config'],'r').read()
+        source_dis_config = open(self.settings.dnn_configs['r4v_config'], 'r').read()
         self.distillation_config = toml.loads(source_dis_config)
 
+        self.scale_input = False
+        self.training_lost = {}
+        self.verification_results = {}
         
     def set_distillation_strategies(self, dis_strats):
-        self.dis_strats = dis_strats
-
         drop_ids = []
+        added_layers = []
         scale_ids_factors = []
+        print(dis_strats)
         for ds in dis_strats:
             if ds[0] == 'drop':
                 drop_ids += [ds[1]]
+            elif ds[0] == 'add':
+                added_layers += [ds[1]]
             elif ds[0] == 'scale':
-                scale_ids_factors += [[ds[1],ds[2]]]
+                scale_ids_factors += [[ds[1], ds[2]]]
             elif ds[0] == 'scale_input':
                 self.scale_input = True
                 self.scale_input_factor = ds[1]
             else:
-                assert False, 'Unkown strategy'+ ds
+                assert False, 'Unknown strategy' + ds
 
-        strats = [x[0] for x in dis_strats]
-        if 'scale' in strats:
-            self.name+=f'_{dis_strats[strats.index("scale")][2]:.3f}'
-            self.net_name += f'_SF={dis_strats[strats.index("scale")][2]:.3f}'
-            self.vp_name += f'_SF={dis_strats[strats.index("scale")][2]:.3f}'
+        strategies = [x[0] for x in dis_strats]
+        if 'scale' in strategies:
+            self.net_name += f'_SF={dis_strats[strategies.index("scale")][2]:.3f}'
+            self.vp_name += f'_SF={dis_strats[strategies.index("scale")][2]:.3f}'
         else:
-            self.name += f'_{1:.3f}'
             self.net_name += f'_{1:.3f}'
             self.vp_name += f'_{1:.3f}'
         
         self.drop_ids = drop_ids
         self.scale_ids_factors = scale_ids_factors
+        self.added_layers = added_layers
 
-        '''
-        self.distillation_config['distillation']['parameters']['epochs'] = self.config['train']['epochs']
-        self.dis_config_path = os.path.join(self.config['dis_config_dir'], self.name + '.toml')
-        self.dis_model_path = os.path.join(self.config['dis_model_dir'], self.name +'.onnx')
-        self.dis_log_path = os.path.join(self.config['dis_log_dir'], self.name + '.out')
-        self.dis_slurm_path = os.path.join(self.config['dis_slurm_dir'], self.name + '.slurm')
+        self.dis_config_path = os.path.join(self.settings.dis_config_dir, self.net_name + '.toml')
+        self.dis_model_path = os.path.join(self.settings.dis_model_dir, self.net_name + '.onnx')
+        self.dis_log_path = os.path.join(self.settings.dis_log_dir, self.net_name + '.out')
+        if self.settings.training_configs['dispatch']['platform'] == 'slurm':
+            self.dis_slurm_path = os.path.join(self.settings.dis_slurm_dir, self.net_name + '.slurm')
+        else:
+            self.dis_slurm_path = None
 
-        self.dis_config_path2 = os.path.join(self.config['dis_config_dir'], self.net_name + '.toml')
-        self.dis_model_path2 = os.path.join(self.config['dis_model_dir'], self.net_name +'.onnx')
-        self.dis_log_path2 = os.path.join(self.config['dis_log_dir'], self.net_name + '.out')
-        self.dis_slurm_path2 = os.path.join(self.config['dis_slurm_dir'], self.net_name + '.slurm')
-        '''
-        
-        self.dis_config_path = os.path.join(self.config['dis_config_dir'], self.net_name + '.toml')
-        self.dis_model_path = os.path.join(self.config['dis_model_dir'], self.net_name +'.onnx')
-        self.dis_log_path = os.path.join(self.config['dis_log_dir'], self.net_name + '.out')
-        self.dis_slurm_path = os.path.join(self.config['dis_slurm_dir'], self.net_name + '.slurm')
-
-        
     # calculate neurons/layers
     def calc_order(self, order_by, orig_layers, input_shape):
         if order_by == 'nb_neurons':
-            self.order_by = 'nb_neurons'
             self.layers = []
             self.nb_neurons = []
             self.remaining_layer_ids = []
             self.conv_kernel_and_fc_sizes = []
 
+            # create network
             for i in range(len(orig_layers)):
-                if i not in self.drop_ids:
-                    if self.layers == []:
+                if i in self.drop_ids:
+                    self.layers += [None]
+                    self.nb_neurons += [0]
+                else:
+                    if not self.layers:
                         in_shape = input_shape
                     else:
-                        in_shape = self.layers[-1].out_shape
+                        tmp = [x for x in self.layers if x is not None]
+                        in_shape = tmp[-1].out_shape
                     ol = orig_layers[i]
                     if ol.type == 'FC':
                         size = ol.size
@@ -134,48 +130,36 @@ class VerificationProblem():
                         assert False
                     self.layers += [l]
                     self.remaining_layer_ids += [i]
+            print(self.layers)
+            # add layers
+            for layer in self.added_layers:
+                if layer['layer_type'] == 'FullyConnected':
+                    for layer_id in layer['layer_id']:
+                        in_shape = self.layers[layer_id].out_shape
+                        size = layer['parameters']
+                        new_layer = Dense(size, None, None, in_shape)
+                        self.layers.insert(layer_id, new_layer)
+                        self.nb_neurons.insert(layer_id, np.prod(new_layer.out_shape))
+                        self.conv_kernel_and_fc_sizes += [size]
+
+            print(self.layers)
+            self.layers = [x for x in self.layers if x is not None]
         else:
             assert False
-
 
     # override comparators
     def __gt__(self, other):
         if self.order_by == 'nb_neurons' and other.order_by == 'nb_neurons':
             return np.sum(self.nb_neurons) > np.sum(other.nb_neurons)
         else:
-            assert False
-    
-    # train network
-    def train(self):
+            raise NotImplementedError()
 
-        '''
-        print(self.dis_config_path)
-        assert os.path.exists(self.dis_config_path), self.dis_config_path
-        cmd = f'cp {self.dis_config_path} {self.dis_config_path2}'
-        print(cmd)
-        os.system(cmd)
-        #assert os.path.exists(self.dis_model_path), self.dis_model_path
-        cmd = f'cp {self.dis_model_path} {self.dis_model_path2}'
-        print(cmd)
-        os.system(cmd)
-        assert os.path.exists(self.dis_log_path), self.dis_log_path
-        cmd = f'cp {self.dis_log_path} {self.dis_log_path2}'
-        print(cmd)
-        os.system(cmd)
-        assert os.path.exists(self.dis_slurm_path), self.dis_slurm_path
-        cmd = f'cp {self.dis_slurm_path} {self.dis_slurm_path2}'
-        print(cmd)
-        os.system(cmd)
-        '''
-        
-        if not self.config['override']:
-            if os.path.exists(self.dis_log_path):
-                print('NN already trained. Skipping ... ', self.dis_log_path)
-                return
-        
-        formatted_data = toml.dumps(self.distillation_config)
-        with open(self.dis_config_path, 'w') as f:
-            f.write(formatted_data)
+    # writes the R4V training configs
+    def write_training_configs(self):
+        if 'epochs' in self.settings.training_configs:
+            self.distillation_config['distillation']['parameters']['epochs'] = self.settings.training_configs['epochs']
+        training_configs = toml.dumps(self.distillation_config)
+        open(self.dis_config_path, 'w').write(training_configs)
 
         # TODO: use better toml api
         lines = ['']
@@ -198,126 +182,240 @@ class VerificationProblem():
 
         open(self.dis_config_path, 'a').writelines(lines)
 
-        cmds = ['./scripts/run_r4v.sh distill {} --debug'.format(self.dis_config_path)]
-        task = Task(cmds,
-                    self.config['train']['dispatch'],
-                    "GDVB_Train",
-                    self.dis_log_path,
-                    self.dis_slurm_path
-        )
-        task.run()
-
+    # am I trained?
     def trained(self):
-        last_iter_model_path = self.dis_model_path[:-4]+'iter.10.onnx'
-        trained = os.path.exists(last_iter_model_path)
-
-        if os.path.exists(self.dis_log_path) and not trained:
-            print(f'removing {self.dis_log_path}')
-            #os.remove(self.dis_log_path)
-
-        '''
+        trained = False
         if os.path.exists(self.dis_log_path):
             lines = open(self.dis_log_path, 'r').readlines()[-10:]
-            for l in lines:
-                if 'Process finished successfully' in l:
+            for line in lines:
+                if 'Process finished successfully' in line:
                     trained = True
                     break
-        '''
- 
         return trained
 
+    # train network
+    def train(self):
+        if not self.settings.override and self.trained():
+            self.settings.logger.info(f'Skipping trained network ...')
+            return
+        else:
+            self.write_training_configs()
+
+            cmd = R4V(["distill", "debug"]).execute([self.dis_config_path])
+            cmds = [cmd]
+            task = Task(cmds,
+                        self.settings.training_configs['dispatch'],
+                        "GDVB_Train",
+                        self.dis_log_path,
+                        self.dis_slurm_path
+                        )
+            task.run()
+
+    def analyze_training(self):
+        relative_loss = []
+        if os.path.exists(self.dis_log_path):
+            lines = open(self.dis_log_path).readlines()
+            for line in lines:
+                if 'validation error' in line:
+                    relative_loss += [float(line.strip().split('=')[-1])]
+        if len(relative_loss) != self.settings.training_configs['epochs']:
+            self.settings.logger.warn(f"Training may not be finished. "
+                                      f"({len(relative_loss)}/{self.settings.training_configs['epochs']})")
+        return relative_loss
+
+    def gen_prop(self):
+        transform = self.distillation_config['distillation']['data']['transform']['student']
+        data_config = open(self.settings.dnn_configs['data_config'], 'r').read()
+        data_config = toml.loads(data_config)
+        data_config['transform'] = transform
+
+        prop_id = self.vpc['prop']
+
+        if 'eps' in self.vpc:
+            eps = D(str(self.vpc['eps'])) * D(str(self.settings.verification_configs['eps']))
+        else:
+            eps = self.settings.verification_configs['eps']
+
+        skip_layers = 0 if 'skip_layers' not in self.settings.verification_configs\
+            else self.settings.verification_configs['skip_layers']
+
+        pathlib.Path(self.prop_dir).mkdir(parents=True, exist_ok=True)
+
+        self.verification_benchmark.artifact.generate_property(data_config,
+                                                               prop_id,
+                                                               eps,
+                                                               skip_layers,
+                                                               self.prop_dir,
+                                                               self.settings.seed)
+
+    # am I verified?
+    @staticmethod
+    def verified(log_path):
+        verified = False
+        if os.path.exists(log_path):
+            lines = open(log_path).readlines()[-10:]
+            for line in lines:
+                if any(x in line for x in ['Timeout (terminating process)',
+                                           'Process finished successfully',
+                                           'Out of Memory (terminating process)']):
+                    verified = True
+                    break
+        return verified
+
     # verify network
-    def verify(self, parameters, logger):
-        configs = self.config
-        verifiers = configs['verify']['verifiers']
-        time_limit = configs['verify']['time']
-        memory_limit = configs['verify']['memory']
+    def verify(self, tool, options):
+        options = [options]
+        if self.settings.verification_configs['debug']:
+            options += ['debug']
+        verifier = globals()[tool](options)
 
-        count = 0
-        iterations = 1
-        verify_epochs = self.config['verify_epochs']
-        if verify_epochs:
-            stride = verify_epochs
-            iters_to_verify = list(range(0,self.config['train']['epochs']+1,stride))
-            iterations = len(iters_to_verify)
+        time_limit = self.settings.verification_configs['time']
+        memory_limit = self.settings.verification_configs['memory']
 
-        for i in range(iterations):
-            for v in verifiers:
-                count += 1
-                logger.info(f'Verifying with {v} {count}/{len(verifiers)}')
-                vpc = ':'.join([str(self.vpc[x]) for x in self.vpc])
-                
-                if 'eran' in v:
-                    verifier_cmd = f'--eran --eran.domain {v.split("_")[1]}'
-                elif v == 'bab_sb':
-                    verifier_cmd = '--bab --bab.smart_branching True'
-                elif v == 'dnnf':
-                    verifier_cmd = ''
-                else:
-                    verifier_cmd = f'--{v.replace("_ins","")}'
+        net_path = self.dis_model_path
+        veri_log_path = os.path.join(
+            self.settings.veri_log_dir,
+            f'{self.vp_name}_T={time_limit}_M={memory_limit}:{verifier.verifier_name}.out')
 
-                net_path = self.dis_model_path
-                self.veri_log_path = os.path.join(self.config["veri_log_dir"] ,f'{self.vp_name}_T={configs["verify"]["time"]}_M={configs["verify"]["memory"]}:{v}.out')
-                self.slurm_script_path = os.path.join(self.config['veri_slurm_dir'],f'{self.vp_name}_T={configs["verify"]["time"]}_M={configs["verify"]["memory"]}:{v}.slurm')
-                
-                '''
-                veri_log_path = f'{self.config["veri_log_dir"]}/{vpc}_{v}.out'
-                slurm_script_path = os.path.join(self.config['veri_slurm_dir'],f'{vpc}_{v}.slurm')
+        if self.settings.training_configs['dispatch']['platform'] == 'slurm':
+            slurm_script_path = os.path.join(
+                self.settings.veri_slurm_dir,
+                f'{self.vp_name}_T={time_limit}_M={memory_limit}:{verifier.verifier_name}.slurm')
+        else:
+            slurm_script_path = None
 
-                veri_log_path2 = os.path.join(self.config["veri_log_dir"] ,f'{self.vp_name}_T={configs["verify"]["time"]}_M={configs["verify"]["memory"]}:{v}.out')
-                slurm_script_path2 = os.path.join(self.config['veri_slurm_dir'],f'{self.vp_name}_T={configs["verify"]["time"]}_M={configs["verify"]["memory"]}:{v}.slurm')
+        if not self.settings.override and self.verified(veri_log_path):
+            self.settings.logger.info('Skipping verified problem ...')
+            return
 
-                os.path.exists(veri_log_path)
-                cmd = f'cp {veri_log_path} {veri_log_path2}'
-                print(cmd)
-                os.system(cmd)
-                os.path.exists(slurm_script_path)
-                cmd = f'cp {slurm_script_path} {slurm_script_path2}'
-                print(cmd)
-                os.system(cmd)
-                '''
-                
-                if verify_epochs:
-                    net_path, ext = os.path.splitext(net_path)
-                    net_path = f'{net_path}.iter.{iters_to_verify[i]}{ext}'
-                    self.veri_log_path, ext = os.path.splitext(self.veri_log_path)
-                    self.veri_log_path = f'{self.veri_log_path}.{iters_to_verify[i]}{ext}'
-                    slurm_script_path, ext = os.path.splitext(slurm_script_path)
-                    slurm_script_path = f'{slurm_script_path}.{iters_to_verify[i]}{ext}'
+        if 'eps' in self.vpc:
+            eps = D(str(self.vpc['eps'])) * D(str(self.settings.verification_configs['eps']))
+        else:
+            eps = self.settings.verification_configs['eps']
 
-                if not configs['override']:
-                    if os.path.exists(self.veri_log_path):
-                        print('Instance already verified. Skipping ... ', self.veri_log_path)
+        property_path = os.path.join(self.prop_dir, f"robustness_{self.vpc['prop']}_{eps}.py")
+
+        cmd = f'python -W ignore ./lib/DNNV/tools/resmonitor.py -T {time_limit} -M {memory_limit} '
+        cmd += verifier.execute([property_path, '--network N', net_path])
+        cmds = [cmd]
+        task = Task(cmds,
+                    self.settings.verification_configs['dispatch'],
+                    "GDVB_Verify",
+                    veri_log_path,
+                    slurm_script_path
+                    )
+        task.run()
+
+    def analyze_verification(self):
+        verification_results = {}
+        verifiers = []
+        for tool in self.settings.verification_configs['verifiers']:
+            for options in self.settings.verification_configs['verifiers'][tool]:
+                verifier = globals()[tool]([options])
+                verifiers += [verifier]
+
+        time_limit = self.settings.verification_configs['time']
+        memory_limit = self.settings.verification_configs['memory']
+        for verifier in verifiers:
+            log_path = os.path.join(
+                self.settings.veri_log_dir,
+                f'{self.vp_name}_T={time_limit}_M={memory_limit}:{verifier.verifier_name}.out')
+
+            if not os.path.exists(log_path):
+                verification_answer = 'unrun'
+                self.settings.logger.warn(f'Unrun: {log_path}')
+                verification_time = -1
+            else:
+                LINES_TO_CHECK = 300
+                lines = list(reversed(open(log_path, 'r').readlines()))[:LINES_TO_CHECK]
+                # lines2 = list(reversed(open(os.path.splitext(log_path) + '.err', 'r').readlines()))[:LINES_TO_CHECK]
+                # lines = lines2 + lines
+
+                verification_answer = None
+                verification_time = None
+                for i, l in enumerate(lines):
+
+                    if re.match(r'INFO*', l):
                         continue
 
-                if 'eps' in parameters:
-                    eps = parameters['eps'][self.vpc['eps']]
-                else:
-                    eps = configs['verify']['eps']
+                    if re.search('Timeout', l):
+                        verification_answer = 'timeout'
+                        verification_time = time_limit
+                        break
 
-                prop_dir = f'{configs["props_dir"]}/{self.net_name}/'
-                prop_levels = sorted([x for x in os.listdir(prop_dir) if '.py' in x])
-                prop_levels = [x for x in prop_levels if f'.{float(str(eps))}.py' in x]
-                assert len(prop_levels) == len(parameters['prop']), f"{len(prop_levels)}, {len(parameters['prop'])}"
-                
-                prop = prop_levels[self.vpc['prop']]
+                    if re.search('Out of Memory', l):
+                        verification_answer = 'memout'
+                        for l in lines:
+                            if re.search('Duration', l):
+                                verification_time = float(l.split(' ')[9][:-2])
+                                break
+                        break
 
-                if v == 'dnnf':
-                    executor = 'run_dnnf.sh'
-                elif v.endswith('_ins'):
-                    executor = 'run_dnnv_ins.sh'
-                else:
-                    executor = 'run_dnnv.sh'
-                cmd = f'python -W ignore ./lib/DNNV/tools/resmonitor.py -T {time_limit} -M {memory_limit}'
-                cmd += f' ./scripts/{executor} {prop_dir}/{prop} --network N {net_path} {verifier_cmd}'
-                if self.config['verify']['debug']:
-                    cmd += ' --debug'
-                cmds = [cmd]
-                
-                task = Task(cmds,
-                            self.config['verify']['dispatch'],
-                            "GDVB_Verify",
-                            self.veri_log_path,
-                            self.slurm_script_path
-                )
-                task.run()
+                    # if re.search('RuntimeError: view size is not compatible', l):
+                    #    verification_answer = 'error'
+                    #    verification_time = time_limit
+                    #    break
+
+                    if re.search(' result: ', l):
+                        error_patterns = ['PlanetError',
+                                          'ReluplexError',
+                                          'ReluplexTranslatorError',
+                                          'ERANError',
+                                          'MIPVerifyTranslatorError',
+                                          'NeurifyError',
+                                          'NnenumError',
+                                          'MarabouError',
+                                          'VerinetError',
+                                          'MIPVerifyError']
+                        if any(re.search(x, l) for x in error_patterns):
+                            verification_answer = 'error'
+                        # elif re.search('Return code: -11', l):
+                        #    verification_answer = 'memout'
+                        else:
+                            verification_answer = l.strip().split(' ')[-1]
+                            verification_time = float(lines[i - 1].strip().split(' ')[-1])
+                        break
+
+                    # exceptions that DNNV didn't catch
+                    # exception_patterns = ["Aborted         "]
+                    # if any(re.search(x, l) for x in exception_patterns):
+                    #    verification_answer = 'exception'
+                    #    for l in rlines:
+                    #        if re.search('Duration', l):
+                    #            verification_time = float(l.split(' ')[9][:-2])
+                    #            break
+                    #    break
+
+                    # failed jobs that are likely caused by server error
+                    rerun_patterns = ['CANCELLED AT',
+                                      'Unable to open Gurobi license file',
+                                      'cannot reshape array of size 0 into shape',
+                                      'property_node = module.body[-1]',
+                                      'slurmstepd: error: get_exit_code',
+                                      'Cannot load file containing pickled data',
+                                      'IndexError: list index out of range',
+                                      'gurobipy.GurobiError: No Gurobi license',
+                                      'gurobipy.GurobiError: License expired ',
+                                      'Cannot allocate memory',
+                                      'Disk quota exceeded',
+                                      'ValueError: Unknown arguments: --',
+                                      '--- Logging error ---']
+                    if any(re.search(x, l) for x in rerun_patterns):
+                        verification_answer = 'rerun'
+                        verification_time = -1
+                        self.settings.logger.warn(f'Failed job({verification_answer}): {log_path}')
+                        break
+
+            if not verification_answer and (i + 1 in [LINES_TO_CHECK, len(lines)] or len(lines) == 0):
+                verification_answer = 'undetermined'
+                verification_time = -1
+                self.settings.logger.warn('Undetermined job:', log_path)
+
+            assert verification_answer, verification_time
+            assert verification_answer in ['sat', 'unsat', 'unknown', 'error', 'timeout',
+                                           'memout', 'exception', 'rerun', 'unrun', 'undetermined'],\
+                f'{verification_answer}:{log_path}'
+
+            verification_results[verifier.verifier_name] = [verification_answer, verification_time]
+
+        return verification_results

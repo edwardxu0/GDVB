@@ -10,5 +10,6 @@ def main():
     logging.initialize(configs)
     genbench.gen(configs)
 
+
 if __name__ == '__main__':
     main()

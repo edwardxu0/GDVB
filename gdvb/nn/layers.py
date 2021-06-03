@@ -1,5 +1,6 @@
 import numpy as np
 
+
 # abstract layers
 class Layer(object):
     def __init__(self, type, in_shape, out_shape):
@@ -37,7 +38,7 @@ class Conv(WeightedLayer):
         self.padding = padding
         shape = (((in_shape[1]-kernel_size+2*padding) // stride)+1)
         out_shape = np.array([size, shape, shape])
-        super().__init__( 'Conv', size, weights, bias, in_shape, out_shape)
+        super().__init__('Conv', size, weights, bias, in_shape, out_shape)
 
 
 class ReLU(Layer):
@@ -53,7 +54,7 @@ class Flatten(Layer):
 class Pool(Layer):
     def __init__(self, pool_type, kernel_size, stride, padding, in_shape):
         stride = kernel_size
-        #assert kernel_size == stride
+        # assert kernel_size == stride
         assert in_shape.size == 3
         self.pool_type = pool_type
         self.kernel_size = kernel_size

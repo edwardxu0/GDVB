@@ -6,41 +6,41 @@ import time
 import re
 
 
-class Task():
-    def __init__(self, cmds, dispatch, name, log_path, slurm_path):
+class Task:
+    def __init__(self, cmds, dispatch, task_name, output_path, slurm_path):
         self.cmds = cmds
         self.platform = dispatch['platform']
-        self.log_path = log_path
+        self.output_path = output_path
+        self.error_path = f'{os.path.splitext(output_path)[0]}.err'
+
+        self.exclude = dispatch['exclude'] if 'exclude' in dispatch else None
         self.reservation = dispatch['reservation'] if 'reservation' in dispatch else None
         self.nb_cpus = dispatch['nb_cpus'] if 'nb_cpus' in dispatch else None
-        self.exclude = dispatch['exclude'] if 'exclude' in dispatch else None
+        self.nodes = dispatch['nodes'] if 'nodes' in dispatch else None
+        self.task_per_node = dispatch['task_per_node'] if 'task_per_node' in dispatch else None
 
         if self.platform == 'slurm':
             self.slurm_path = slurm_path
-
-            gpu = dispatch['gpu'] if 'gpu' in dispatch else None
-            self.configure_slurm(self.cmds, name, gpu, log_path, slurm_path, dispatch)
+            nb_gpus = dispatch['nb_gpus'] if 'nb_gpus' in dispatch else 0
+            self.configure_slurm(self.cmds, task_name, nb_gpus)
 
     # configure slurm script if running on slurm server
-    def configure_slurm(self, cmds, name, gpu, log_path, slurm_path, dispatch):
-        self.nodes = dispatch['nodes'] if 'nodes' in dispatch else None
-        self.task_per_node = dispatch['task_per_node'] if 'task_per_node' in dispatch else None
-        
+    def configure_slurm(self, cmds, task_name, nb_gpus):
         lines = ['#!/bin/sh',
-                 f'#SBATCH --job-name={name}',
-                 f'#SBATCH --error={log_path[:-4]}.err',
-                 f'#SBATCH --output={log_path}']
-        if gpu:
+                 f'#SBATCH --job-name={task_name}',
+                 f'#SBATCH --output={self.output_path}',
+                 f'#SBATCH --error={self.error_path}']
+        if nb_gpus != 0:
             lines += ['#SBATCH --partition=gpu',
-                      '#SBATCH --gres=gpu:1']
+                      f'#SBATCH --gres=gpu:{nb_gpus}']
 
-        lines += ['export GRB_LICENSE_FILE=/u/dx3yy/.gurobikeys/`hostname`.gurobi.lic'] # hard coded gurobi license
+        # TODO: remove hard coded gurobi license
+        lines += ['export GRB_LICENSE_FILE=/u/dx3yy/.gurobikeys/`hostname`.gurobi.lic']
         lines += ['cat /proc/sys/kernel/hostname']
         lines += cmds
         
         lines = [x+'\n' for x in lines]
-        open(slurm_path, 'w').writelines(lines)
-
+        open(self.slurm_path, 'w').writelines(lines)
 
     # execute task
     def run(self):
@@ -54,27 +54,24 @@ class Task():
                 print(f'Requesting a node from: {self.nodes}')
                 node = self.request_node()
                 cmd += f' -w {node}'
-            cmd +=  f' {self.slurm_path}'
+            cmd += f' {self.slurm_path}'
         elif self.platform == 'local':
             for cmd in self.cmds:
                 if 'dnnv' in cmd or 'r4v' in cmd:
-                    cmd += f' > {self.log_path} 2>&1'
-                    #cmd += f' > {self.log_path} 2>/dev/null'
-                    #cmd += f' > {self.log_path} 2>{self.log_path}.err'
+                    cmd += f' > {self.output_path} 2>&1'
         else:
             assert False
 
         subprocess.call(cmd, shell=True)
-    
-        
+
     def request_node(self):
-        while(True):
+        while True:
             node_avl_flag = False
             tmp_file = './tmp/'+''.join(random.choice(string.ascii_lowercase) for i in range(16))
             
-            #sqcmd = f'squeue | grep cortado > {tmp_file}'
+            # sqcmd = f'squeue | grep cortado > {tmp_file}'
             sqcmd = f'squeue  > {tmp_file}'
-            #sqcmd = f'squeue -u dx3yy > {tmp_file}'
+            # sqcmd = f'squeue -u dx3yy > {tmp_file}'
             time.sleep(3)
             os.system(sqcmd)
             sq_lines = open(tmp_file, 'r').readlines()[1:]
@@ -118,7 +115,7 @@ class Task():
                 print('node unavialiable. waiting ...')
                 continue
 
-            #print(nodes_avl)
+            # print(nodes_avl)
 
             for na in nodes_avl:
                 if nodes_avl[na] < self.task_per_node:

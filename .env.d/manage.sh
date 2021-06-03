@@ -2,14 +2,14 @@
 
 if [ "$1" == "init" ]
 then
-    python -m venv .venv
+    python3 -m venv .venv
     . .venv/bin/activate
     python -m pip install --upgrade pip setuptools wheel
-#    while read req || [ -n "$req" ]
-#    do
-#        echo "pip install $req"
-#        pip install $req
-#    done < .env.d/requirements.txt
+    while read req || [ -n "$req" ]
+    do
+        echo "pip install $req"
+        pip install $req
+    done < .env.d/requirements.txt
 fi
 
 if [ "$1" == "install" ]
