@@ -46,7 +46,6 @@ name = 's1_cifar_convbig'
 
 [verify]
 	debug = true
-	skip_layers = 0
 	eps = 2
 	time = 14400
 	memory = '64G'

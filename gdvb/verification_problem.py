@@ -325,8 +325,7 @@ class VerificationProblem:
                     veri_log_path,
                     slurm_script_path
                     )
-        print(cmd)
-        #task.run()
+        task.run()
 
     def analyze_verification(self):
         verification_results = {}
