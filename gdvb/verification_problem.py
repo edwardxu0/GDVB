@@ -43,10 +43,13 @@ class VerificationProblem:
         self.verification_results = {}
         
     def set_distillation_strategies(self, dis_strats):
+        self.settings.logger.debug('Distillation Strategies:')
+        for i, x in enumerate(dis_strats):
+            self.settings.logger.debug(f'{i}: {x}')
+
         drop_ids = []
         added_layers = []
         scale_ids_factors = []
-        print(dis_strats)
         for ds in dis_strats:
             if ds[0] == 'drop':
                 drop_ids += [ds[1]]
@@ -86,19 +89,21 @@ class VerificationProblem:
             self.layers = []
             self.nb_neurons = []
             self.remaining_layer_ids = []
-            self.conv_kernel_and_fc_sizes = []
+            self.fc_and_conv_kernel_sizes = []
 
             # create network
             for i in range(len(orig_layers)):
                 if i in self.drop_ids:
                     self.layers += [None]
                     self.nb_neurons += [0]
+                    self.fc_and_conv_kernel_sizes += [0]
                 else:
-                    if not self.layers:
+                    tmp_layers = [x for x in self.layers if x is not None]
+                    if not tmp_layers:
                         in_shape = input_shape
                     else:
-                        tmp = [x for x in self.layers if x is not None]
-                        in_shape = tmp[-1].out_shape
+                        in_shape = tmp_layers[-1].out_shape
+
                     ol = orig_layers[i]
                     if ol.type == 'FC':
                         size = ol.size
@@ -106,7 +111,7 @@ class VerificationProblem:
                             if x[0] == i:
                                 size = int(round(size * x[1]))
                                 break
-                        self.conv_kernel_and_fc_sizes += [size]
+                        self.fc_and_conv_kernel_sizes += [size]
                         l = Dense(size, None, None, in_shape)
                         self.nb_neurons += [np.prod(l.out_shape)]
                     elif ol.type == 'Conv':
@@ -115,34 +120,38 @@ class VerificationProblem:
                             if x[0] == i:
                                 size = int(round(size * x[1]))
                                 break
-                        self.conv_kernel_and_fc_sizes += [size]
+                        self.fc_and_conv_kernel_sizes += [size]
                         l = Conv(size, None, None, ol.kernel_size, ol.stride, ol.padding, in_shape)
                         self.nb_neurons += [np.prod(l.out_shape)]
                     elif ol.type == 'Transpose':
                         l = Transpose(ol.order, in_shape)
-                        self.conv_kernel_and_fc_sizes += [-1]
+                        self.fc_and_conv_kernel_sizes += [0]
                         self.nb_neurons += [0]
                     elif ol.type == 'Flatten':
                         l = Flatten(in_shape)
-                        self.conv_kernel_and_fc_sizes += [-1]
+                        self.fc_and_conv_kernel_sizes += [0]
                         self.nb_neurons += [0]
                     else:
                         assert False
                     self.layers += [l]
                     self.remaining_layer_ids += [i]
-            print(self.layers)
+
             # add layers
             for layer in self.added_layers:
                 if layer['layer_type'] == 'FullyConnected':
                     for layer_id in layer['layer_id']:
-                        in_shape = self.layers[layer_id].out_shape
+                        in_shape = self.layers[layer_id-1].out_shape
                         size = layer['parameters']
+                        for x in self.scale_ids_factors:
+                            if x[0] == i:
+                                size = int(round(size * x[1]))
+                                break
                         new_layer = Dense(size, None, None, in_shape)
                         self.layers.insert(layer_id, new_layer)
                         self.nb_neurons.insert(layer_id, np.prod(new_layer.out_shape))
-                        self.conv_kernel_and_fc_sizes += [size]
-
-            print(self.layers)
+                        self.fc_and_conv_kernel_sizes.insert(layer_id, size)
+                else:
+                    raise NotImplementedError
             self.layers = [x for x in self.layers if x is not None]
         else:
             assert False
@@ -161,20 +170,32 @@ class VerificationProblem:
         training_configs = toml.dumps(self.distillation_config)
         open(self.dis_config_path, 'w').write(training_configs)
 
+        # write distillation strategies in order: scale_input > drop > add > scale_layer
         # TODO: use better toml api
         lines = ['']
-        if self.drop_ids:
-            lines +=['[[distillation.strategies.drop_layer]]']
-            lines +=['layer_id=['+', '.join([str(x) for x in self.drop_ids])+']']
-            lines +=['']
-        if self.scale_ids_factors:
-            lines +=['[[distillation.strategies.scale_layer]]']
-            lines +=['layer_id=['+', '.join([str(x[0]) for x in self.scale_ids_factors])+']']
-            lines +=['factor=[{}]'.format(', '.join([str(x[1]) for x in self.scale_ids_factors]))]
-            lines +=['']
         if self.scale_input:
-            lines +=['[[distillation.strategies.scale_input]]']
-            lines +=[f'factor={self.scale_input_factor}\n']
+            lines += ['[[distillation.strategies.scale_input]]']
+            lines += [f'factor={self.scale_input_factor}\n']
+
+        if self.drop_ids:
+            lines += ['[[distillation.strategies.drop_layer]]']
+            lines += ['layer_id=['+', '.join([str(x) for x in self.drop_ids])+']']
+            lines += ['']
+
+        if self.added_layers:
+            for layer in self.added_layers:
+                lines += ['[[distillation.strategies.add_layer]]']
+                lines += [f'layer_type="{layer["layer_type"]}"']
+                lines += [f'parameters={layer["parameters"]}']
+                lines += [f'activation_function="{layer["activation_function"]}"']
+                lines += [f'layer_id={layer["layer_id"]}']
+                lines += ['']
+
+        if self.scale_ids_factors:
+            lines += ['[[distillation.strategies.scale_layer]]']
+            lines += ['layer_id=['+', '.join([str(x[0]) for x in self.scale_ids_factors])+']']
+            lines += ['factor=[{}]'.format(', '.join([str(x[1]) for x in self.scale_ids_factors]))]
+            lines += ['']
 
         lines += ['[distillation.student]']
         lines += ['path="'+self.dis_model_path+'"']
@@ -219,7 +240,7 @@ class VerificationProblem:
                 if 'validation error' in line:
                     relative_loss += [float(line.strip().split('=')[-1])]
         if len(relative_loss) != self.settings.training_configs['epochs']:
-            self.settings.logger.warn(f"Training may not be finished. "
+            self.settings.logger.warning(f"Training may not be finished. "
                                       f"({len(relative_loss)}/{self.settings.training_configs['epochs']})")
         return relative_loss
 
@@ -304,7 +325,8 @@ class VerificationProblem:
                     veri_log_path,
                     slurm_script_path
                     )
-        task.run()
+        print(cmd)
+        #task.run()
 
     def analyze_verification(self):
         verification_results = {}
@@ -323,7 +345,7 @@ class VerificationProblem:
 
             if not os.path.exists(log_path):
                 verification_answer = 'unrun'
-                self.settings.logger.warn(f'Unrun: {log_path}')
+                self.settings.logger.warning(f'Unrun: {log_path}')
                 verification_time = -1
             else:
                 LINES_TO_CHECK = 300
@@ -403,13 +425,13 @@ class VerificationProblem:
                     if any(re.search(x, l) for x in rerun_patterns):
                         verification_answer = 'rerun'
                         verification_time = -1
-                        self.settings.logger.warn(f'Failed job({verification_answer}): {log_path}')
+                        self.settings.logger.warning(f'Failed job({verification_answer}): {log_path}')
                         break
 
             if not verification_answer and (i + 1 in [LINES_TO_CHECK, len(lines)] or len(lines) == 0):
                 verification_answer = 'undetermined'
                 verification_time = -1
-                self.settings.logger.warn('Undetermined job:', log_path)
+                self.settings.logger.warning(f'Undetermined job: {log_path}')
 
             assert verification_answer, verification_time
             assert verification_answer in ['sat', 'unsat', 'unknown', 'error', 'timeout',

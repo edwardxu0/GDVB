@@ -55,14 +55,14 @@ class Task:
                 node = self.request_node()
                 cmd += f' -w {node}'
             cmd += f' {self.slurm_path}'
+            subprocess.call(cmd, shell=True)
+
         elif self.platform == 'local':
             for cmd in self.cmds:
-                if 'dnnv' in cmd or 'r4v' in cmd:
-                    cmd += f' > {self.output_path} 2>&1'
+                cmd += f' > {self.output_path} 2> {self.error_path}'
+                subprocess.call(cmd, shell=True)
         else:
             assert False
-
-        subprocess.call(cmd, shell=True)
 
     def request_node(self):
         while True:

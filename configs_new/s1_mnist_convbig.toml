@@ -1,6 +1,7 @@
 name = 's1_mnist_convbig'
 
 [dnn]
+	artifact = 'MNIST'
 	onnx = './configs/networks/mnist_conv_big.onnx'
 	r4v_config = './configs/networks/mnist_conv_big.toml'
 	data_config = './configs/data/mnist.toml'
@@ -35,27 +36,27 @@ name = 's1_mnist_convbig'
 
 [train]
 	epochs = 10
-	
+	drop_scheme = 'random'
+
 	[train.dispatch]
-		gpu = true
+		nb_gpus = 1
 		platform = "slurm"
 		exclude = 'ai06,affogato11,affogato12,affogato13,affogato14,affogato15,lynx01,lynx02,lynx03,lynx04,lynx05,lynx06,lynx07,ristretto01,ristretto02'
 
 
 [verify]
-	debug = false
-	rm_transpose = false
+	debug = true
+	skip_layers = 3
 	eps = 0.02
 	time = 14400
 	memory = '64G'
-	GRB_LICENSE_FILE="./lib/gurobi.lic"
-	verifiers = ['eran_deepzono','eran_deeppoly','eran_refinezono','eran_refinepoly','neurify','planet','bab','bab_sb','reluplex','dnnf','marabou','nnenum','mipverify','verinet']
-
+	[verify.verifiers]
+		DNNV = ['eran_deepzono','eran_deeppoly','eran_refinezono','eran_refinepoly','neurify','planet','bab','bab_sb','reluplex','marabou','nnenum','mipverify','verinet']
+		DNNF = ['default']
 
 	[verify.dispatch]
-		gpu = false
 		platform = "slurm"
 		reservation = "dx3yy_28"
 		nb_cpus = 6
-		nodes = ['cortado06','cortado07','cortado08','cortado09','cortado10']
+		nodes = ['cortado04','cortado05','cortado06','cortado07','cortado08','cortado09','cortado10']
 		task_per_node = 7

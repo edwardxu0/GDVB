@@ -4,4 +4,4 @@ cd $DNNF
 . $DNNF/.env.d/openenv.sh
 cd $GDVB
 
-python -m falsify $@
+python -m dnnf $@

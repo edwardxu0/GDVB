@@ -10,10 +10,10 @@ class R4V:
         for op in options:
             if op == 'distill':
                 pre_params += ['distill']
-            if op == 'debug':
+            elif op == 'debug':
                 post_params += ['--debug']
             else:
-                raise NotImplementedError()
+                raise NotImplementedError(op)
         return pre_params, post_params
 
     def execute(self, params):

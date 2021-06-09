@@ -17,18 +17,3 @@ class Artifact:
             if layer.type in supported_layers:
                 layers += [layer]
         return layers[start_layer:]
-
-    # get the layer sizes that are used in layer scaling factor calculation
-    # FC: number of neurons
-    # Conv: number of kernels
-    # Others: -1
-    def get_layer_sizes(self):
-        layer_sizes = []
-        for layer in self.layers:
-            if isinstance(layer, (Dense, Conv)):
-                layer_sizes += [layer.size]
-            elif isinstance(layer, (Flatten, Transpose)):
-                layer_sizes += [-1]
-            else:
-                raise NotImplementedError(f'Unsupported layer type: {layer}')
-        return layer_sizes

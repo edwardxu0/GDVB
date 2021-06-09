@@ -7,6 +7,7 @@ class DNNV:
     def _parse_options(options):
         pre_params = []
         post_params = []
+        verifier_name = None
         for op in options:
             if 'eran' in op:
                 verifier_name = op
@@ -21,6 +22,7 @@ class DNNV:
                 post_params += ['--debug']
             else:
                 raise NotImplementedError
+        assert verifier_name is not None
         return pre_params, post_params, verifier_name
 
     def execute(self, params):

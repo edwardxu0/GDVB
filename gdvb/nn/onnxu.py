@@ -42,13 +42,15 @@ class ONNXU:
             assert False
         
         nodes = iter(model.graph.node)
+        nodes_list = model.graph.node
         arch = [Input(self.input_shape)]
 
         transpose_first_fc_layer = False
-        for node in nodes:
+        for node_id, node in enumerate(nodes):
             if node.op_type == 'Conv':
                 W_name = node.input[1]
                 W = self._as_numpy(var_dict[W_name])
+                #print('weights', W.shape)
 
                 if len(node.input) == 3:
                     B_name = node.input[2]
@@ -57,6 +59,7 @@ class ONNXU:
                     # bias are zero if not defined
                     B = np.zeros(W.shape[0])
                 for a in node.attribute:
+                    #print(a.name)
                     if a.name == 'auto_pad':
                         if a.s == 'VALID' or a.s == b'VALID':
                             padding = 0
@@ -67,11 +70,25 @@ class ONNXU:
                     elif a.name == 'kernel_shape':
                         kernel_size = self._as_numpy(a)[0]
                     elif a.name == 'strides':
+                        #print('strides', a)
                         stride = self._as_numpy(a)[0]
                     elif a.name == 'pads':
+                        #print('pads',a)
                         padding = self._as_numpy(a)[0]
                     else:
                         pass
+
+                # if previous layer is a Pad layer, adjust padding of this convolutional layer
+                # e.g. cifar_convbig onnx from ERAN benchmark
+                pre_node = None if node_id == 0 else nodes_list[node_id-1]
+                if pre_node and pre_node.op_type == 'Pad':
+                    for a in pre_node.attribute:
+                        if a.name == 'pads':
+                            pads = self._as_numpy(a)
+                            assert len(pads) == 8
+                            assert set(pads[[0,1,4,5]]) == set([0])
+                            assert set(pads[[2,3,6,7]]) == set([pads[2]])
+                            padding = pads[2]
 
                 layer = Conv(B.shape[0], W, B, kernel_size, stride, padding, arch[-1].out_shape)
                  
@@ -203,13 +220,12 @@ class ONNXU:
             #     #RESHAPE LAYER
             #     assert False, "not implemented; not supported."
 
-            elif node.op_type in ['Identity', 'Dropout', 'Softmax', 'Add', 'GlobalAveragePool', 'BatchNormalization', 'Atan', 'Mul', 'Pad', 'Sigmoid']:
+            elif node.op_type in ['Identity', 'Dropout', 'Softmax', 'Add', 'GlobalAveragePool',
+                                  'BatchNormalization', 'Atan', 'Mul', 'Pad', 'Sigmoid']:
                 continue
-
             else:
                 assert False, "Unsupported operator type: " + str(node.op_type)
             arch += [layer]
-
         return arch
 
     @staticmethod

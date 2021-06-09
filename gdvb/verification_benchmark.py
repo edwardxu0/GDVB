@@ -169,6 +169,12 @@ class VerificationBenchmark:
     def _gen_network_specifications(self):
         network_specifications = []
         for vpc in self.ca:
+            self.settings.logger.debug(f'Configuring verification problem: {vpc}')
+            self.settings.logger.debug('----------Original Network----------')
+            self.settings.logger.debug(f'Number neurons: {np.sum(self.artifact.onnx.nb_neurons)}')
+            for i, x in enumerate(self.artifact.layers):
+                self.settings.logger.debug(f'{i}: {x}')
+
             # factor: neu
             if 'neu' in vpc:
                 neuron_scale_factor = vpc['neu']
@@ -245,26 +251,6 @@ class VerificationBenchmark:
                 else:
                     pass
 
-            # calculate scale ids
-            if 'neu' in vpc or 'fc' in vpc or 'conv' in vpc:
-                scale_ids = set(self.fc_ids + self.conv_ids)
-                print(scale_ids, add_ids, drop_ids)
-                scale_ids = set(scale_ids) - set(drop_ids)
-                scale_ids = list(scale_ids)
-                print(scale_ids)
-
-                if add_ids:
-                    for add_id in add_ids:
-                        for i in range(len(scale_ids)):
-                            if scale_ids[i] >= add_id:
-                                scale_ids[i] += 1
-                        scale_ids = sorted(scale_ids + [add_id])
-                        print(scale_ids)
-                print(scale_ids)
-                print()
-            else:
-                scale_ids = []
-
             n = VerificationProblem(self.settings, vpc, self)
             dis_strats = [['drop', x] for x in drop_ids]
             dis_strats += [['add', x] for x in layers_add]
@@ -302,25 +288,44 @@ class VerificationBenchmark:
             else:
                 raise ValueError(f'Unrecognized ONNX input format: {self.artifact.onnx.input_format}')
 
+            # set up new network with added and dropped layers
             n.set_distillation_strategies(dis_strats)
             input_shape = [nb_channel, new_height, new_height]
             n.calc_order('nb_neurons', self.artifact.layers, input_shape)
 
+            # calculate real scale factors
             if 'neu' in vpc:
-                neurons_drop_only = np.sum(n.nb_neurons)
-                neuron_scale_factor = (np.sum(self.artifact.onnx.nb_neurons) * neuron_scale_factor) / neurons_drop_only
+                neuron_scale_factor = (np.sum(self.artifact.onnx.nb_neurons[:-1]) * neuron_scale_factor) / np.sum(n.nb_neurons[:-1])
+            elif 'fc' in vpc or 'conv' in vpc:
+                neuron_scale_factor = np.sum(self.artifact.onnx.nb_neurons[:-1]) / np.sum(n.nb_neurons[:-1])
 
-            # check if number of kernels is less than 1
-            layer_sizes = self.artifact.get_layer_sizes()
-            print(self.artifact.get_layer_sizes())
-            layer_sizes = n.nb_neurons
-            print(n.nb_neurons)
+            # assign scale factors
             if neuron_scale_factor != 1:
+                # calculate scale ids
+                if 'neu' in vpc or 'fc' in vpc or 'conv' in vpc:
+                    scale_ids = set(self.fc_ids + self.conv_ids)
+                    print('S: ', scale_ids, 'A: ', add_ids, 'D: ', drop_ids)
+                    scale_ids = set(scale_ids) - set(drop_ids)
+                    scale_ids = list(scale_ids)
+                    # print(scale_ids)
+
+                    if add_ids:
+                        for add_id in add_ids:
+                            for i in range(len(scale_ids)):
+                                if scale_ids[i] >= add_id:
+                                    scale_ids[i] += 1
+                            scale_ids = sorted(scale_ids + [add_id])
+                            # print(scale_ids)
+                    # print(scale_ids)
+                    # print()
+                else:
+                    scale_ids = []
+                print('S: ', scale_ids)
                 for x in scale_ids:
-                    assert layer_sizes[x] > 0
-                    if round(layer_sizes[x] * neuron_scale_factor) == 0:
-                        self.settings.logger.warn('Detected small layer scale factor, rounded up to 1.')
-                        dis_strats += [['scale', x, 1 / layer_sizes[x]]]
+                    assert n.fc_and_conv_kernel_sizes[x] > 0
+                    if round(n.fc_and_conv_kernel_sizes[x] * neuron_scale_factor) == 0:
+                        self.settings.logger.warn('Detected small layer scale factor, layer size is rounded up to 1.')
+                        dis_strats += [['scale', x, 1 / n.fc_and_conv_kernel_sizes[x]]]
                     else:
                         dis_strats += [['scale', x, neuron_scale_factor]]
 
@@ -330,6 +335,10 @@ class VerificationBenchmark:
 
             n.distillation_config['distillation']['data']['transform']['student'] = transform
             network_specifications += [n]
+            self.settings.logger.debug('----------New Network----------')
+            self.settings.logger.debug(f'Number neurons: {np.sum(n.nb_neurons)}')
+            for i, x in enumerate(n.layers):
+                self.settings.logger.debug(f'{i}: {x}')
 
         self.settings.logger.info(f'# NN: {len(network_specifications)}')
         return network_specifications

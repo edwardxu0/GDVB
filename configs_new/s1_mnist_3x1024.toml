@@ -1,6 +1,7 @@
 name = 's1_mnist_3x1024'
 
 [dnn]
+	artifact = 'MNIST'
 	onnx = './configs/networks/mnist_3x1024.onnx'
 	r4v_config = './configs/networks/mnist_3x1024.toml'
 	data_config = './configs/data/mnist.toml'
@@ -33,27 +34,28 @@ name = 's1_mnist_3x1024'
 
 [train]
 	epochs = 10
-	
+	drop_scheme = 'random'
+
 	[train.dispatch]
-		gpu = true
-		platform = "local"
+		nb_gpus = 1
+		platform = "slurm"
 		exclude = 'ai06,lynx01,ristretto01,ristretto02,ristretto03,ristretto04,affogato13,affogato14,affogato15'
 
 
 [verify]
-	debug = false
-	rm_transpose = true
+	debug = true
+	skip_layers = 3
 	eps = 0.02
 	time = 600
 	memory = '16G'
 	GRB_LICENSE_FILE="./lib/gurobi.lic"
-	verifiers = ['eran_deepzono','eran_deeppoly','eran_refinezono','eran_refinepoly','neurify','planet','bab','bab_sb','reluplex','dnnf','marabou','nnenum','mipverify','verinet']
-	#verifiers = ['eran_deepzono','eran_deeppoly','neurify','planet','reluplex','dnnf','marabou','nnenum']
+	[verify.verifiers]
+		DNNV = ['eran_deepzono','eran_deeppoly','eran_refinezono','eran_refinepoly','neurify','planet','bab','bab_sb','reluplex','marabou','nnenum','mipverify','verinet']
+		DNNF = ['default']
 
 	[verify.dispatch]
-		gpu = false
-		platform = "local"
-		reservation = "dx3yy_23"
+		platform = "slurm"
+		reservation = "dx3yy_28"
 		nb_cpus = 6
 		nodes = ['cortado01','cortado02','cortado03','cortado04','cortado05','cortado06','cortado07','cortado08','cortado09']
 		task_per_node = 7
