@@ -13,10 +13,10 @@ loss="MSE"
 learning_rate=1e-3
 
 [distillation.data]
-format="cifar"
+format="cifar10"
 batchsize=64
 presized=false
-path="./data/cifar"
+path="./data/cifar10"
 
 [distillation.teacher]
 framework="onnx"

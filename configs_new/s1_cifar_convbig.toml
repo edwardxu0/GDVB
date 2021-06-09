@@ -4,7 +4,7 @@ name = 's1_cifar_convbig'
 	artifact = 'CIFAR10'
 	onnx = "./configs/networks/cifar_conv_big.onnx"
 	r4v_config = "./configs/networks/cifar_conv_big.toml"
-	data_config = "./configs/data/cifar10"
+	data_config = "./configs/data/cifar10_eran.toml"
 	supported_layers= ['Conv', 'FC', 'Transpose', 'Flatten']
 	start_layer = 0
 

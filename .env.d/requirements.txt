@@ -12,3 +12,4 @@ keras==2.3
 pyfiglet
 progressbar2==3.50.1
 natsort==7.0.1
+tqdm

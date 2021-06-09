@@ -276,10 +276,12 @@ class VerificationBenchmark:
             if 'ids' in vpc:
                 mean = transform['mean']
                 max_value = transform['max_value']
+                min_value = transform['min_value']
                 ids_f = vpc['ids']
 
                 transform['mean'] = [float(x * ids_f) for x in mean]
-                transform['max_value'] = float(max_value * ids_f)
+                transform['max_value'] = None #float(max_value * ids_f)
+                transform['min_value'] = None #float(min_value * ids_f)
 
             if self.artifact.onnx.input_format == 'NCHW':
                 nb_channel = self.artifact.onnx.input_shape[0]
