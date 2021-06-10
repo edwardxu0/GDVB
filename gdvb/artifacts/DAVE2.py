@@ -32,26 +32,31 @@ class DAVE2(Artifact):
                 img = sx[0].numpy()
                 np.save(npy_img_path, img)
 
+                property_lines = ["from dnnv.properties import *\n",
+                                  "import numpy as np\n\n",
+                                  'N = Network("N")\n',
+                                  f'x = Image("{npy_img_path}")\n']
+
+                if not skip_layers or skip_layers == 0:
+                    property_lines += [f"input_layer = 0\n"]
+                else:
+                    property_lines += [f"input_layer = {skip_layers}\n"]
+
+                property_lines += ["output_layer = -2\n\n",
+                                  f"epsilon = {epsilon}\n",
+                                  f"gamma = {gamma} * np.pi / 180\n",
+                                  "output = N[input_layer:](x)\n",
+                                  "gamma_lb = np.tan(max(-np.pi / 2, (output - gamma) / 2))\n",
+                                  "gamma_ub = np.tan(min(np.pi / 2, (output + gamma) / 2))\n",
+                                  "Forall(\n",
+                                  "    x_,\n",
+                                  "    Implies(\n",
+                                  "        ((x - epsilon) < x_ < (x + epsilon)),\n",
+                                  "        (gamma_lb < N[input_layer:output_layer](x_) < gamma_ub),\n",
+                                  "    ),\n",
+                                  ")\n"]
+
                 property_path = os.path.join(output_dir, f"robustness_{i}_{epsilon}.py")
                 with open(property_path, "w+") as property_file:
-                    property_file.write(
-                        "from dnnv.properties import *\n"
-                        "import numpy as np\n\n"
-                        'N = Network("N")\n'
-                        f'x = Image("{npy_img_path}")\n'
-                        f"input_layer = {skip_layers}\n"
-                        "output_layer = -2\n\n"
-                        f"epsilon = {epsilon}\n"
-                        f"gamma = {gamma} * np.pi / 180\n"
-                        "output = N[input_layer:](x)\n"
-                        "gamma_lb = np.tan(max(-np.pi / 2, (output - gamma) / 2))\n"
-                        "gamma_ub = np.tan(min(np.pi / 2, (output + gamma) / 2))\n"
-                        "Forall(\n"
-                        "    x_,\n"
-                        "    Implies(\n"
-                        "        ((x - epsilon) < x_ < (x + epsilon)),\n"
-                        "        (gamma_lb < N[input_layer:output_layer](x_) < gamma_ub),\n"
-                        "    ),\n"
-                        ")\n"
-                    )
+                    property_file.writelines(property_lines)
                 break

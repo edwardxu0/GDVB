@@ -1,7 +1,5 @@
 from ..nn.onnxu import ONNXU
 
-from ..nn.layers import Dense, Conv, Transpose, Flatten
-
 
 class Artifact:
     def __init__(self, dnn_configs):

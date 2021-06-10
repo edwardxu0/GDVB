@@ -28,8 +28,8 @@ class CIFAR10(Artifact):
                 new_img_path = os.path.join(output_dir, f"{idx.item()}.png")
                 height = config.config['transform']['height']
                 width = config.config['transform']['width']
-                #img = Image.fromarray(sx.numpy().reshape(self.input_shape[0], height, width), 'L')
-                #img.save(new_img_path)
+                # img = Image.fromarray(sx.numpy().reshape(self.input_shape[0], height, width), 'L')
+                # img.save(new_img_path)
 
                 npy_img_path = os.path.join(output_dir, f"{idx.item()}.npy")
                 image_shape = (self.input_shape[0], height, width)

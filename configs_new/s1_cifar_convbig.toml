@@ -40,7 +40,7 @@ name = 's1_cifar_convbig'
 	
 	[train.dispatch]
 		nb_gpus = 1
-		platform = "slurm"
+		platform = "local"
 		exclude = 'ai06,affogato11,affogato12,affogato13,affogato14,affogato15,lynx01,lynx02,lynx03,lynx04,lynx05,lynx06,lynx07,ristretto01,ristretto02,ristretto03,ristretto04'
 
 
@@ -54,7 +54,7 @@ name = 's1_cifar_convbig'
 		DNNF = ['default']
 
 	[verify.dispatch]
-		platform = "slurm"
+		platform = "local"
 		reservation = "dx3yy_28"
 		nb_cpus = 6
 		nodes = ['cortado04','cortado05','cortado06','cortado07','cortado08','cortado09','cortado10']

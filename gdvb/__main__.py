@@ -5,7 +5,7 @@ from . import logging
 
 
 def main():
-    args = cli._parse_args()
+    args = cli.parse_args()
     configs = config.configure(args)
     logging.initialize(configs)
     genbench.gen(configs)

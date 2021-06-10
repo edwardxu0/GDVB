@@ -2,7 +2,7 @@ import argparse
 from pyfiglet import Figlet
 
 
-def _parse_args():
+def parse_args():
     f = Figlet(font='slant')
     print(f.renderText('GDVB'), end='')
     
@@ -17,5 +17,6 @@ def _parse_args():
     parser.add_argument('--root', type=str, default='./results/', help='Root directory')
     parser.add_argument('--platform', type=str, choices=['local', 'slurm'], help='How to run jobs?')
     parser.add_argument('--override', action='store_true', help='Override existing logs?')
+    parser.add_argument('--debug', action='store_true', help='Verbose mode.')
 
     return parser.parse_args()

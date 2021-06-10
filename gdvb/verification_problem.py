@@ -230,7 +230,8 @@ class VerificationProblem:
                         self.dis_log_path,
                         self.dis_slurm_path
                         )
-            task.run()
+            print(cmd)
+            # task.run()
 
     def analyze_training(self):
         relative_loss = []

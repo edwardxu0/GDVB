@@ -20,7 +20,7 @@ class WeightedLayer(Layer):
         self.bias = bias
 
 
-# Real layers
+# Concrete layers
 class Input(Layer):
     def __init__(self, in_shape):
         super().__init__('Input', in_shape, in_shape)
@@ -61,7 +61,7 @@ class Pool(Layer):
         self.stride = stride
         self.padding = padding
         shape = (((in_shape[1]-kernel_size+2*padding) // stride)+1)
-        out_shape = np.append(in_shape[0],[shape,shape])
+        out_shape = np.append(in_shape[0], [shape, shape])
         super().__init__('Pool', in_shape, out_shape)
 
 
