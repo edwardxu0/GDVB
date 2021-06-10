@@ -306,7 +306,6 @@ class VerificationBenchmark:
                 # calculate scale ids
                 if 'neu' in vpc or 'fc' in vpc or 'conv' in vpc:
                     scale_ids = set(self.fc_ids + self.conv_ids)
-                    print('S: ', scale_ids, 'A: ', add_ids, 'D: ', drop_ids)
                     scale_ids = set(scale_ids) - set(drop_ids)
                     scale_ids = list(scale_ids)
                     # print(scale_ids)
@@ -322,15 +321,16 @@ class VerificationBenchmark:
                     # print()
                 else:
                     scale_ids = []
-                print('S: ', scale_ids)
+                self.settings.logger.debug('Computing layer scale factors ...')
+                self.settings.logger.debug(f'Layers to Add: {add_ids}, Delete: {drop_ids}.')
+                self.settings.logger.debug(f'Layers to Scale: {scale_ids}.')
                 for x in scale_ids:
                     assert n.fc_and_conv_kernel_sizes[x] > 0
-                    if round(n.fc_and_conv_kernel_sizes[x] * neuron_scale_factor) == 0:
+                    if int(n.fc_and_conv_kernel_sizes[x] * neuron_scale_factor) == 0:
                         self.settings.logger.warn('Detected small layer scale factor, layer size is rounded up to 1.')
                         dis_strats += [['scale', x, 1 / n.fc_and_conv_kernel_sizes[x]]]
                     else:
                         dis_strats += [['scale', x, neuron_scale_factor]]
-
                 n = VerificationProblem(self.settings, vpc, self)
                 n.set_distillation_strategies(dis_strats)
                 n.calc_order('nb_neurons', self.artifact.layers, input_shape)

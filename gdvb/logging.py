@@ -8,5 +8,5 @@ logging.basicConfig(stream=sys.stdout,
 
 def initialize(settings):
     logger = logging.getLogger()
-    logger.setLevel(level=logging.DEBUG)
+    logger.setLevel(level=settings.logging_level)
     settings.logger = logger

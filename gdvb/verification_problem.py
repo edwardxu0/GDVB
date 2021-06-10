@@ -230,7 +230,7 @@ class VerificationProblem:
                         self.dis_log_path,
                         self.dis_slurm_path
                         )
-            print(cmd)
+            self.settings.logger.debug(f'Command: {cmd}')
             # task.run()
 
     def analyze_training(self):
@@ -326,6 +326,7 @@ class VerificationProblem:
                     veri_log_path,
                     slurm_script_path
                     )
+        self.settings.logger.debug(f'Command: {cmd}')
         task.run()
 
     def analyze_verification(self):

@@ -1,3 +1,4 @@
+import logging
 import os
 import toml
 import pathlib
@@ -11,6 +12,10 @@ def configure(args):
     configs['seed'] = args.seed
     configs['task'] = args.task
     configs['override'] = args.override
+    if args.debug:
+        configs['logging_level'] = logging.DEBUG
+    else:
+        configs['logging_level'] = logging.INFO
 
     settings = Settings(configs)
 
@@ -23,6 +28,7 @@ class Settings:
         self.root = configs['root']
         self.seed = configs['seed']
         self.task = configs['task']
+        self.logging_level = configs['logging_level']
         self.override = configs['override']
 
         self.dnn_configs = configs['dnn']
