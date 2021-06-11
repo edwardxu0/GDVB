@@ -231,7 +231,7 @@ class VerificationProblem:
                         self.dis_slurm_path
                         )
             self.settings.logger.debug(f'Command: {cmd}')
-            # task.run()
+            task.run()
 
     def analyze_training(self):
         relative_loss = []
@@ -350,9 +350,10 @@ class VerificationProblem:
                 verification_time = -1
             else:
                 LINES_TO_CHECK = 300
-                lines = list(reversed(open(log_path, 'r').readlines()))[:LINES_TO_CHECK]
-                # lines2 = list(reversed(open(os.path.splitext(log_path) + '.err', 'r').readlines()))[:LINES_TO_CHECK]
-                # lines = lines2 + lines
+                lines_err = list(reversed(open(log_path, 'r').readlines()))
+                lines_out = list(reversed(open(os.path.splitext(log_path)[0] + '.err', 'r').readlines()))
+                # lines = lines_out[:LINES_TO_CHECK] + lines_err[:LINES_TO_CHECK]
+                lines = lines_out + lines_err
 
                 verification_answer = None
                 verification_time = None
@@ -377,7 +378,7 @@ class VerificationProblem:
                     # if re.search('RuntimeError: view size is not compatible', l):
                     #    verification_answer = 'error'
                     #    verification_time = time_limit
-                    #    break
+                    #    break 
 
                     if re.search(' result: ', l):
                         error_patterns = ['PlanetError',
@@ -386,7 +387,9 @@ class VerificationProblem:
                                           'ERANError',
                                           'MIPVerifyTranslatorError',
                                           'NeurifyError',
+                                          'NeurifyTranslatorError',
                                           'NnenumError',
+                                          'NnenumTranslatorError',
                                           'MarabouError',
                                           'VerinetError',
                                           'MIPVerifyError']
@@ -422,7 +425,8 @@ class VerificationProblem:
                                       'Cannot allocate memory',
                                       'Disk quota exceeded',
                                       'ValueError: Unknown arguments: --',
-                                      '--- Logging error ---']
+                                      '--- Logging error ---',
+                                      'corrupted size vs. prev_size']
                     if any(re.search(x, l) for x in rerun_patterns):
                         verification_answer = 'rerun'
                         verification_time = -1

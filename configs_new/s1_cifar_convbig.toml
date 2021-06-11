@@ -35,18 +35,18 @@ name = 's1_cifar_convbig'
 		'fc=0 => conv!=0']
 
 [train]
-	epochs = 10
+	epochs = 100
 	drop_scheme = 'random'
 	
 	[train.dispatch]
 		nb_gpus = 1
-		platform = "local"
-		exclude = 'ai06,affogato11,affogato12,affogato13,affogato14,affogato15,lynx01,lynx02,lynx03,lynx04,lynx05,lynx06,lynx07,ristretto01,ristretto02,ristretto03,ristretto04'
+		platform = "slurm"
+		exclude = 'ai01,ai02,ai03,ai04,ai05,ai06,cheetah01,cheetah02,cheetah03,affogato11,affogato12,affogato13,affogato14,affogato15,lynx01,lynx02,lynx03,lynx04,lynx05,lynx06,lynx07,ristretto01,ristretto02,ristretto03,ristretto04'
 
 
 [verify]
 	debug = true
-	eps = 2
+	eps = 0.02
 	time = 14400
 	memory = '64G'
 	[verify.verifiers]
@@ -54,7 +54,7 @@ name = 's1_cifar_convbig'
 		DNNF = ['default']
 
 	[verify.dispatch]
-		platform = "local"
+		platform = "slurm"
 		reservation = "dx3yy_28"
 		nb_cpus = 6
 		nodes = ['cortado04','cortado05','cortado06','cortado07','cortado08','cortado09','cortado10']

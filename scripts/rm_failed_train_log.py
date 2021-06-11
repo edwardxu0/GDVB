@@ -5,25 +5,28 @@ import sys
 
 tmp_file = './tmp/tmp.txt'
 
+if len(sys.argv) < 3:
+    print(f'{sys.argv[0]} [log_dir] [retain TAG]')
+    exit()
+
 dis_dir = sys.argv[1]
+tag = sys.argv[2]
+
 cmd = f'ls -lovh {dis_dir} > {tmp_file}'
 os.system(cmd)
 
 lines = [x for x in open(tmp_file, 'r').readlines() if '.out' in x]
 
+junk = []
+
 for l in lines:
     tks = l.strip().split(' ')
-    if 'mnist' in dis_dir:
-        tag = '2.2M'
-    elif 'cifar' in dis_dir:
-        tag = '1.9M'
-    else:
-        assert False
-
+    print(tks[3])
     if tks[3] != tag:
-        cmd = f'rm  {dis_dir}/{tks[-1]}'
-        print(cmd)
-        os.system(cmd)
-        cmd = f'rm  {dis_dir}/{tks[-1]}'[:-3]+'err'
-        print(cmd)
-        os.system(cmd)
+        junk += [f'{dis_dir}/{tks[-1]}']
+        junk += [f'{dis_dir}/{tks[-1]}'[:-3]+'err']
+
+print(f'Failed training jobs: {len(junk)/2}')
+
+#for j in junk:
+#    os.remove(j)
