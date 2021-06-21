@@ -1,11 +1,11 @@
 *~
-tmp/
-results/
-attic/
-data/
-lib/DNNV/
-lib/acts.jar
-lib/gurobi.lic
+/tmp
+/results
+/res*
+/attic
+/data
+/lib/acts.jar
+/lib/gurobi.lic
 
 ## https://raw.githubusercontent.com/github/gitignore/master/Python.gitignore
 # Byte-compiled / optimized / DLL files

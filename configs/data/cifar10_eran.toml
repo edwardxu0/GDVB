@@ -1,0 +1,18 @@
+format="cifar10"
+batchsize=64
+presized=false
+
+[student]
+path="./data/cifar10"
+
+[teacher]
+path="./data/cifar10"
+
+[transform]
+grayscale=false
+mean=[0.4914, 0.4822, 0.4465]
+std=[0.2023, 0.1994, 0.201]
+height=32
+width=32
+min_value=-2.4290657
+max_value=2.7537313
