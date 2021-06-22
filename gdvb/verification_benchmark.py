@@ -256,13 +256,18 @@ class VerificationBenchmark:
             dis_strats += [['add', x] for x in layers_add]
 
             # calculate data transformations, input dimensions
-            transform = n.distillation_config['distillation']['data']['transform']['student']
-            height = transform['height']
-            width = transform['width']
-            assert height == width
+
+            if 'transform' in n.distillation_config['distillation']['data']:
+                transform = n.distillation_config['distillation']['data']['transform']['student']
+            else:
+                transform = None
 
             # input dimension
             if 'idm' in vpc:
+                height = transform['height']
+                width = transform['width']
+                assert height == width
+
                 id_f = vpc['idm']
                 new_height = int(round(np.sqrt(height * width * id_f)))
                 transform['height'] = new_height
@@ -270,7 +275,7 @@ class VerificationBenchmark:
                 if new_height != height:
                     dis_strats += [['scale_input', new_height / height]]
             else:
-                new_height = height
+                new_height = transform['height']
 
             # input domain size
             if 'ids' in vpc:
@@ -285,14 +290,17 @@ class VerificationBenchmark:
 
             if self.artifact.onnx.input_format == 'NCHW':
                 nb_channel = self.artifact.onnx.input_shape[0]
+                input_shape = [nb_channel, new_height, new_height]
             elif self.artifact.onnx.input_format == 'NHWC':
                 nb_channel = self.artifact.onnx.input_shape[2]
+                input_shape = [nb_channel, new_height, new_height]
+            elif self.artifact.onnx.input_format == 'ACAS':
+                input_shape = self.artifact.onnx.input_shape
             else:
                 raise ValueError(f'Unrecognized ONNX input format: {self.artifact.onnx.input_format}')
 
             # set up new network with added and dropped layers
             n.set_distillation_strategies(dis_strats)
-            input_shape = [nb_channel, new_height, new_height]
             n.calc_order('nb_neurons', self.artifact.layers, input_shape)
 
             # calculate real scale factors

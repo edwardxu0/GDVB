@@ -6,6 +6,7 @@
 /data
 /lib/acts.jar
 /lib/gurobi.lic
+/.idea/
 
 ## https://raw.githubusercontent.com/github/gitignore/master/Python.gitignore
 # Byte-compiled / optimized / DLL files

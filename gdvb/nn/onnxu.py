@@ -32,14 +32,19 @@ class ONNXU:
             var_dict[initializer.name] = initializer
 
         self.input_shape = np.array([int(x.dim_value) for x in model.graph.input[0].type.tensor_type.shape.dim])[1:]
-        
-        assert len(self.input_shape) == 3
-        if self.input_shape[0] == self.input_shape[1] and self.input_shape[1] != self.input_shape[2]:
-            self.input_format = 'NHWC'
-        elif self.input_shape[1] == self.input_shape[2]  and self.input_shape[0] != self.input_shape[1]:
-            self.input_format = 'NCHW'
-        else:
-            assert False
+
+        if len(self.input_shape) == 3:
+            if self.input_shape[0] == self.input_shape[1] and self.input_shape[1] != self.input_shape[2]:
+                self.input_format = 'NHWC'
+            elif self.input_shape[1] == self.input_shape[2]  and self.input_shape[0] != self.input_shape[1]:
+                self.input_format = 'NCHW'
+            else:
+                assert False
+        elif len(self.input_shape) == 1:
+            if self.input_shape == [5]:
+                self.input_format = 'ACAS'
+            else:
+                assert False
         
         nodes = iter(model.graph.node)
         nodes_list = model.graph.node

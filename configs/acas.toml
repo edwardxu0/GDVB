@@ -1,8 +1,10 @@
 name = 'acas'
 
 [dnn]
+	artifact = 'ACAS'
 	onnx = './configs/networks/acas_1_1.onnx'
 	r4v_config = './configs/networks/acas.toml'
+	data_config = "./configs/data/acas.toml"
 	supported_layers= ['Conv', 'FC', 'Transpose', 'Flatten']
 	start_layer = 0
 
@@ -17,7 +19,7 @@ name = 'acas'
 			#idm = 5
 			#ids = 5
 			#eps = 5
-			#prop = 0
+			prop = 9
 
 		[ca.parameters.range] # 0~1
 			neu = [0.5,1.0]
@@ -26,20 +28,23 @@ name = 'acas'
 			#idm = [0.2,1.0]
 			#ids = [0.2,1.0]
 			#eps = [0.2,1.0]
-			#prop = []
+			prop = [0,8]
 
 [train]
 	epochs = 2
+	drop_scheme = 'random'
+
 	[train.dispatch]
-		mode = 'local'
-		gpu = true
+		platform = "local"
 
 [verify]
+	debug = true
+	skip_layers = 0
 	time = 300
-	memory = '2G'
-	GRB_LICENSE_FILE="./lib/gurobi.lic"
-	verifiers = ['eran_deepzono','eran_deeppoly','eran_refinezono','eran_refinepoly','neurify','planet','bab','bab_sb','reluplex']
+	memory = '8G'
+	[verify.verifiers]
+		DNNV = ['eran_deepzono','eran_deeppoly','eran_refinezono','eran_refinepoly','neurify','planet','bab','bab_sb','reluplex','marabou','nnenum','mipverify','verinet']
+		DNNF = ['default']
 
 	[verify.dispatch]
-		mode = 'local'
-
+		platform = "local"
