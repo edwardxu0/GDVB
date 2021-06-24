@@ -11,7 +11,7 @@ def parse_args():
         prog='GDVB')
     
     parser.add_argument('configs', type=str, help='Configurations of GDVB benchmark.')
-    parser.add_argument('task', type=str, choices=['gen_ca', 'train', 'gen_props', 'verify', 'analyze', 'all'],
+    parser.add_argument('task', type=str, choices=['gen_ca', 'train', 'gen_props', 'verify', 'analyze', 'all', 'evolutionary'],
                         help='Select tasks to perform.')
     parser.add_argument('seed', type=int, help='Random seed.')
     parser.add_argument('--root', type=str, default='./results/', help='Root directory')

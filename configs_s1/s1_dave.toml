@@ -4,7 +4,6 @@ name = 's1_dave'
 	artifact = 'DAVE2'
 	onnx = "./configs/networks/dave.onnx"
 	r4v_config = "./configs/networks/dave.toml"
-	data_config = "./configs/data/udacity-driving.toml"
 	supported_layers= ['Conv', 'FC', 'Transpose', 'Flatten']
 	start_layer = 1
 

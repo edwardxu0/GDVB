@@ -3,7 +3,6 @@ name = 's2_mnist_eps'
 [dnn]
 	onnx = './configs/networks/MDR10x1000.onnx'
 	r4v_config = './configs/networks/MDR10x1000.toml'
-	data_config = './configs/data/mnist.toml'
 	supported_layers= ['Conv', 'FC', 'Transpose', 'Flatten']
 	start_layer = 0
 

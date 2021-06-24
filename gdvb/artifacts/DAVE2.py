@@ -1,4 +1,5 @@
 import os
+import shutil
 import numpy as np
 import torch
 
@@ -19,13 +20,18 @@ class DAVE2(Artifact):
         config.config["_STAGE"] = "val_test"
         config.config["shuffle"] = True
         config.config["batchsize"] = 1
+
+        config.config['teacher'] = {}
+        config.config['teacher']['path'] = config.config['test']['teacher']['path']
+        config.config['student'] = {}
+        config.config['student']['path'] = config.config['test']['student']['path']
         data_loader = get_data_loader(config)
 
         for i, (idx, _, sx, target) in enumerate(data_loader):
             if i == prop_id:
                 input_img_path = data_loader.dataset.samples[0][idx][0]
                 new_img_path = os.path.join(output_dir, f"{idx.item()}{os.path.splitext(input_img_path)[-1]}")
-                os.copy(input_img_path, new_img_path)
+                shutil.copyfile(input_img_path, new_img_path)
 
                 npy_img_path = os.path.join(output_dir, f"{idx.item()}.npy")
 

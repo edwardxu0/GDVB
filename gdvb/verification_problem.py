@@ -246,33 +246,37 @@ class VerificationProblem:
         return relative_loss
 
     def gen_prop(self):
-        transform = self.distillation_config['distillation']['data']['transform']['student']
-        data_config = open(self.settings.dnn_configs['data_config'], 'r').read()
-        data_config = toml.loads(data_config)
-        data_config['transform'] = transform
+        if isinstance(self.verification_benchmark.artifact, ACAS):
+            prop_id = self.vpc['prop']
+            self.verification_benchmark.artifact.generate_property(prop_id)
+            
+        elif isinstance(self.verification_benchmark.artifact, (MNIST, CIFAR10, DAVE2)):
+            data_config = self.distillation_config['distillation']['data']
+            prop_id = self.vpc['prop']
 
-        prop_id = self.vpc['prop']
+            if 'eps' in self.vpc:
+                eps = D(str(self.vpc['eps'])) * D(str(self.settings.verification_configs['eps']))
+            else:
+                eps = self.settings.verification_configs['eps']
 
-        if 'eps' in self.vpc:
-            eps = D(str(self.vpc['eps'])) * D(str(self.settings.verification_configs['eps']))
+            skip_layers = 0 if 'skip_layers' not in self.settings.verification_configs\
+                else self.settings.verification_configs['skip_layers']
+
+            pathlib.Path(self.prop_dir).mkdir(parents=True, exist_ok=True)
+
+            self.verification_benchmark.artifact.generate_property(data_config,
+                                                                   prop_id,
+                                                                   eps,
+                                                                   skip_layers,
+                                                                   self.prop_dir,
+                                                                   self.settings.seed)
         else:
-            eps = self.settings.verification_configs['eps']
-
-        skip_layers = 0 if 'skip_layers' not in self.settings.verification_configs\
-            else self.settings.verification_configs['skip_layers']
-
-        pathlib.Path(self.prop_dir).mkdir(parents=True, exist_ok=True)
-
-        self.verification_benchmark.artifact.generate_property(data_config,
-                                                               prop_id,
-                                                               eps,
-                                                               skip_layers,
-                                                               self.prop_dir,
-                                                               self.settings.seed)
+            raise NotImplementedError
 
     # am I verified?
     @staticmethod
     def verified(log_path):
+        log_path = log_path[:-3] + 'err'
         verified = False
         if os.path.exists(log_path):
             lines = open(log_path).readlines()[-10:]

@@ -33,6 +33,7 @@ width=100
 [distillation.data.transform.student]
 bgr=true
 mean=[103.939, 116.779, 123.68]
+min_value=0.0
 max_value=255.0
 height=100
 width=100
@@ -55,3 +56,8 @@ path="data/udacity.sdc.100/validation"
 [distillation.data.validation.student]
 path="data/udacity.sdc.100/validation"
 
+[distillation.data.test.teacher]
+path="data/udacity.sdc.100/testing"
+
+[distillation.data.test.student]
+path="data/udacity.sdc.100/testing"

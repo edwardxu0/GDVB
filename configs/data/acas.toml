@@ -1,9 +1,0 @@
-format="mnist"
-batchsize=64
-presized=false
-
-[student]
-path="./data/acas"
-
-[teacher]
-path="./data/acas"

@@ -12,7 +12,26 @@ from .artifacts.DAVE2 import DAVE2
 from .nn.layers import Dense, Conv
 
 from decimal import Decimal as D
+from fractions import Fraction as F
 from .verification_problem import VerificationProblem
+
+
+def _as_fractional(x):
+    if type(x) == str:
+        tks = [int(x) for x in x.split('/')]
+        if len(tks) == 1:
+            x = F(tks[0], 1)
+        elif len(tks) == 2:
+            x = F(tks[0], tks[1])
+        else:
+            assert False
+    elif type(x) == int:
+        x = F(x)
+    elif type(x) == float:
+        x = F(x)
+    else:
+        assert False, f'{x}/{type(x)}'
+    return x
 
 
 class VerificationBenchmark:
@@ -39,6 +58,7 @@ class VerificationBenchmark:
             raise NotImplementedError(f'Unimplemented artifact: {dnn_configs["artifact"]}')
         return artifact
 
+
     def _gen_parameters(self, ca_configs):
         # calculate fc/conv ids
         fc_ids = []
@@ -57,17 +77,18 @@ class VerificationBenchmark:
         # parse the parameters described in number of levels and ranges
         else:
             for key in ca_configs['parameters']['level']:
-                level_min = ca_configs['parameters']['range'][key][0]
-                level_max = ca_configs['parameters']['range'][key][1]
-                level_size = ca_configs['parameters']['level'][key]
+                level_min = _as_fractional(ca_configs['parameters']['range'][key][0])
+                level_max = _as_fractional(ca_configs['parameters']['range'][key][1])
+                level_size = _as_fractional(ca_configs['parameters']['level'][key])
                 if level_size == 1:
                     assert level_min == level_max
                     level = np.array([level_min])
                 else:
-                    level_range = D(str(level_max)) - D(str(level_min))
-                    level_step = D(str(level_range)) / D(str(level_size - 1))
-                    level = np.arange(D(str(level_min)), D(str(level_max)) + level_step, D(str(level_step)))
-                    level = np.array(level, dtype=np.float)
+                    level_range = level_max - level_min
+                    level_step = level_range / (level_size - 1)
+                    level = np.arange(level_min, level_max + level_step, level_step)
+                    # level = np.arange(D(str(level_min)), D(str(level_max)) + level_step, D(str(level_step)))
+                    # level = np.array(level, dtype=np.float)
                     if key == 'prop':
                         level = np.array(level, dtype=np.int)
 
@@ -141,7 +162,7 @@ class VerificationBenchmark:
             l = lines[i]
             if 'Number of configurations' in l:
                 nb_tests = int(l.strip().split(' ')[-1])
-                self.settings.logger.info(f'# Tests: {nb_tests}')
+                self.settings.logger.info(f'# problems: {nb_tests}')
 
             if 'Configuration #' in l:
                 vp = []
@@ -259,6 +280,7 @@ class VerificationBenchmark:
 
             if 'transform' in n.distillation_config['distillation']['data']:
                 transform = n.distillation_config['distillation']['data']['transform']['student']
+                new_height = transform['height']
             else:
                 transform = None
 
@@ -274,8 +296,6 @@ class VerificationBenchmark:
                 transform['width'] = new_height
                 if new_height != height:
                     dis_strats += [['scale_input', new_height / height]]
-            else:
-                new_height = transform['height']
 
             # input domain size
             if 'ids' in vpc:
@@ -343,7 +363,8 @@ class VerificationBenchmark:
                 n.set_distillation_strategies(dis_strats)
                 n.calc_order('nb_neurons', self.artifact.layers, input_shape)
 
-            n.distillation_config['distillation']['data']['transform']['student'] = transform
+            if transform:
+                n.distillation_config['distillation']['data']['transform']['student'] = transform
             network_specifications += [n]
             self.settings.logger.debug('----------New Network----------')
             self.settings.logger.debug(f'Number neurons: {np.sum(n.nb_neurons)}')
@@ -363,6 +384,10 @@ class VerificationBenchmark:
             n = nets_to_train[i]
             self.settings.logger.info(f'Training network: {n.net_name} ...')
             n.train()
+
+    def trained(self):
+        trained = [x.trained() for x in self.verification_problems]
+        return all(trained)
 
     def gen_props(self):
         self.settings.logger.info('Generating properties ...')
@@ -386,6 +411,10 @@ class VerificationBenchmark:
             self.settings.logger.info(f'Verifying {vp.vp_name} with {tool}:[{options}] ...')
             vp.gen_prop()
             vp.verify(tool, options)
+
+    def verified(self):
+        verified = [x.verified() for x in self.verification_problems]
+        return all(verified)
 
     def analyze(self):
         for vp in self.verification_problems:

@@ -36,6 +36,7 @@ class Settings:
 
         self.training_configs = configs['train']
         self.verification_configs = configs['verify']
+        self.evolutionary = configs['evolutionary'] if 'evolutionary' in configs else None
 
         self.tmp_dir = './tmp'
         pathlib.Path(self.tmp_dir).mkdir(parents=True, exist_ok=True)

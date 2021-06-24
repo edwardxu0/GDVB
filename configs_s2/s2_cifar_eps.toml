@@ -3,7 +3,6 @@ name = 's2_cifar_eps'
 [dnn]
 	onnx = './configs/networks/cifar_32x5x1x5.onnx'
 	r4v_config = './configs/networks/cifar_32x5x1x5.toml'
-	data_config = './configs/data/cifar10.toml'
 	supported_layers= ['Conv', 'FC', 'Transpose', 'Flatten']
 	start_layer = 0
 

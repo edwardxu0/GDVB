@@ -2,43 +2,72 @@ import numpy as np
 import os
 import pathlib
 import toml
+import onnx
+import onnxruntime
+import torch
 
 from .artifact import Artifact
 
-SIZE = 1e5
+SIZE = int(1e5)
 DATA_PATH = './data/acas'
+
+
+def _data_generator(model, size):
+    np.random.seed(0)
+    x_min = np.array([0.0, -3.141593, -3.141593, 100.0, 0.0, ])
+    x_max = np.array([60760.0, 3.141593, 3.141593, 1200.0, 1200.0, ])
+    x_mean = np.array([1.9791091e+04, 0.0, 0.0, 650.0, 600.0, ])
+    x_range = np.array([60261.0, 6.28318530718, 6.28318530718, 1100.0, 1200.0, ])
+
+    x_min_norm = (x_min - x_mean) / x_range
+    x_max_norm = (x_max - x_mean) / x_range
+
+    data = []
+    for i in range(len(x_min)):
+        data += [np.random.uniform(low=x_min_norm[i], high=x_max_norm[i], size=size)]
+    data = np.array(data).T
+
+    # run inference of the ACAS onnx models over the synthesized data
+    # https://pytorch.org/tutorials/advanced/super_resolution_with_onnxruntime.html
+    onnx_model = onnx.load(model)
+    onnx.checker.check_model(onnx_model)
+    ort_session = onnxruntime.InferenceSession(model)
+
+    def to_numpy(tensor):
+        return tensor.detach().cpu().numpy() if tensor.requires_grad else tensor.cpu().numpy()
+
+    # compute ONNX Runtime output prediction
+    label = []
+    for x in data:
+        x = torch.Tensor([x])
+        ort_inputs = {ort_session.get_inputs()[0].name: to_numpy(x)}
+        ort_outs = ort_session.run(None, ort_inputs)
+        label += ort_outs
+    label = np.array(label).reshape(size, 5)
+    return data, label
 
 
 class ACAS(Artifact):
     def __init__(self, dnn_configs):
         super().__init__(dnn_configs)
-        self._generate_acas_data(dnn_configs['data_config'])
+        self._generate_acas_data(dnn_configs)
 
-    def _generate_acas_data(self, data_config_path):
-
-        data_config = toml.load(open(data_config_path, 'r'))
-        assert data_config['student']['path'] == data_config['teacher']['path']
-        data_path = data_config['student']['path']
+    def _generate_acas_data(self, dnn_configs):
+        r4v_configs = toml.load(open(dnn_configs['r4v_config'], 'r'))
+        data_path = r4v_configs['distillation']['data']['train']['student']['path']
+        model = r4v_configs['distillation']['teacher']['model']
 
         train_path = os.path.join(data_path, 'train')
-        pathlib.Path.mkdir(train_path, exist_ok=True, parents=True)
-        train_data = self._data_generator(SIZE)
-        np.save(train_path, train_data)
+        pathlib.Path(train_path).mkdir(exist_ok=True, parents=True)
+        train_data, train_label = _data_generator(model, SIZE)
+        np.save(os.path.join(train_path, 'data'), train_data)
+        np.save(os.path.join(train_path, 'label'), train_label)
 
+        valid_path = os.path.join(data_path, 'valid')
+        pathlib.Path(valid_path).mkdir(exist_ok=True, parents=True)
+        valid_data, valid_label = _data_generator(model, int(SIZE/100))
+        np.save(os.path.join(valid_path, 'data'), valid_data)
+        np.save(os.path.join(valid_path, 'label'), valid_label)
 
-
-
-    def _data_generator(self, size):
-        x_min = np.array([0.0, -3.141593, -3.141593, 100.0, 0.0, ])
-        x_max = np.array([60760.0, 3.141593, 3.141593, 1200.0, 1200.0, ])
-        x_mean = np.array([1.9791091e+04, 0.0, 0.0, 650.0, 600.0, ])
-        x_range = np.array([60261.0, 6.28318530718, 6.28318530718, 1100.0, 1200.0, ])
-
-        x_min_norm = (x_min - x_mean) / x_range
-        x_max_norm = (x_max - x_mean) / x_range
-
-        data = []
-        for i in range(len(x_min)):
-            data += [np.random.uniform(low=x_min_norm[i], high=x_max_norm[i], size=size)]
-        data = np.array(data).T
-        return data
+    def generate_property(self, prop_id):
+        pass

@@ -4,7 +4,7 @@ threshold=1e-9
 cuda=true
 type="regression" #type="classification" # argmin vs argmax WRONG
 precompute_teacher=true
-save_intermediate=true
+save_intermediate=false
 
 [distillation.parameters]
 epochs=50

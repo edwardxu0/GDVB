@@ -22,12 +22,13 @@ class CIFAR10(Artifact):
         config.config["shuffle"] = True
         config.config["batchsize"] = 1
         data_loader = get_data_loader(config)
+        student_data_config = config.config['transform']['student']
 
         for i, (idx, _, sx, target) in enumerate(data_loader):
             if i == prop_id:
-                new_img_path = os.path.join(output_dir, f"{idx.item()}.png")
-                height = config.config['transform']['height']
-                width = config.config['transform']['width']
+                height = student_data_config['height']
+                width = student_data_config['width']
+                # new_img_path = os.path.join(output_dir, f"{idx.item()}.png")
                 # img = Image.fromarray(sx.numpy().reshape(self.input_shape[0], height, width), 'L')
                 # img.save(new_img_path)
 
