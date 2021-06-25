@@ -30,7 +30,7 @@ name = 's2_mnist_lar'
 
 
 [train]
-	epochs = 2
+	epochs = 10
 	drop_scheme = 'random'
 	add_scheme = 'same_as_last_relu'
 
@@ -43,7 +43,7 @@ name = 's2_mnist_lar'
 [verify]
 	debug = true
 	eps = 0.02
-	time = 60
+	time = 600
 	memory = '16G'
 	[verify.verifiers]
 		DNNV = ['eran_deeppoly']
