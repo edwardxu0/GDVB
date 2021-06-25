@@ -24,6 +24,7 @@ def configure(args):
 
 class Settings:
     def __init__(self, configs):
+        self.precision = '.4f'
         self.name = configs['name']
         self.root = configs['root']
         self.seed = configs['seed']

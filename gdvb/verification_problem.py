@@ -4,7 +4,7 @@ import numpy as np
 import toml
 import re
 
-from decimal import Decimal as D
+from fractions import Fraction as F
 
 from .artifacts.ACAS import ACAS
 from .artifacts.MNIST import MNIST
@@ -16,6 +16,7 @@ from .pipeline.R4V import R4V
 from .pipeline.DNNV import DNNV
 from .pipeline.DNNF import DNNF
 
+
 class VerificationProblem:
 
     def __init__(self, settings, vpc, verification_benchmark):
@@ -26,7 +27,10 @@ class VerificationProblem:
         self.vp_name = ''
         self.net_name = ''
         for factor, level in [(x, vpc[x]) for x in vpc]:
-            token = f'{factor}={level}_'
+            if factor in ['prop']:
+                token = f'{factor}={level}_'
+            else:
+                token = f'{factor}={level:{self.settings.precision}}_'
             self.vp_name += token
             if factor not in ['eps', 'prop']:
                 self.net_name += token
@@ -65,11 +69,11 @@ class VerificationProblem:
 
         strategies = [x[0] for x in dis_strats]
         if 'scale' in strategies:
-            self.net_name += f'_SF={dis_strats[strategies.index("scale")][2]:.3f}'
-            self.vp_name += f'_SF={dis_strats[strategies.index("scale")][2]:.3f}'
+            self.net_name += f'_SF={dis_strats[strategies.index("scale")][2]:{self.settings.precision}}'
+            self.vp_name += f'_SF={dis_strats[strategies.index("scale")][2]:{self.settings.precision}}'
         else:
-            self.net_name += f'_{1:.3f}'
-            self.vp_name += f'_{1:.3f}'
+            self.net_name += f'_{1:{self.settings.precision}}'
+            self.vp_name += f'_{1:{self.settings.precision}}'
         
         self.drop_ids = drop_ids
         self.scale_ids_factors = scale_ids_factors
@@ -255,7 +259,7 @@ class VerificationProblem:
             prop_id = self.vpc['prop']
 
             if 'eps' in self.vpc:
-                eps = D(str(self.vpc['eps'])) * D(str(self.settings.verification_configs['eps']))
+                eps = F(self.vpc['eps']) * F(self.settings.verification_configs['eps'])
             else:
                 eps = self.settings.verification_configs['eps']
 
@@ -274,9 +278,8 @@ class VerificationProblem:
             raise NotImplementedError
 
     # am I verified?
-    @staticmethod
-    def verified(log_path):
-        log_path = log_path[:-3] + 'err'
+    def verified(self):
+        log_path = self.veri_log_path[:-3] + 'err'
         verified = False
         if os.path.exists(log_path):
             lines = open(log_path).readlines()[-10:]
@@ -299,7 +302,7 @@ class VerificationProblem:
         memory_limit = self.settings.verification_configs['memory']
 
         net_path = self.dis_model_path
-        veri_log_path = os.path.join(
+        self.veri_log_path = os.path.join(
             self.settings.veri_log_dir,
             f'{self.vp_name}_T={time_limit}_M={memory_limit}:{verifier.verifier_name}.out')
 
@@ -310,12 +313,12 @@ class VerificationProblem:
         else:
             slurm_script_path = None
 
-        if not self.settings.override and self.verified(veri_log_path):
+        if not self.settings.override and self.verified():
             self.settings.logger.info('Skipping verified problem ...')
             return
 
         if 'eps' in self.vpc:
-            eps = D(str(self.vpc['eps'])) * D(str(self.settings.verification_configs['eps']))
+            eps = F(self.vpc['eps']) * F(self.settings.verification_configs['eps'])
         else:
             eps = self.settings.verification_configs['eps']
 
@@ -327,7 +330,7 @@ class VerificationProblem:
         task = Task(cmds,
                     self.settings.verification_configs['dispatch'],
                     "GDVB_Verify",
-                    veri_log_path,
+                    self.veri_log_path,
                     slurm_script_path
                     )
         self.settings.logger.debug(f'Command: {cmd}')
@@ -449,4 +452,5 @@ class VerificationProblem:
 
             verification_results[verifier.verifier_name] = [verification_answer, verification_time]
 
+        self.verification_results = verification_results
         return verification_results

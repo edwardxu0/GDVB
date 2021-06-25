@@ -1,15 +1,24 @@
 import numpy as np
-import os
-import pathlib
 import toml
 import onnx
 import onnxruntime
 import torch
 
+from pathlib import Path
+
 from .artifact import Artifact
 
 SIZE = int(1e5)
 DATA_PATH = './data/acas'
+
+
+class ACAS(Artifact):
+    def __init__(self, dnn_configs):
+        super().__init__(dnn_configs)
+        _generate_acas_data(dnn_configs)
+
+    def generate_property(self, prop_id):
+        pass
 
 
 def _data_generator(model, size):
@@ -47,27 +56,18 @@ def _data_generator(model, size):
     return data, label
 
 
-class ACAS(Artifact):
-    def __init__(self, dnn_configs):
-        super().__init__(dnn_configs)
-        self._generate_acas_data(dnn_configs)
+def _generate_acas_data(dnn_configs):
+    r4v_configs = toml.load(open(dnn_configs['r4v_config'], 'r'))
+    train_path = Path(r4v_configs['distillation']['data']['train']['student']['path'])
+    model = r4v_configs['distillation']['teacher']['model']
 
-    def _generate_acas_data(self, dnn_configs):
-        r4v_configs = toml.load(open(dnn_configs['r4v_config'], 'r'))
-        data_path = r4v_configs['distillation']['data']['train']['student']['path']
-        model = r4v_configs['distillation']['teacher']['model']
+    train_path.mkdir(exist_ok=True, parents=True)
+    train_data, train_label = _data_generator(model, SIZE)
+    np.save(train_path.joinpath('data'), train_data)
+    np.save(train_path.joinpath('label'), train_label)
 
-        train_path = os.path.join(data_path, 'train')
-        pathlib.Path(train_path).mkdir(exist_ok=True, parents=True)
-        train_data, train_label = _data_generator(model, SIZE)
-        np.save(os.path.join(train_path, 'data'), train_data)
-        np.save(os.path.join(train_path, 'label'), train_label)
-
-        valid_path = os.path.join(data_path, 'valid')
-        pathlib.Path(valid_path).mkdir(exist_ok=True, parents=True)
-        valid_data, valid_label = _data_generator(model, int(SIZE/100))
-        np.save(os.path.join(valid_path, 'data'), valid_data)
-        np.save(os.path.join(valid_path, 'label'), valid_label)
-
-    def generate_property(self, prop_id):
-        pass
+    valid_path = train_path.parent.joinpath('valid')
+    valid_path.mkdir(exist_ok=True, parents=True)
+    valid_data, valid_label = _data_generator(model, int(SIZE/100))
+    np.save(valid_path.joinpath('data'), valid_data)
+    np.save(valid_path.joinpath('label'), valid_label)

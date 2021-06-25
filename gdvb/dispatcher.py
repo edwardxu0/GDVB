@@ -55,12 +55,12 @@ class Task:
                 node = self.request_node()
                 cmd += f' -w {node}'
             cmd += f' {self.slurm_path}'
-            subprocess.call(cmd, shell=True)
+            subprocess.run(cmd, shell=True)
 
         elif self.platform == 'local':
             for cmd in self.cmds:
                 cmd += f' > {self.output_path} 2> {self.error_path}'
-                subprocess.call(cmd, shell=True)
+                subprocess.run(cmd, shell=True)
         else:
             assert False
 

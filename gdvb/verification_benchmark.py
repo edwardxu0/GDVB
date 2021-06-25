@@ -1,7 +1,6 @@
 import os
 import random
 import pickle
-import copy
 import numpy as np
 from tqdm import tqdm
 
@@ -11,33 +10,15 @@ from .artifacts.CIFAR10 import CIFAR10
 from .artifacts.DAVE2 import DAVE2
 from .nn.layers import Dense, Conv
 
-from decimal import Decimal as D
 from fractions import Fraction as F
 from .verification_problem import VerificationProblem
-
-
-def _as_fractional(x):
-    if type(x) == str:
-        tks = [int(x) for x in x.split('/')]
-        if len(tks) == 1:
-            x = F(tks[0], 1)
-        elif len(tks) == 2:
-            x = F(tks[0], tks[1])
-        else:
-            assert False
-    elif type(x) == int:
-        x = F(x)
-    elif type(x) == float:
-        x = F(x)
-    else:
-        assert False, f'{x}/{type(x)}'
-    return x
 
 
 class VerificationBenchmark:
 
     def __init__(self, name, dnn_configs, ca_configs, settings):
         self.name = name
+        self.ca_configs = ca_configs
         self.settings = settings
         self.artifact = self._create_artifact(dnn_configs)
         self.settings.logger.info('Computing Factors')
@@ -58,16 +39,17 @@ class VerificationBenchmark:
             raise NotImplementedError(f'Unimplemented artifact: {dnn_configs["artifact"]}')
         return artifact
 
-
     def _gen_parameters(self, ca_configs):
         # calculate fc/conv ids
         fc_ids = []
         conv_ids = []
         for i, x in enumerate(self.artifact.layers):
-            if isinstance(x, Conv):
-                conv_ids += [i]
-            elif isinstance(x, Dense):
+            if isinstance(x, Dense):
                 fc_ids += [i]
+            elif isinstance(x, Conv):
+                conv_ids += [i]
+            else:
+                pass
         fc_ids = fc_ids[:-1]  # remove output layer
         parameters = {}
         # parse the parameters in the expressive way
@@ -77,23 +59,22 @@ class VerificationBenchmark:
         # parse the parameters described in number of levels and ranges
         else:
             for key in ca_configs['parameters']['level']:
-                level_min = _as_fractional(ca_configs['parameters']['range'][key][0])
-                level_max = _as_fractional(ca_configs['parameters']['range'][key][1])
-                level_size = _as_fractional(ca_configs['parameters']['level'][key])
+                level_min = F(ca_configs['parameters']['range'][key][0])
+                level_max = F(ca_configs['parameters']['range'][key][1])
+                level_size = F(ca_configs['parameters']['level'][key])
+
                 if level_size == 1:
                     assert level_min == level_max
-                    level = np.array([level_min])
+                    level = np.array([level_min], dtype=np.float)
                 else:
                     level_range = level_max - level_min
                     level_step = level_range / (level_size - 1)
                     level = np.arange(level_min, level_max + level_step, level_step)
-                    # level = np.arange(D(str(level_min)), D(str(level_max)) + level_step, D(str(level_step)))
-                    # level = np.array(level, dtype=np.float)
-                    if key == 'prop':
-                        level = np.array(level, dtype=np.int)
+                    level = np.array(level, dtype=np.float)
+                if key == 'prop':
+                    level = np.array(level, dtype=np.int)
 
-                    assert len(level) == level_size
-
+                assert len(level) == level_size
                 parameters[key] = level
                 # make sure all parameters are passed
                 assert len(parameters[key]) == ca_configs['parameters']['level'][key]
@@ -385,9 +366,12 @@ class VerificationBenchmark:
             self.settings.logger.info(f'Training network: {n.net_name} ...')
             n.train()
 
-    def trained(self):
+    def trained(self, count=False):
         trained = [x.trained() for x in self.verification_problems]
-        return all(trained)
+        if count:
+            return trained.count(True)
+        else:
+            return all(trained)
 
     def gen_props(self):
         self.settings.logger.info('Generating properties ...')
@@ -412,9 +396,12 @@ class VerificationBenchmark:
             vp.gen_prop()
             vp.verify(tool, options)
 
-    def verified(self):
+    def verified(self, count=False):
         verified = [x.verified() for x in self.verification_problems]
-        return all(verified)
+        if count:
+            return verified.count(True)
+        else:
+            return all(verified)
 
     def analyze(self):
         for vp in self.verification_problems:
