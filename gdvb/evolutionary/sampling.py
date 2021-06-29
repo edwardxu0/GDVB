@@ -61,6 +61,10 @@ def sampling(verification_benchmark):
 def evolve(benchmark, parameters_to_change, arity, inflation_rate, deflation_rate):
     evolve_strategy, solved_per_verifiers, indexes = evaluate_benchmark(benchmark, parameters_to_change)
 
+    a = list(solved_per_verifiers.values())[0]
+    print(a)
+    print(np.transpose(a))
+
     ca_configs = benchmark.ca_configs
     ca_configs_new = copy.deepcopy(benchmark.ca_configs)
 
@@ -151,7 +155,7 @@ def evolve(benchmark, parameters_to_change, arity, inflation_rate, deflation_rat
 
             level_min = level_min + min_id * old_step - new_step
             level_max = level_max - max_id * old_step + new_step
-            nb_levels = (level_max-level_min)/new_step + 1
+            nb_levels = int((level_max-level_min)/new_step + 1)
 
             print('new', param, level_min, level_max, new_step, nb_levels)
 
