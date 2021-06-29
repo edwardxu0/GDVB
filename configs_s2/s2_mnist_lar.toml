@@ -22,7 +22,7 @@ name = 's2_mnist_lar'
 			prop = [0, 4]
 
 [evolutionary]
-	iterations = 3
+	iterations = 10
 	parameters = ['neu', 'fc']
 	arity = 2
 	inflation_rate = 2

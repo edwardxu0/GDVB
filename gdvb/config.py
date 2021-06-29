@@ -47,6 +47,12 @@ class Settings:
         if configs['verify']['dispatch']['platform'] == 'slurm':
             self.sub_dirs += ['veri_slurm']
 
+        self.answer_code = {'unsat': 1,
+                            'sat': 2,
+                            'unknown': 3,
+                            'timeout': 4,
+                            'memout': 4,
+                            'error': 5}
         self._make_dirs()
 
     def _make_dirs(self):
