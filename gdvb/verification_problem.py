@@ -235,6 +235,7 @@ class VerificationProblem:
                         self.dis_slurm_path
                         )
             self.settings.logger.debug(f'Command: {cmd}')
+            print(cmd)
             task.run()
 
     def analyze_training(self):

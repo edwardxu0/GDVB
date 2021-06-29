@@ -61,10 +61,6 @@ def sampling(verification_benchmark):
 def evolve(benchmark, parameters_to_change, arity, inflation_rate, deflation_rate):
     evolve_strategy, solved_per_verifiers, indexes = evaluate_benchmark(benchmark, parameters_to_change)
 
-    a = list(solved_per_verifiers.values())[0]
-    print(a)
-    print(np.transpose(a))
-
     ca_configs = benchmark.ca_configs
     ca_configs_new = copy.deepcopy(benchmark.ca_configs)
 
@@ -72,6 +68,7 @@ def evolve(benchmark, parameters_to_change, arity, inflation_rate, deflation_rat
     # 2) all too hard? deflate the benchmark
     benchmark.settings.logger.debug(f'evolving ... with {evolve_strategy}')
     if evolve_strategy in ['deflate', 'inflate']:
+        print('Deflate, inflate ...')
         if evolve_strategy == 'deflate':
             factor = deflation_rate
         elif evolve_strategy == 'inflate':
@@ -101,64 +98,84 @@ def evolve(benchmark, parameters_to_change, arity, inflation_rate, deflation_rat
 
     # 3) in between? zoom in the benchmark
     elif evolve_strategy == 'zoom in':
+        print('Zoom in ...')
         for i, param in enumerate(parameters_to_change):
             nb_levels = ca_configs['parameters']['level'][param]
             level_min = F(ca_configs['parameters']['range'][param][0])
             level_max = F(ca_configs['parameters']['range'][param][1])
 
-            print('old',param,nb_levels, level_min, level_max)
+            print('Working on factor: ', param)
+            print(f'old CA configs: L({nb_levels}) [({level_min}),({level_max})]')
 
             axes = list(range(len(parameters_to_change)))
             axes.remove(i)
             axes = [i] + axes
             raw = list(solved_per_verifiers.values())[0].transpose(axes)
-            # print(raw)
-            nb_property = ca_configs['parameters']['level']['prop']
 
-            for x, row in enumerate(raw):
-                if np.all(row == nb_property):
-                    continue
+            if set([np.all(x == 0) for x in raw]) == {False}:
+                nb_levels = nb_levels * (arity - 1)
+                level_min = level_min * F(inflation_rate)
+                level_max = level_max * F(inflation_rate)
+
+                new_step = (level_max - level_min) / (nb_levels - 1)
+                if param == 'fc':
+                    min_step = 1 / F(len(benchmark.fc_ids))
+                elif param == 'conv':
+                    min_step = 1 / F(len(benchmark.conv_ids))
                 else:
-                    break
-            min_id = x
-            min_id2 = [np.all(x == nb_property) for x in raw].index(False)
-            assert min_id == min_id2
-
-            for x, row in enumerate(reversed(raw)):
-                if np.all(row == 0):
-                    continue
-                else:
-                    break
-            max_id = x
-            max_id2 = [np.all(x == 0) for x in raw].index(False)
-            assert max_id == max_id2
-
-            assert min_id is not None
-            assert max_id is not None
-
-            # print(min_id, max_id)
-
-            old_step = (level_max-level_min) / (nb_levels - 1)
-            new_step = old_step / arity
-            if param == 'fc':
-                min_step = 1/F(len(benchmark.fc_ids))
-            elif param == 'conv':
-                min_step = 1/F(len(benchmark.conv_ids))
+                    min_step = 0
+                if new_step < min_step:
+                    benchmark.settings.logger.debug(f'new_step < min_step')
+                    nb_levels = int((level_max - level_min) / min_step) + 1
             else:
-                min_step = 0
+                nb_property = ca_configs['parameters']['level']['prop']
 
-            if new_step < min_step:
-                new_step = min_step
-            # print(min_step)
+                for x, row in enumerate(raw):
+                    if np.all(row == nb_property):
+                        continue
+                    else:
+                        break
+                min_id = x
+                min_id2 = [np.all(x == nb_property) for x in raw].index(False)
+                assert min_id == min_id2
 
-            # print(old_step, new_step)
+                for x, row in enumerate(reversed(raw)):
+                    if np.all(row == 0):
+                        continue
+                    else:
+                        break
+                max_id = x
+                max_id2 = [np.all(x == 0) for x in reversed(raw)].index(False)
+                assert max_id == max_id2
 
-            level_min = level_min + min_id * old_step - new_step
-            level_max = level_max - max_id * old_step + new_step
-            nb_levels = int((level_max-level_min)/new_step + 1)
+                assert min_id is not None
+                assert max_id is not None
 
-            print('new', param, level_min, level_max, new_step, nb_levels)
+                print('min-max', min_id, max_id)
 
+                old_step = (level_max-level_min) / (nb_levels - 1)
+                new_step = old_step / arity
+                if param == 'fc':
+                    min_step = 1/F(len(benchmark.fc_ids))
+                elif param == 'conv':
+                    min_step = 1/F(len(benchmark.conv_ids))
+                else:
+                    min_step = 0
+
+                if new_step < min_step:
+                    new_step = min_step
+                # print(min_step)
+
+                # print(old_step, new_step)
+                print('old step: ', old_step, 'new step: ', new_step)
+
+                level_min = level_min + min_id * old_step - new_step
+                level_max = level_max - max_id * old_step + new_step
+                nb_levels = int((level_max-level_min)/new_step + 1)
+
+            print(f'New CA configs: L({nb_levels}) [({level_min}),({level_max})]')
+
+            assert level_min > 0
             ranges = [level_min, level_max]
             ca_configs_new['parameters']['level'][param] = nb_levels
             ca_configs_new['parameters']['range'][param] = ranges
