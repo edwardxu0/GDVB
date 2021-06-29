@@ -21,12 +21,12 @@ junk = []
 
 for l in lines:
     tks = l.strip().split(' ')
-    print(tks[3])
     if tks[3] != tag:
         junk += [f'{dis_dir}/{tks[-1]}']
         junk += [f'{dis_dir}/{tks[-1]}'[:-3]+'err']
 
-print(f'Failed training jobs: {len(junk)/2}')
+print(f'Failed training jobs: {int(len(junk)/2)}')
 
-#for j in junk:
-#    os.remove(j)
+for j in junk:
+    print(f'removing {j}')
+    os.remove(j)

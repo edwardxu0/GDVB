@@ -1,3 +1,4 @@
+import sys
 import copy
 import time
 
@@ -30,8 +31,8 @@ def sampling(verification_benchmark):
         print(i, neus, fcs, '\n')
 
         benchmark.train()
-        nb_train_tasks = len({x.net_name: x for x in benchmark.verification_problems})
-        progress_bar = tqdm(total=nb_train_tasks, desc="Waiting on training ... ", ascii=False)
+        nb_train_tasks = len(benchmark.verification_problems)
+        progress_bar = tqdm(total=nb_train_tasks, desc="Waiting on training ... ", ascii=False, file=sys.stdout)
         while not benchmark.trained():
             progress_bar.update(benchmark.trained(True))
             time.sleep(TIME_BREAK)
@@ -39,7 +40,7 @@ def sampling(verification_benchmark):
 
         benchmark.verify()
         nb_verification_tasks = len(benchmark.verification_problems)
-        progress_bar = tqdm(total=nb_verification_tasks, desc="Waiting on verification ... ", ascii=False)
+        progress_bar = tqdm(total=nb_verification_tasks, desc="Waiting on verification ... ", ascii=False, file=sys.stdout)
         while not benchmark.verified():
             progress_bar.update(benchmark.verified(True))
             time.sleep(TIME_BREAK)
@@ -116,6 +117,8 @@ def evolve(benchmark, parameters_to_change, arity, inflation_rate, deflation_rat
                 else:
                     break
             min_id = x
+            min_id2 = [np.all(x == nb_property) for x in raw].index(False)
+            assert min_id == min_id2
 
             for x, row in enumerate(reversed(raw)):
                 if np.all(row == 0):
@@ -123,6 +126,8 @@ def evolve(benchmark, parameters_to_change, arity, inflation_rate, deflation_rat
                 else:
                     break
             max_id = x
+            max_id2 = [np.all(x == 0) for x in raw].index(False)
+            assert max_id == max_id2
 
             assert min_id is not None
             assert max_id is not None
