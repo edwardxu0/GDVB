@@ -90,7 +90,6 @@ class PIE_SCATTER(PLOT):
         #plt.xlabel('nueron', fontsize=20)
         plt.xlabel(xlabel)
         #plt.xticks(np.arange(0,levels[0]+1).tolist(),fontsize=16)
-        print(len(np.arange(0,levels[0]+1).tolist()), len([0]+xtics))
         plt.xticks(np.arange(0,levels[0]+1).tolist(),[0]+xtics)
         plt.xlim(0, levels[0] + 1)
         #plt.ylabel('FC', fontsize=20)

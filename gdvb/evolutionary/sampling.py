@@ -34,28 +34,46 @@ def sampling(verification_benchmark):
         print(i, neus, fcs, '\n')
 
         benchmark.train()
+
         nb_train_tasks = len(benchmark.verification_problems)
-        progress_bar = tqdm(total=nb_train_tasks, desc="Waiting on training ... ", ascii=False, file=sys.stdout)
+        progress_bar = tqdm(nb_train_tasks,
+                        desc="Waiting on training ... ",
+                        ascii=False,
+                        file=sys.stdout)
+        
+        nb_trained_pre = benchmark.trained(True)
         while not benchmark.trained():
-            progress_bar.update(benchmark.trained(True))
-            progress_bar.refresh()
             time.sleep(TIME_BREAK)
+            nb_trained_now = benchmark.trained(True)
+            progress_bar.update(nb_trained_now - nb_trained_pre)
+            progress_bar.refresh()
+            nb_trained_pre = nb_trained_now
+
         progress_bar.update(nb_train_tasks)
         progress_bar.close()
 
         benchmark.verify()
+
         nb_verification_tasks = len(benchmark.verification_problems)
-        progress_bar = tqdm(total=nb_verification_tasks, desc="Waiting on verification ... ", ascii=False, file=sys.stdout)
+        progress_bar = tqdm(total=nb_verification_tasks,
+                         desc="Waiting on verification ... ",
+                         ascii=False,
+                         file=sys.stdout)
+        
+        nb_verified_pre = benchmark.verified(True)
         while not benchmark.verified():
-            progress_bar.update(benchmark.verified(True))
-            progress_bar.refresh()
             time.sleep(TIME_BREAK)
+            nb_verified_now = benchmark.verified(True)
+            progress_bar.update(nb_verified_now - nb_verified_pre)
+            progress_bar.refresh()
+            nb_verified_pre = nb_verified_now
+    
         progress_bar.update(nb_verification_tasks)
         progress_bar.close()
 
         benchmark.analyze()
 
-        next_ca_configs = evolve(benchmark, evo_configs['parameters'], arity, inflation_rate, deflation_rate)
+        next_ca_configs = evolve(benchmark, evo_configs['parameters'], arity, inflation_rate, deflation_rate, i)
 
         next_benchmark = VerificationBenchmark(f'{benchmark_name}_{i}',
                                                dnn_configs,
@@ -65,9 +83,9 @@ def sampling(verification_benchmark):
         benchmark_evolutions += [next_benchmark]
 
 
-def evolve(benchmark, parameters_to_change, arity, inflation_rate, deflation_rate):
+def evolve(benchmark, parameters_to_change, arity, inflation_rate, deflation_rate, iteration):
     evolve_strategy, solved_per_verifiers,answers_per_verifiers, indexes = evaluate_benchmark(benchmark, parameters_to_change)
-    plot_iteration(answers_per_verifiers, benchmark.ca_configs['parameters'], parameters_to_change)
+    plot_iteration(answers_per_verifiers, benchmark.ca_configs['parameters'], parameters_to_change, iteration)
 
     ca_configs = benchmark.ca_configs
     ca_configs_new = copy.deepcopy(benchmark.ca_configs)
@@ -233,7 +251,7 @@ def evaluate_benchmark(benchmark, parameters_to_change):
     return evolve_strategy, solved_per_verifiers, answers_per_verifiers, indexes
 
 
-def plot_iteration(data, configs, factors):
+def plot_iteration(data, configs, factors, iteration):
     xlabel = factors[0]
     level_min = F(configs['range'][factors[0]][0])
     level_max = F(configs['range'][factors[0]][1])
@@ -250,4 +268,4 @@ def plot_iteration(data, configs, factors):
     data = list(data.values())[0]
     pie_scatter = PIE_SCATTER(data)
     pie_scatter.draw(xtics, ytics, xlabel, ylabel)
-    pie_scatter.save('a.pdf')
+    pie_scatter.save(f'{iteration}.pdf')
