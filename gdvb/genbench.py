@@ -2,7 +2,7 @@ import random
 import datetime
 
 from .verification_benchmark import VerificationBenchmark
-from .evolutionary.sampling import sampling
+from .evolutionary.evo_bench import EvoBench
 
 
 # main benchmark generation function
@@ -34,7 +34,8 @@ def gen(settings):
         verification_benchmark.analyze()
         verification_benchmark.save_results()
     elif settings.task == 'evolutionary':
-        sampling(verification_benchmark)
+        evo_bench = EvoBench(verification_benchmark)
+        evo_bench.run()
     else:
         raise Exception("Unknown task.")
 
