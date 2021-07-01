@@ -42,6 +42,7 @@ def sampling(verification_benchmark):
                         file=sys.stdout)
         
         nb_trained_pre = benchmark.trained(True)
+        progress_bar.update(nb_trained_pre)
         while not benchmark.trained():
             time.sleep(TIME_BREAK)
             nb_trained_now = benchmark.trained(True)
@@ -61,6 +62,7 @@ def sampling(verification_benchmark):
                          file=sys.stdout)
         
         nb_verified_pre = benchmark.verified(True)
+        progress_bar.update(nb_verified_pre)
         while not benchmark.verified():
             time.sleep(TIME_BREAK)
             nb_verified_now = benchmark.verified(True)
@@ -138,6 +140,8 @@ def evolve(benchmark, parameters_to_change, arity, inflation_rate, deflation_rat
             axes = [i] + axes
             raw = list(solved_per_verifiers.values())[0].transpose(axes)
 
+            print(raw)
+
             if set([np.all(x == 0) for x in raw]) == {False}:
                 nb_levels = nb_levels * (arity - 1)
                 level_min = level_min * F(inflation_rate)
@@ -196,6 +200,8 @@ def evolve(benchmark, parameters_to_change, arity, inflation_rate, deflation_rat
                 print('old step: ', old_step, 'new step: ', new_step)
 
                 level_min = level_min + min_id * old_step - new_step
+                if level_min == 0:
+                    level_min += new_step
                 level_max = level_max - max_id * old_step + new_step
                 nb_levels = int((level_max-level_min)/new_step + 1)
 
