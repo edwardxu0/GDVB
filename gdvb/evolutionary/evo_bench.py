@@ -20,8 +20,8 @@ class EvoBench:
         self.global_max = {}
 
         for p in self.seed_benchmark.settings.evolutionary['parameters']:
-            self.global_min[p] = None
-            self.global_max[p] = None
+            self.global_min[p] = False
+            self.global_max[p] = False
         
 
     def run(self):
@@ -58,6 +58,99 @@ class EvoBench:
 
 
     def evolve(self, evo_step, evo_params, arity, inflation_rate, deflation_rate, iteration):
+        evo_step.evaluate()
+        evo_step.plot(iteration)
+
+        ca_configs = evo_step.benchmark.ca_configs
+        ca_configs_new = copy.deepcopy(ca_configs)
+
+
+        for i, param in enumerate(evo_params):
+            print(f'Working on factor: {param}')
+
+            axes = list(range(len(evo_params)))
+            axes.remove(i)
+            axes = [i] + axes
+            raw = list(evo_step.nb_solved.values())[0].transpose(axes)
+
+            nb_property = ca_configs['parameters']['level']['prop']
+            min_cut = [np.all(x == nb_property) for x in raw]
+            min_cut = min_cut.index(False) if False in min_cut else None
+            max_cut = [np.all(x == 0) for x in reversed(raw)]
+            max_cut = max_cut.index(False) if False in max_cut else None
+
+            nb_levels = ca_configs['parameters']['level'][param]
+            level_min = F(ca_configs['parameters']['range'][param][0])
+            level_max = F(ca_configs['parameters']['range'][param][1])
+
+            # set global_min and global_max
+            if min_cut is not None and min_cut > 0:
+                self.global_min[param] = True
+            if max_cut is not None and max_cut > 0:
+                self.global_max[param] =True
+
+            if param == 'fc':
+                min_step = 1 / F(len(evo_step.benchmark.fc_ids))
+            elif param == 'conv':
+                min_step = 1 / F(len(evo_step.benchmark.conv_ids))
+            else:
+                min_step = 0
+
+            print(f'old CA configs: L({nb_levels}) [({level_min}),({level_max})]')
+            print(raw)
+            print('min-max:', min_cut, max_cut)
+
+            # find lower and upper boders
+            if not self.global_min[param] and not self.global_max[param]:
+                zoom_in = False
+                level_min *= deflation_rate
+                level_max *= inflation_rate
+            elif not self.global_min[param] and self.global_max[param]:
+                zoom_in = False
+                level_min *= deflation_rate
+            elif self.global_min[param] and not self.global_max[param]:
+                zoom_in = False
+                level_max *= inflation_rate
+            else:
+                zoom_in = True
+            
+            # expand
+            if not zoom_in:
+                #level_min = min_step if level_min < min_step else level_min
+                if level_min < min_step:
+                    self.logger.warn(f'Removed "0" level.')
+                    level_min = min_step
+                new_step = (level_max - level_min) / (nb_levels - 1)
+                if new_step < min_step:
+                    self.logger.warn(f'new_step:{new_step} < min_step:{min_step}')
+                    nb_levels = int((level_max - level_min) / min_step) + 1
+
+            # zoom in
+            else:
+                old_step = (level_max - level_min) / (nb_levels - 1)
+                new_step = old_step / arity
+                if new_step < min_step:
+                    self.logger.warn(f'new_step:{new_step} < min_step:{min_step}')
+                    new_step = min_step
+
+                print(f'old step: {old_step}, new step: {new_step}')
+
+                level_min = level_min + min_cut * old_step - new_step
+                if level_min < min_step:
+                    self.logger.warn(f'Removed "0" level.')
+                    level_min = min_step
+                level_max = level_max - max_cut * old_step + new_step
+
+                nb_levels = int((level_max-level_min)/new_step + 1)
+
+            ca_configs_new['parameters']['level'][param] = nb_levels
+            ca_configs_new['parameters']['range'][param] = [level_min, level_max]
+
+        return ca_configs_new
+
+
+
+    def evolve_old(self, evo_step, evo_params, arity, inflation_rate, deflation_rate, iteration):
         evo_step.evaluate()
         evo_step.plot(iteration)
 
