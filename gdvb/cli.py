@@ -17,6 +17,7 @@ def parse_args():
     parser.add_argument('--root', type=str, default='./results/', help='Root directory')
     parser.add_argument('--platform', type=str, choices=['local', 'slurm'], help='How to run jobs?')
     parser.add_argument('--override', action='store_true', help='Override existing logs?')
-    parser.add_argument('--debug', action='store_true', help='Verbose mode.')
+    parser.add_argument('--debug', action='store_true', help='Print debug log.')
+    parser.add_argument('--dumb', action='store_true', help='Slienter mode.')
 
     return parser.parse_args()

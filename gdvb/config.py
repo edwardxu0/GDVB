@@ -14,6 +14,8 @@ def configure(args):
     configs['override'] = args.override
     if args.debug:
         configs['logging_level'] = logging.DEBUG
+    elif args.dumb:
+        configs['logging_level'] = logging.WARN
     else:
         configs['logging_level'] = logging.INFO
 

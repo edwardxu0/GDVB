@@ -307,7 +307,7 @@ class VerificationProblem:
             self.settings.veri_log_dir,
             f'{self.vp_name}_T={time_limit}_M={memory_limit}:{verifier.verifier_name}.out')
 
-        if self.settings.training_configs['dispatch']['platform'] == 'slurm':
+        if self.settings.verification_configs['dispatch']['platform'] == 'slurm':
             slurm_script_path = os.path.join(
                 self.settings.veri_slurm_dir,
                 f'{self.vp_name}_T={time_limit}_M={memory_limit}:{verifier.verifier_name}.slurm')

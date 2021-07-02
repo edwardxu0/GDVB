@@ -11,8 +11,9 @@ from ..plot.pie_scatter import PIE_SCATTER
 TIME_BREAK = 10
 
 class EvoStep:
-    def __init__(self, benchmark):
+    def __init__(self, benchmark, evo_params):
         self.benchmark = benchmark
+        self.evo_params = evo_params
         self.nb_solved = None
         self.answers = None
 
@@ -56,11 +57,11 @@ class EvoStep:
         self.benchmark.analyze()
 
     # process verification results for things
-    def evaluate(self, parameters_to_change):
+    def evaluate(self):
         benchmark = self.benchmark
         ca_configs = benchmark.ca_configs
         indexes = {}
-        for p in parameters_to_change:
+        for p in self.evo_params:
             ids = []
             for vpc in benchmark.ca:
                 ids += [vpc[x] for x in vpc if x == p]
@@ -73,11 +74,11 @@ class EvoStep:
             for verifier in problem.verification_results:
                 if verifier not in solved_per_verifiers:
                     shape = ()
-                    for p in parameters_to_change:
+                    for p in self.evo_params:
                         shape += (ca_configs['parameters']['level'][p],)
                     solved_per_verifiers[verifier] = np.zeros(shape, dtype=np.int)
                     answers_per_verifiers[verifier] = np.empty(shape+(nb_property,), dtype=np.int)
-                idx = tuple(indexes[x].index(problem.vpc[x]) for x in parameters_to_change)
+                idx = tuple(indexes[x].index(problem.vpc[x]) for x in self.evo_params)
                 if problem.verification_results[verifier][0] in ['sat', 'unsat']:
                     solved_per_verifiers[verifier][idx] += 1
                 prop_id = problem.vpc['prop']
@@ -88,25 +89,26 @@ class EvoStep:
         self.answers = answers_per_verifiers
 
 
-    def plot(self, factors, iteration):
-        configs = self.benchmark.ca_configs['parameters']
-        data = self.answers
+    def plot(self, iteration):
+        parameters = self.benchmark.ca_configs['parameters']
+        data = list(self.answers.values())[0]
 
-        xlabel = factors[0]
-        level_min = F(configs['range'][factors[0]][0])
-        level_max = F(configs['range'][factors[0]][1])
-        nb_levels = F(configs['level'][factors[0]])
-        xtics = np.arange(level_min, level_min + level_max, (level_max - level_min) / (nb_levels - 1))
-        xtics = [f'{float(x):.4f}' for x in xtics]
-        ylabel = factors[1]
-        level_min = F(configs['range'][factors[1]][0])
-        level_max = F(configs['range'][factors[1]][1])
-        nb_levels = F(configs['level'][factors[1]])
-        ytics = np.arange(level_min, level_min + level_max, (level_max - level_min) / (nb_levels - 1))
-        ytics = [f'{float(x):.4f}' for x in ytics]
+        labels = []
+        ticks = []
+        for p in self.evo_params:
+            labels += [p]
+            nb_levels = F(parameters['level'][p])
+            level_min = F(parameters['range'][p][0])
+            level_max = F(parameters['range'][p][1])
+            step = (level_max - level_min) / (nb_levels - 1)
+            tick = np.arange(level_min, level_max + step, step)
+            tick = [f'{float(x):.4f}' for x in tick]
+            ticks += [tick]
+            print(tick)
 
-        data = list(data.values())[0]
+        print(data.shape, len(ticks[0]),len(ticks[1]))
+
+
         pie_scatter = PIE_SCATTER(data)
-        pie_scatter.draw(xtics, ytics, xlabel, ylabel)
-        #pie_scatter.save(f'{iteration}.pdf')
-        pie_scatter.save(f'a.pdf')
+        pie_scatter.draw(ticks[0], ticks[1], labels[0], labels[1])
+        pie_scatter.save(f'{iteration}.pdf')
