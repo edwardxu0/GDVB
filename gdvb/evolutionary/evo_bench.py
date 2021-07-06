@@ -1,9 +1,10 @@
 import copy
+from os import fchdir
 import numpy as np
 
 from fractions import Fraction as F
 
-from ..verification_benchmark import VerificationBenchmark
+from ..core.verification_benchmark import VerificationBenchmark
 
 from .evo_step import EvoStep
 
@@ -13,7 +14,7 @@ class EvoBench:
         self.seed_benchmark = seed_benchmark
         self.logger = seed_benchmark.settings.logger
         self._init_parameters()
-    
+
     def _init_parameters(self):
         self.steps = []
         self.global_min = {}
@@ -22,7 +23,6 @@ class EvoBench:
         for p in self.seed_benchmark.settings.evolutionary['parameters']:
             self.global_min[p] = False
             self.global_max[p] = False
-        
 
     def run(self):
         verification_benchmark = self.seed_benchmark
@@ -44,18 +44,18 @@ class EvoBench:
             fcs = sorted(set([x['fc'] for x in evo_step.benchmark.ca]))
             print(f"evo_iter={i}, neu={neus}, fc={fcs} \n")
 
-            evo_step.proceed()
+            evo_step.forward()
 
-            next_ca_configs = self.evolve(evo_step, evo_params, arity, inflation_rate, deflation_rate, i)
+            next_ca_configs = self.evolve(
+                evo_step, evo_params, arity, inflation_rate, deflation_rate, i)
 
             next_evo_step = EvoStep(VerificationBenchmark(f'{benchmark_name}_{i}',
-                                                dnn_configs,
-                                                next_ca_configs,
-                                                evo_step.benchmark.settings),
+                                                          dnn_configs,
+                                                          next_ca_configs,
+                                                          evo_step.benchmark.settings),
                                     evo_params)
 
             self.steps += [next_evo_step]
-
 
     def evolve(self, evo_step, evo_params, arity, inflation_rate, deflation_rate, iteration):
         evo_step.evaluate()
@@ -64,214 +64,280 @@ class EvoBench:
         ca_configs = evo_step.benchmark.ca_configs
         ca_configs_new = copy.deepcopy(ca_configs)
 
-
-        for i, param in enumerate(evo_params):
-            print(f'Working on factor: {param}')
+        for i, f in enumerate(evo_step.factors):
+            f = copy.deepcopy(f)
+            print(f'Working on factor: {f}')
 
             axes = list(range(len(evo_params)))
             axes.remove(i)
             axes = [i] + axes
             raw = list(evo_step.nb_solved.values())[0].transpose(axes)
 
+            # TODO ???
+            # cut levels that are too easy and too hard
             nb_property = ca_configs['parameters']['level']['prop']
             min_cut = [np.all(x == nb_property) for x in raw]
             min_cut = min_cut.index(False) if False in min_cut else None
             max_cut = [np.all(x == 0) for x in reversed(raw)]
             max_cut = max_cut.index(False) if False in max_cut else None
+            print('min-max:', min_cut, max_cut)
 
-            nb_levels = ca_configs['parameters']['level'][param]
-            level_min = F(ca_configs['parameters']['range'][param][0])
-            level_max = F(ca_configs['parameters']['range'][param][1])
-
+            # TODO ???
             # set global_min and global_max
             if min_cut is not None and min_cut > 0:
-                self.global_min[param] = True
+                self.global_min[f.type] = True
             if max_cut is not None and max_cut > 0:
-                self.global_max[param] =True
-
-            if param == 'fc':
-                min_step = F(1) / F(len(evo_step.benchmark.fc_ids))
-            elif param == 'conv':
-                min_step = F(1) / F(len(evo_step.benchmark.conv_ids))
-            else:
-                min_step = 0
-
-            print(f'old CA configs: L({nb_levels}) [({level_min}),({level_max})]')
-            print(raw)
-            print('min-max:', min_cut, max_cut)
+                self.global_max[f.type] = True
 
             # find lower and upper boders
-            if not self.global_min[param] and not self.global_max[param]:
-                zoom_in = False
-                level_min *= deflation_rate
-                level_max *= inflation_rate
-            elif not self.global_min[param] and self.global_max[param]:
-                zoom_in = False
-                level_min *= deflation_rate
-            elif self.global_min[param] and not self.global_max[param]:
-                zoom_in = False
-                level_max *= inflation_rate
+            if not self.global_min[f.type] and not self.global_max[f.type]:
+                subdivision = False
+                f.set_start_end(
+                    f.start*deflation_rate, f.end*inflation_rate)
+            elif not self.global_min[f.type] and self.global_max[f.type]:
+                subdivision = False
+                f.set_start(f.start*deflation_rate)
+            elif self.global_min[f.type] and not self.global_max[f.type]:
+                subdivision = False
+                f.set_end(f.end*inflation_rate)
             else:
-                zoom_in = True
+                subdivision = True
 
-            zoom_in = True
-            # expand
-            if not zoom_in:
-                #level_min = min_step if level_min < min_step else level_min
-                if level_min < min_step:
-                    self.logger.warn(f'Removed "0" level.')
-                    level_min = min_step
-                new_step = (level_max - level_min) / (nb_levels - 1)
-                if new_step < min_step:
-                    self.logger.warn(f'new_step:{new_step} < min_step:{min_step}')
-                    nb_levels = int((level_max - level_min) / min_step) + 1
-
-            # zoom in
+            # cut easy or hard
+            new_start = f.start + min_cut * f.step if min_cut else None
+            new_end = f.end - max_cut * f.step if max_cut else None
+            if new_start and new_end:
+                f.set_start_end(new_start, new_end)
+            elif new_start and not new_end:
+                f.set_start(new_start)
+            elif not new_start and new_end:
+                f.set_end(new_end)
             else:
-                old_step = F(level_max - level_min) / F(nb_levels - 1)
-                new_step = old_step / F(arity)
-                if new_step < min_step:
-                    self.logger.warn(f'new_step:{new_step} < min_step:{min_step}')
-                    new_step = min_step
+                pass
 
-                print(f'old step: {old_step}, new step: {new_step}')
+            # subdivide the level plane
+            if subdivision:
+                fchdir.subdivision(arity)
 
-                min_cut = 0 if not min_cut else min_cut
-                max_cut = 0 if not max_cut else max_cut
-                
-                level_min = level_min + min_cut * old_step - new_step
-                if level_min < min_step:
-                    self.logger.warn(f'Removed "0" level.')
-                    level_min = min_step
-                level_max = level_max - max_cut * old_step + new_step
-
-                nb_levels = int((level_max-level_min)/new_step + 1)
-
-            ca_configs_new['parameters']['level'][param] = nb_levels
-            ca_configs_new['parameters']['range'][param] = [level_min, level_max]
+            start, end, levels = f.get()
+            ca_configs_new['parameters']['level'][f.type] = levels
+            ca_configs_new['parameters']['range'][f.type] = [start, end]
 
         return ca_configs_new
 
+    # def evolve_old2(self, evo_step, evo_params, arity, inflation_rate, deflation_rate, iteration):
+    #     evo_step.evaluate()
+    #     evo_step.plot(iteration)
 
+    #     ca_configs = evo_step.benchmark.ca_configs
+    #     ca_configs_new = copy.deepcopy(ca_configs)
 
-    def evolve_old(self, evo_step, evo_params, arity, inflation_rate, deflation_rate, iteration):
-        evo_step.evaluate()
-        evo_step.plot(iteration)
+    #     for i, param in enumerate(evo_params):
+    #         print(f'Working on factor: {param}')
 
-        ca_configs = evo_step.benchmark.ca_configs
-        ca_configs_new = copy.deepcopy(ca_configs)
+    #         axes = list(range(len(evo_params)))
+    #         axes.remove(i)
+    #         axes = [i] + axes
+    #         raw = list(evo_step.nb_solved.values())[0].transpose(axes)
 
+    #         nb_property = ca_configs['parameters']['level']['prop']
+    #         min_cut = [np.all(x == nb_property) for x in raw]
+    #         min_cut = min_cut.index(False) if False in min_cut else None
+    #         max_cut = [np.all(x == 0) for x in reversed(raw)]
+    #         max_cut = max_cut.index(False) if False in max_cut else None
 
-        for i, param in enumerate(evo_params):
-            print(f'Working on factor: {param}')
+    #         nb_levels = ca_configs['parameters']['level'][param]
+    #         level_min = F(ca_configs['parameters']['range'][param][0])
+    #         level_max = F(ca_configs['parameters']['range'][param][1])
 
-            axes = list(range(len(evo_params)))
-            axes.remove(i)
-            axes = [i] + axes
-            raw = list(evo_step.nb_solved.values())[0].transpose(axes)
+    #         # set global_min and global_max
+    #         if min_cut is not None and min_cut > 0:
+    #             self.global_min[param] = True
+    #         if max_cut is not None and max_cut > 0:
+    #             self.global_max[param] = True
 
-            nb_property = ca_configs['parameters']['level']['prop']
-            min_cut = [np.all(x == nb_property) for x in raw]
-            min_cut = min_cut.index(False) if False in min_cut else None
-            max_cut = [np.all(x == 0) for x in reversed(raw)]
-            max_cut = max_cut.index(False) if False in max_cut else None
+    #         if param == 'fc':
+    #             min_step = F(1) / F(len(evo_step.benchmark.fc_ids))
+    #         elif param == 'conv':
+    #             min_step = F(1) / F(len(evo_step.benchmark.conv_ids))
+    #         else:
+    #             min_step = 0
 
-            nb_levels = ca_configs['parameters']['level'][param]
-            level_min = F(ca_configs['parameters']['range'][param][0])
-            level_max = F(ca_configs['parameters']['range'][param][1])
-            old_step = (level_max - level_min) / (nb_levels - 1)
+    #         print(
+    #             f'old CA configs: L({nb_levels}) [({level_min}),({level_max})]')
+    #         print(raw)
+    #         print('min-max:', min_cut, max_cut)
 
-            # set global_min and global_max
-            if min_cut is not None and min_cut > 0:
-                g_min = np.arange(level_min, level_max+old_step, old_step)[min_cut-1]
-                if self.global_min[param] is None:
-                    self.global_min[param] = g_min
-                else:
-                    if g_min > self.global_min[param]:
-                        self.global_min[param] = g_min
-            if max_cut is not None and max_cut > 0:
-                g_max = np.arange(level_min, level_max+old_step, old_step)[(nb_levels-1)-(max_cut-1)]
-                if self.global_max[param] is None:
-                    self.global_max[param] = g_max
-                else:
-                    if g_max < self.global_max[param]:
-                        self.global_max[param] = g_max
+    #         # find lower and upper boders
+    #         if not self.global_min[param] and not self.global_max[param]:
+    #             zoom_in = False
+    #             level_min *= deflation_rate
+    #             level_max *= inflation_rate
+    #         elif not self.global_min[param] and self.global_max[param]:
+    #             zoom_in = False
+    #             level_min *= deflation_rate
+    #         elif self.global_min[param] and not self.global_max[param]:
+    #             zoom_in = False
+    #             level_max *= inflation_rate
+    #         else:
+    #             zoom_in = True
 
-            print(f'old CA configs: L({nb_levels}) [({level_min}),({level_max})]')
-            print(raw)
-            print('min-max:', min_cut, max_cut)
+    #         zoom_in = True
+    #         # expand
+    #         if not zoom_in:
+    #             #level_min = min_step if level_min < min_step else level_min
+    #             if level_min < min_step:
+    #                 self.logger.warn(f'Removed "0" level.')
+    #                 level_min = min_step
+    #             new_step = (level_max - level_min) / (nb_levels - 1)
+    #             if new_step < min_step:
+    #                 self.logger.warn(
+    #                     f'new_step:{new_step} < min_step:{min_step}')
+    #                 nb_levels = int((level_max - level_min) / min_step) + 1
 
-            # all too easy: inflate
-            # all too hard: deflate
-            if min_cut == None or max_cut == None:
-                if min_cut == None:
-                    assert max_cut != None
-                    rate = inflation_rate
-                    print('inflate!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
-                elif max_cut == None:
-                    assert min_cut != None
-                    rate = deflation_rate
-                else:
-                    print('deflate!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
-                    assert False
+    #         # zoom in
+    #         else:
+    #             old_step = F(level_max - level_min) / F(nb_levels - 1)
+    #             new_step = old_step / F(arity)
+    #             if new_step < min_step:
+    #                 self.logger.warn(
+    #                     f'new_step:{new_step} < min_step:{min_step}')
+    #                 new_step = min_step
 
-                nb_levels = nb_levels * (arity - 1)
-                level_min = level_min * F(rate)
-                level_max = level_max * F(rate)
+    #             print(f'old step: {old_step}, new step: {new_step}')
 
-                if self.global_min[param] and level_min < self.global_min[param]:
-                    level_min = self.global_min[param]
-                if self.global_max[param] and level_max > self.global_max[param]:
-                    level_max = self.global_max[param]
+    #             min_cut = 0 if not min_cut else min_cut
+    #             max_cut = 0 if not max_cut else max_cut
 
-                if param == 'fc':
-                    min_step = 1 / F(len(evo_step.benchmark.fc_ids))
-                elif param == 'conv':
-                    min_step = 1 / F(len(evo_step.benchmark.conv_ids))
-                else:
-                    min_step = 0
-                
-                new_step = (level_max - level_min) / (nb_levels - 1)
-                if new_step < min_step:
-                    self.logger.warn(f'new_step:{new_step} < min_step:{min_step}')
-                    nb_levels = int((level_max - level_min) / min_step) + 1
+    #             level_min = level_min + min_cut * old_step - new_step
+    #             if level_min < min_step:
+    #                 self.logger.warn(f'Removed "0" level.')
+    #                 level_min = min_step
+    #             level_max = level_max - max_cut * old_step + new_step
 
-            # zoom-in
-            else:
-                old_step = (level_max-level_min) / (nb_levels - 1)
-                new_step = old_step / arity
+    #             nb_levels = int((level_max-level_min)/new_step + 1)
 
-                if param == 'fc':
-                    min_step = 1/F(len(evo_step.benchmark.fc_ids))
-                elif param == 'conv':
-                    min_step = 1/F(len(evo_step.benchmark.conv_ids))
-                else:
-                    min_step = 0
-                if new_step < min_step:
-                    self.logger.warn(f'new_step:{new_step} < min_step:{min_step}')
-                    new_step = min_step
+    #         ca_configs_new['parameters']['level'][param] = nb_levels
+    #         ca_configs_new['parameters']['range'][param] = [
+    #             level_min, level_max]
 
-                print(f'old step: {old_step}, new step: {new_step}')
-                
-                min_cut = 0 if not min_cut else min_cut
-                max_cut = 0 if not max_cut else max_cut
-                level_min = level_min + min_cut * old_step - new_step
-                if level_min == 0:
-                    self.logger.warn(f'Removed "0" level.')
-                    level_min += new_step
-                level_max = level_max - max_cut * old_step + new_step
+    #     return ca_configs_new
 
-                if self.global_min[param] and level_min < self.global_min[param]:
-                    level_min = self.global_min[param]
-                if self.global_max[param] and level_max > self.global_max[param]:
-                    level_max = self.global_max[param]
+    # def evolve_old(self, evo_step, evo_params, arity, inflation_rate, deflation_rate, iteration):
+    #     evo_step.evaluate()
+    #     evo_step.plot(iteration)
 
-                nb_levels = int((level_max-level_min)/new_step + 1)
+    #     ca_configs = evo_step.benchmark.ca_configs
+    #     ca_configs_new = copy.deepcopy(ca_configs)
 
-            print(f'New CA configs: L({nb_levels}) [({level_min}),({level_max})]')
+    #     for i, param in enumerate(evo_params):
+    #         print(f'Working on factor: {param}')
 
-            assert level_min > 0
-            ca_configs_new['parameters']['level'][param] = nb_levels
-            ca_configs_new['parameters']['range'][param] = [level_min, level_max]
+    #         axes = list(range(len(evo_params)))
+    #         axes.remove(i)
+    #         axes = [i] + axes
+    #         raw = list(evo_step.nb_solved.values())[0].transpose(axes)
 
-        return ca_configs_new
+    #         nb_property = ca_configs['parameters']['level']['prop']
+    #         min_cut = [np.all(x == nb_property) for x in raw]
+    #         min_cut = min_cut.index(False) if False in min_cut else None
+    #         max_cut = [np.all(x == 0) for x in reversed(raw)]
+    #         max_cut = max_cut.index(False) if False in max_cut else None
+
+    #         nb_levels = ca_configs['parameters']['level'][param]
+    #         level_min = F(ca_configs['parameters']['range'][param][0])
+    #         level_max = F(ca_configs['parameters']['range'][param][1])
+    #         old_step = (level_max - level_min) / (nb_levels - 1)
+
+    #         # set global_min and global_max
+    #         if min_cut is not None and min_cut > 0:
+    #             g_min = np.arange(level_min, level_max+old_step, old_step)[min_cut-1]
+    #             if self.global_min[param] is None:
+    #                 self.global_min[param] = g_min
+    #             else:
+    #                 if g_min > self.global_min[param]:
+    #                     self.global_min[param] = g_min
+    #         if max_cut is not None and max_cut > 0:
+    #             g_max = np.arange(level_min, level_max+old_step, old_step)[(nb_levels-1)-(max_cut-1)]
+    #             if self.global_max[param] is None:
+    #                 self.global_max[param] = g_max
+    #             else:
+    #                 if g_max < self.global_max[param]:
+    #                     self.global_max[param] = g_max
+
+    #         print(f'old CA configs: L({nb_levels}) [({level_min}),({level_max})]')
+    #         print(raw)
+    #         print('min-max:', min_cut, max_cut)
+
+    #         # all too easy: inflate
+    #         # all too hard: deflate
+    #         if min_cut == None or max_cut == None:
+    #             if min_cut == None:
+    #                 assert max_cut != None
+    #                 rate = inflation_rate
+    #                 print('inflate!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+    #             elif max_cut == None:
+    #                 assert min_cut != None
+    #                 rate = deflation_rate
+    #             else:
+    #                 print('deflate!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+    #                 assert False
+
+    #             nb_levels = nb_levels * (arity - 1)
+    #             level_min = level_min * F(rate)
+    #             level_max = level_max * F(rate)
+
+    #             if self.global_min[param] and level_min < self.global_min[param]:
+    #                 level_min = self.global_min[param]
+    #             if self.global_max[param] and level_max > self.global_max[param]:
+    #                 level_max = self.global_max[param]
+
+    #             if param == 'fc':
+    #                 min_step = 1 / F(len(evo_step.benchmark.fc_ids))
+    #             elif param == 'conv':
+    #                 min_step = 1 / F(len(evo_step.benchmark.conv_ids))
+    #             else:
+    #                 min_step = 0
+
+    #             new_step = (level_max - level_min) / (nb_levels - 1)
+    #             if new_step < min_step:
+    #                 self.logger.warn(f'new_step:{new_step} < min_step:{min_step}')
+    #                 nb_levels = int((level_max - level_min) / min_step) + 1
+
+    #         # zoom-in
+    #         else:
+    #             old_step = (level_max-level_min) / (nb_levels - 1)
+    #             new_step = old_step / arity
+
+    #             if param == 'fc':
+    #                 min_step = 1/F(len(evo_step.benchmark.fc_ids))
+    #             elif param == 'conv':
+    #                 min_step = 1/F(len(evo_step.benchmark.conv_ids))
+    #             else:
+    #                 min_step = 0
+    #             if new_step < min_step:
+    #                 self.logger.warn(f'new_step:{new_step} < min_step:{min_step}')
+    #                 new_step = min_step
+
+    #             print(f'old step: {old_step}, new step: {new_step}')
+
+    #             level_min = level_min + min_cut * old_step - new_step
+    #             if level_min == 0:
+    #                 self.logger.warn(f'Removed "0" level.')
+    #                 level_min += new_step
+    #             level_max = level_max - max_cut * old_step + new_step
+
+    #             if self.global_min[param] and level_min < self.global_min[param]:
+    #                 level_min = self.global_min[param]
+    #             if self.global_max[param] and level_max > self.global_max[param]:
+    #                 level_max = self.global_max[param]
+
+    #             nb_levels = int((level_max-level_min)/new_step + 1)
+
+    #         print(f'New CA configs: L({nb_levels}) [({level_min}),({level_max})]')
+
+    #         assert level_min > 0
+    #         ca_configs_new['parameters']['level'][param] = nb_levels
+    #         ca_configs_new['parameters']['range'][param] = [level_min, level_max]
+
+    #     return ca_configs_new

@@ -6,19 +6,18 @@ import re
 
 from fractions import Fraction as F
 
-from .artifacts.ACAS import ACAS
-from .artifacts.MNIST import MNIST
-from .artifacts.CIFAR10 import CIFAR10
-from .artifacts.DAVE2 import DAVE2
-from .nn.layers import Dense, Conv, Transpose, Flatten
-from .dispatcher import Task
-from .pipeline.R4V import R4V
-from .pipeline.DNNV import DNNV
-from .pipeline.DNNF import DNNF
+from ..artifacts.ACAS import ACAS
+from ..artifacts.MNIST import MNIST
+from ..artifacts.CIFAR10 import CIFAR10
+from ..artifacts.DAVE2 import DAVE2
+from ..nn.layers import Dense, Conv, Transpose, Flatten
+from ..dispatcher import Task
+from ..pipeline.R4V import R4V
+from ..pipeline.DNNV import DNNV
+from ..pipeline.DNNF import DNNF
 
 
 class VerificationProblem:
-
     def __init__(self, settings, vpc, verification_benchmark):
         self.settings = settings
         self.vpc = vpc
@@ -39,13 +38,14 @@ class VerificationProblem:
 
         self.prop_dir = os.path.join(self.settings.props_dir, self.net_name)
 
-        source_dis_config = open(self.settings.dnn_configs['r4v_config'], 'r').read()
+        source_dis_config = open(
+            self.settings.dnn_configs['r4v_config'], 'r').read()
         self.distillation_config = toml.loads(source_dis_config)
 
         self.scale_input = False
         self.training_lost = {}
         self.verification_results = {}
-        
+
     def set_distillation_strategies(self, dis_strats):
         self.settings.logger.debug('Distillation Strategies:')
         for i, x in enumerate(dis_strats):
@@ -74,16 +74,20 @@ class VerificationProblem:
         else:
             self.net_name += f'_{1:{self.settings.precision}}'
             self.vp_name += f'_{1:{self.settings.precision}}'
-        
+
         self.drop_ids = drop_ids
         self.scale_ids_factors = scale_ids_factors
         self.added_layers = added_layers
 
-        self.dis_config_path = os.path.join(self.settings.dis_config_dir, self.net_name + '.toml')
-        self.dis_model_path = os.path.join(self.settings.dis_model_dir, self.net_name + '.onnx')
-        self.dis_log_path = os.path.join(self.settings.dis_log_dir, self.net_name + '.out')
+        self.dis_config_path = os.path.join(
+            self.settings.dis_config_dir, self.net_name + '.toml')
+        self.dis_model_path = os.path.join(
+            self.settings.dis_model_dir, self.net_name + '.onnx')
+        self.dis_log_path = os.path.join(
+            self.settings.dis_log_dir, self.net_name + '.out')
         if self.settings.training_configs['dispatch']['platform'] == 'slurm':
-            self.dis_slurm_path = os.path.join(self.settings.dis_slurm_dir, self.net_name + '.slurm')
+            self.dis_slurm_path = os.path.join(
+                self.settings.dis_slurm_dir, self.net_name + '.slurm')
         else:
             self.dis_slurm_path = None
 
@@ -125,7 +129,8 @@ class VerificationProblem:
                                 size = int(round(size * x[1]))
                                 break
                         self.fc_and_conv_kernel_sizes += [size]
-                        l = Conv(size, None, None, ol.kernel_size, ol.stride, ol.padding, in_shape)
+                        l = Conv(size, None, None, ol.kernel_size,
+                                 ol.stride, ol.padding, in_shape)
                         self.nb_neurons += [np.prod(l.out_shape)]
                     elif ol.type == 'Transpose':
                         l = Transpose(ol.order, in_shape)
@@ -152,7 +157,8 @@ class VerificationProblem:
                                 break
                         new_layer = Dense(size, None, None, in_shape)
                         self.layers.insert(layer_id, new_layer)
-                        self.nb_neurons.insert(layer_id, np.prod(new_layer.out_shape))
+                        self.nb_neurons.insert(
+                            layer_id, np.prod(new_layer.out_shape))
                         self.fc_and_conv_kernel_sizes.insert(layer_id, size)
                 else:
                     raise NotImplementedError
@@ -183,7 +189,8 @@ class VerificationProblem:
 
         if self.drop_ids:
             lines += ['[[distillation.strategies.drop_layer]]']
-            lines += ['layer_id=['+', '.join([str(x) for x in self.drop_ids])+']']
+            lines += ['layer_id=[' +
+                      ', '.join([str(x) for x in self.drop_ids])+']']
             lines += ['']
 
         if self.added_layers:
@@ -197,8 +204,10 @@ class VerificationProblem:
 
         if self.scale_ids_factors:
             lines += ['[[distillation.strategies.scale_layer]]']
-            lines += ['layer_id=['+', '.join([str(x[0]) for x in self.scale_ids_factors])+']']
-            lines += ['factor=[{}]'.format(', '.join([str(x[1]) for x in self.scale_ids_factors]))]
+            lines += ['layer_id=[' +
+                      ', '.join([str(x[0]) for x in self.scale_ids_factors])+']']
+            lines += ['factor=[{}]'.format(', '.join([str(x[1])
+                                           for x in self.scale_ids_factors]))]
             lines += ['']
 
         lines += ['[distillation.student]']
@@ -247,20 +256,21 @@ class VerificationProblem:
                     relative_loss += [float(line.strip().split('=')[-1])]
         if len(relative_loss) != self.settings.training_configs['epochs']:
             self.settings.logger.warning(f"Training may not be finished. "
-                                      f"({len(relative_loss)}/{self.settings.training_configs['epochs']})")
+                                         f"({len(relative_loss)}/{self.settings.training_configs['epochs']})")
         return relative_loss
 
     def gen_prop(self):
         if isinstance(self.verification_benchmark.artifact, ACAS):
             prop_id = self.vpc['prop']
             self.verification_benchmark.artifact.generate_property(prop_id)
-            
+
         elif isinstance(self.verification_benchmark.artifact, (MNIST, CIFAR10, DAVE2)):
             data_config = self.distillation_config['distillation']['data']
             prop_id = self.vpc['prop']
 
             if 'eps' in self.vpc:
-                eps = F(self.vpc['eps']) * F(self.settings.verification_configs['eps'])
+                eps = F(self.vpc['eps']) * \
+                    F(self.settings.verification_configs['eps'])
             else:
                 eps = self.settings.verification_configs['eps']
 
@@ -319,11 +329,13 @@ class VerificationProblem:
             return
 
         if 'eps' in self.vpc:
-            eps = F(self.vpc['eps']) * F(self.settings.verification_configs['eps'])
+            eps = F(self.vpc['eps']) * \
+                F(self.settings.verification_configs['eps'])
         else:
             eps = self.settings.verification_configs['eps']
 
-        property_path = os.path.join(self.prop_dir, f"robustness_{self.vpc['prop']}_{eps}.py")
+        property_path = os.path.join(
+            self.prop_dir, f"robustness_{self.vpc['prop']}_{eps}.py")
 
         cmd = f'python -W ignore ./lib/DNNV/tools/resmonitor.py -T {time_limit} -M {memory_limit} '
         cmd += verifier.execute([property_path, '--network N', net_path])
@@ -359,7 +371,8 @@ class VerificationProblem:
             else:
                 LINES_TO_CHECK = 300
                 lines_err = list(reversed(open(log_path, 'r').readlines()))
-                lines_out = list(reversed(open(os.path.splitext(log_path)[0] + '.err', 'r').readlines()))
+                lines_out = list(
+                    reversed(open(os.path.splitext(log_path)[0] + '.err', 'r').readlines()))
                 # lines = lines_out[:LINES_TO_CHECK] + lines_err[:LINES_TO_CHECK]
                 lines = lines_out + lines_err
 
@@ -386,7 +399,7 @@ class VerificationProblem:
                     # if re.search('RuntimeError: view size is not compatible', l):
                     #    verification_answer = 'error'
                     #    verification_time = time_limit
-                    #    break 
+                    #    break
 
                     if re.search(' result: ', l):
                         error_patterns = ['PlanetError',
@@ -407,7 +420,8 @@ class VerificationProblem:
                         #    verification_answer = 'memout'
                         else:
                             verification_answer = l.strip().split(' ')[-1]
-                            verification_time = float(lines[i - 1].strip().split(' ')[-1])
+                            verification_time = float(
+                                lines[i - 1].strip().split(' ')[-1])
                         break
 
                     # exceptions that DNNV didn't catch
@@ -438,7 +452,8 @@ class VerificationProblem:
                     if any(re.search(x, l) for x in rerun_patterns):
                         verification_answer = 'rerun'
                         verification_time = -1
-                        self.settings.logger.warning(f'Failed job({verification_answer}): {log_path}')
+                        self.settings.logger.warning(
+                            f'Failed job({verification_answer}): {log_path}')
                         break
 
             if not verification_answer and (i + 1 in [LINES_TO_CHECK, len(lines)] or len(lines) == 0):
@@ -451,7 +466,8 @@ class VerificationProblem:
                                            'memout', 'exception', 'rerun', 'unrun', 'undetermined'],\
                 f'{verification_answer}:{log_path}'
 
-            verification_results[verifier.verifier_name] = [verification_answer, verification_time]
+            verification_results[verifier.verifier_name] = [
+                verification_answer, verification_time]
 
         self.verification_results = verification_results
         return verification_results

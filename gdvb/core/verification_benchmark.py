@@ -1,19 +1,22 @@
 import os
+import sys
 import random
 import pickle
+
 import numpy as np
 from tqdm import tqdm
 
-from .artifacts.ACAS import ACAS
-from .artifacts.MNIST import MNIST
-from .artifacts.CIFAR10 import CIFAR10
-from .artifacts.DAVE2 import DAVE2
-from .nn.layers import Dense, Conv
+from ..artifacts.ACAS import ACAS
+from ..artifacts.MNIST import MNIST
+from ..artifacts.CIFAR10 import CIFAR10
+from ..artifacts.DAVE2 import DAVE2
+from ..nn.layers import Dense, Conv
 
 from fractions import Fraction as F
 from .verification_problem import VerificationProblem
 
-from .plot.pie_scatter import PIE_SCATTER
+from ..plot.pie_scatter import PIE_SCATTER
+
 
 class VerificationBenchmark:
 
@@ -37,7 +40,8 @@ class VerificationBenchmark:
         if dnn_configs['artifact'] in globals():
             artifact = globals()[dnn_configs['artifact']](dnn_configs)
         else:
-            raise NotImplementedError(f'Unimplemented artifact: {dnn_configs["artifact"]}')
+            raise NotImplementedError(
+                f'Unimplemented artifact: {dnn_configs["artifact"]}')
         return artifact
 
     def _gen_parameters(self, ca_configs):
@@ -70,7 +74,8 @@ class VerificationBenchmark:
                 else:
                     level_range = level_max - level_min
                     level_step = level_range / (level_size - 1)
-                    level = np.arange(level_min, level_max + level_step, level_step)
+                    level = np.arange(level_min, level_max +
+                                      level_step, level_step)
                     level = np.array(level, dtype=np.float)
                 if key == 'prop':
                     level = np.array(level, dtype=np.int)
@@ -78,7 +83,8 @@ class VerificationBenchmark:
                 assert len(level) == level_size
                 parameters[key] = level
                 # make sure all parameters are passed
-                assert len(parameters[key]) == ca_configs['parameters']['level'][key]
+                assert len(
+                    parameters[key]) == ca_configs['parameters']['level'][key]
         return parameters, fc_ids, conv_ids
 
     def _debug_layer(self):
@@ -132,7 +138,8 @@ class VerificationBenchmark:
 
         acts_path = './lib/acts.jar'
         if not os.path.exists(acts_path):
-            raise FileNotFoundError(f'CA generator ACTS is not found at :{acts_path}')
+            raise FileNotFoundError(
+                f'CA generator ACTS is not found at :{acts_path}')
         cmd = f'java  -Ddoi={strength} -jar {acts_path} {ca_config_path} {ca_path} > /dev/null'
         os.system(cmd)
 
@@ -172,9 +179,11 @@ class VerificationBenchmark:
     def _gen_network_specifications(self):
         network_specifications = []
         for vpc in self.ca:
-            self.settings.logger.debug(f'Configuring verification problem: {vpc}')
+            self.settings.logger.debug(
+                f'Configuring verification problem: {vpc}')
             self.settings.logger.debug('----------Original Network----------')
-            self.settings.logger.debug(f'Number neurons: {np.sum(self.artifact.onnx.nb_neurons)}')
+            self.settings.logger.debug(
+                f'Number neurons: {np.sum(self.artifact.onnx.nb_neurons)}')
             for i, x in enumerate(self.artifact.layers):
                 self.settings.logger.debug(f'{i}: {x}')
 
@@ -203,8 +212,10 @@ class VerificationBenchmark:
                     # nb_neurons = nb_neurons in the last hidden layer
                     if self.settings.training_configs['add_scheme'] == 'same_as_last_relu':
                         last_layer_id = np.max(self.fc_ids)
-                        nb_layer_to_add = np.arange(1, round(len(self.fc_ids) * (vpc['fc'] - 1))+1, 1)
-                        fc_add_ids = [x + last_layer_id for x in nb_layer_to_add]
+                        nb_layer_to_add = np.arange(
+                            1, round(len(self.fc_ids) * (vpc['fc'] - 1))+1, 1)
+                        fc_add_ids = [
+                            x + last_layer_id for x in nb_layer_to_add]
                         nb_neurons = self.artifact.layers[last_layer_id].size
                         layer = {'layer_type': 'FullyConnected',
                                  'parameters': nb_neurons,
@@ -234,8 +245,10 @@ class VerificationBenchmark:
                     # nb_neurons = nb_neurons in the last hidden layer
                     if self.settings.training_configs['add_scheme'] == 'same_as_last_relu':
                         last_layer_id = np.max(self.conv_ids)
-                        nb_layer_to_add = np.arange(1, round(len(self.conv_ids) * (vpc['conv'] - 1))+1, 1)
-                        conv_add_ids = [x + last_layer_id for x in nb_layer_to_add]
+                        nb_layer_to_add = np.arange(
+                            1, round(len(self.conv_ids) * (vpc['conv'] - 1))+1, 1)
+                        conv_add_ids = [
+                            x + last_layer_id for x in nb_layer_to_add]
                         last_layer = self.artifact.layers[last_layer_id]
                         assert isinstance(last_layer, Conv)
                         nb_kernels = last_layer.size
@@ -299,7 +312,8 @@ class VerificationBenchmark:
             elif self.artifact.onnx.input_format == 'ACAS':
                 input_shape = self.artifact.onnx.input_shape
             else:
-                raise ValueError(f'Unrecognized ONNX input format: {self.artifact.onnx.input_format}')
+                raise ValueError(
+                    f'Unrecognized ONNX input format: {self.artifact.onnx.input_format}')
 
             # set up new network with added and dropped layers
             n.set_distillation_strategies(dis_strats)
@@ -307,9 +321,11 @@ class VerificationBenchmark:
 
             # calculate real scale factors
             if 'neu' in vpc:
-                neuron_scale_factor = (np.sum(self.artifact.onnx.nb_neurons[:-1]) * neuron_scale_factor) / np.sum(n.nb_neurons[:-1])
+                neuron_scale_factor = (np.sum(
+                    self.artifact.onnx.nb_neurons[:-1]) * neuron_scale_factor) / np.sum(n.nb_neurons[:-1])
             elif 'fc' in vpc or 'conv' in vpc:
-                neuron_scale_factor = np.sum(self.artifact.onnx.nb_neurons[:-1]) / np.sum(n.nb_neurons[:-1])
+                neuron_scale_factor = np.sum(
+                    self.artifact.onnx.nb_neurons[:-1]) / np.sum(n.nb_neurons[:-1])
 
             # assign scale factors
             if neuron_scale_factor != 1:
@@ -332,13 +348,16 @@ class VerificationBenchmark:
                 else:
                     scale_ids = []
                 self.settings.logger.debug('Computing layer scale factors ...')
-                self.settings.logger.debug(f'Layers to Add: {add_ids}, Delete: {drop_ids}.')
+                self.settings.logger.debug(
+                    f'Layers to Add: {add_ids}, Delete: {drop_ids}.')
                 self.settings.logger.debug(f'Layers to Scale: {scale_ids}.')
                 for x in scale_ids:
                     assert n.fc_and_conv_kernel_sizes[x] > 0
                     if int(n.fc_and_conv_kernel_sizes[x] * neuron_scale_factor) == 0:
-                        self.settings.logger.warn('Detected small layer scale factor, layer size is rounded up to 1.')
-                        dis_strats += [['scale', x, 1 / n.fc_and_conv_kernel_sizes[x]]]
+                        self.settings.logger.warn(
+                            'Detected small layer scale factor, layer size is rounded up to 1.')
+                        dis_strats += [['scale', x, 1 /
+                                        n.fc_and_conv_kernel_sizes[x]]]
                     else:
                         dis_strats += [['scale', x, neuron_scale_factor]]
                 n = VerificationProblem(self.settings, vpc, self)
@@ -349,7 +368,8 @@ class VerificationBenchmark:
                 n.distillation_config['distillation']['data']['transform']['student'] = transform
             network_specifications += [n]
             self.settings.logger.debug('----------New Network----------')
-            self.settings.logger.debug(f'Number neurons: {np.sum(n.nb_neurons)}')
+            self.settings.logger.debug(
+                f'Number neurons: {np.sum(n.nb_neurons)}')
             for i, x in enumerate(n.layers):
                 self.settings.logger.debug(f'{i}: {x}')
 
@@ -362,10 +382,16 @@ class VerificationBenchmark:
         nets_to_train = {x.net_name: x for x in self.verification_problems}
         nets_to_train = [nets_to_train[x] for x in nets_to_train]
 
-        for i in tqdm(range(len(nets_to_train)), desc="Training ... ", ascii=False):
-            n = nets_to_train[i]
+        progress_bar = tqdm(total=len(nets_to_train),
+                            desc="Training ... ",
+                            ascii=False,
+                            file=sys.stdout)
+        for n in nets_to_train:
             self.settings.logger.info(f'Training network: {n.net_name} ...')
             n.train()
+            progress_bar.update(1)
+            progress_bar.refresh()
+        progress_bar.close()
 
     def trained(self, count=False):
         trained = [x.trained() for x in self.verification_problems]
@@ -376,9 +402,16 @@ class VerificationBenchmark:
 
     def gen_props(self):
         self.settings.logger.info('Generating properties ...')
-        for i in tqdm(range(len(self.verification_problems)), desc="Generating ... ", ascii=False):
-            vp = self.verification_problems[i]
+
+        progress_bar = tqdm(total=len(self.verification_problems),
+                            desc="Generating ... ",
+                            ascii=False,
+                            file=sys.stdout)
+        for vp in self.verification_problems:
             vp.gen_prop()
+            progress_bar.update(1)
+            progress_bar.refresh()
+        progress_bar.close()
 
     def verify(self):
         self.settings.logger.info('Verifying ...')
@@ -388,14 +421,19 @@ class VerificationBenchmark:
                 for options in self.settings.verification_configs['verifiers'][tool]:
                     vp_tool_verifiers += [(vp, tool, options)]
 
-        for i in tqdm(range(len(vp_tool_verifiers)), desc="Verifying ... ", ascii=False):
-            vp = vp_tool_verifiers[i][0]
-            tool = vp_tool_verifiers[i][1]
-            options = vp_tool_verifiers[i][2]
-
-            self.settings.logger.info(f'Verifying {vp.vp_name} with {tool}:[{options}] ...')
+        progress_bar = tqdm(total=len(vp_tool_verifiers),
+                            desc="Verifying ... ",
+                            ascii=False,
+                            file=sys.stdout)
+        for vp_tv in vp_tool_verifiers:
+            vp, tool, options = vp_tv
+            self.settings.logger.info(
+                f'Verifying {vp.vp_name} with {tool}:[{options}] ...')
             vp.gen_prop()
             vp.verify(tool, options)
+            progress_bar.update(1)
+            progress_bar.refresh()
+        progress_bar.close()
 
     def verified(self, count=False):
         verified = [x.verified() for x in self.verification_problems]
@@ -412,7 +450,8 @@ class VerificationBenchmark:
             self.verification_results[vp.vp_name] = vp.analyze_verification()
 
     def save_results(self):
-        save_path_prefix = os.path.join(self.settings.root, f'{self.name}_{self.settings.seed}')
+        save_path_prefix = os.path.join(
+            self.settings.root, f'{self.name}_{self.settings.seed}')
 
         train_loss_lines = []
         # save training losses as csv
@@ -472,4 +511,5 @@ class VerificationBenchmark:
         print('|{:>15} | {:>15} | {:>15}|'.format('Verifier', 'SCR', 'PAR-2'))
         print('|----------------|-----------------|----------------|')
         for v in verifiers:
-            print('|{:>15} | {:>15} | {:>15.2f}|'.format(v, scr_dict[v][0], round(float(par_2_dict[v][0]), 2)))
+            print('|{:>15} | {:>15} | {:>15.2f}|'.format(
+                v, scr_dict[v][0], round(float(par_2_dict[v][0]), 2)))

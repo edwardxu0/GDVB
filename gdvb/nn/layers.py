@@ -7,7 +7,7 @@ class Layer(object):
         self.type = type
         self.in_shape = in_shape
         self.out_shape = out_shape
-    
+
     def __str__(self):
         return "{}: {} -> {}".format(self.type, self.in_shape, self.out_shape)
 

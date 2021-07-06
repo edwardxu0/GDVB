@@ -34,21 +34,23 @@ class CIFAR10(Artifact):
 
                 npy_img_path = os.path.join(output_dir, f"{idx.item()}.npy")
                 image_shape = (self.input_shape[0], height, width)
-                np.save(npy_img_path, sx.reshape(self.input_shape[0], height, width))
+                np.save(npy_img_path, sx.reshape(
+                    self.input_shape[0], height, width))
 
-                property_path = os.path.join(output_dir, f"robustness_{i}_{epsilon}.py")
+                property_path = os.path.join(
+                    output_dir, f"robustness_{i}_{epsilon}.py")
 
                 property_lines = ["from dnnv.properties import *\n",
                                   "import numpy as np\n\n",
                                   'N = Network("N")\n']
-                
+
                 if not skip_layers or skip_layers == 0:
                     property_lines += [f'x = Image("{npy_img_path}")\n',
                                        f"input_layer = 0\n"]
                 else:
                     property_lines += [f'x = Image("{npy_img_path}").reshape((1,{np.prod(image_shape)}))\n',
                                        f"input_layer = {skip_layers}\n"]
-                
+
                 property_lines += [f"epsilon = {epsilon}\n",
                                    "Forall(\n",
                                    "    x_,\n",
@@ -57,7 +59,7 @@ class CIFAR10(Artifact):
                                    "        argmax(N[input_layer:](x_)) == argmax(N[input_layer:](x)),\n",
                                    "    ),\n",
                                    ")\n"]
-                
+
                 with open(property_path, "w+") as property_file:
                     property_file.writelines(property_lines)
                 break

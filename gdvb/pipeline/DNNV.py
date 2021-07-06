@@ -1,7 +1,8 @@
 class DNNV:
     def __init__(self, options):
         self._executor = './scripts/run_dnnv.sh'
-        self._pre_params, self._post_params, self.verifier_name = self._parse_options(options)
+        self._pre_params, self._post_params, self.verifier_name = self._parse_options(
+            options)
 
     @staticmethod
     def _parse_options(options):

@@ -16,11 +16,13 @@ class ONNXU:
 
     def __str__(self):
         lines = [self.network_name]
-        
+
         for l in self.onnx_model.arch:
-            lines += ["\t{}\t{} --> {}".format(l.type, l.in_shape, l.out_shape)]
+            lines += ["\t{}\t{} --> {}".format(l.type,
+                                               l.in_shape, l.out_shape)]
             if hasattr(l, 'weights'):
-                lines += ["\t\tWeights: {} bias: {}".format(l.weights, l.shape)]
+                lines += ["\t\tWeights: {} bias: {}".format(
+                    l.weights, l.shape)]
         return "\n".join(lines)
 
     def parse(self):
@@ -31,12 +33,13 @@ class ONNXU:
         for initializer in model.graph.initializer:
             var_dict[initializer.name] = initializer
 
-        self.input_shape = np.array([int(x.dim_value) for x in model.graph.input[0].type.tensor_type.shape.dim])[1:]
+        self.input_shape = np.array(
+            [int(x.dim_value) for x in model.graph.input[0].type.tensor_type.shape.dim])[1:]
 
         if len(self.input_shape) == 3:
             if self.input_shape[0] == self.input_shape[1] and self.input_shape[1] != self.input_shape[2]:
                 self.input_format = 'NHWC'
-            elif self.input_shape[1] == self.input_shape[2]  and self.input_shape[0] != self.input_shape[1]:
+            elif self.input_shape[1] == self.input_shape[2] and self.input_shape[0] != self.input_shape[1]:
                 self.input_format = 'NCHW'
             else:
                 assert False
@@ -45,7 +48,7 @@ class ONNXU:
                 self.input_format = 'ACAS'
             else:
                 assert False
-        
+
         nodes = iter(model.graph.node)
         nodes_list = model.graph.node
         arch = [Input(self.input_shape)]
@@ -64,7 +67,7 @@ class ONNXU:
                     # bias are zero if not defined
                     B = np.zeros(W.shape[0])
                 for a in node.attribute:
-                    #print(a.name)
+                    # print(a.name)
                     if a.name == 'auto_pad':
                         if a.s == 'VALID' or a.s == b'VALID':
                             padding = 0
@@ -78,7 +81,7 @@ class ONNXU:
                         #print('strides', a)
                         stride = self._as_numpy(a)[0]
                     elif a.name == 'pads':
-                        #print('pads',a)
+                        # print('pads',a)
                         padding = self._as_numpy(a)[0]
                     else:
                         pass
@@ -91,17 +94,19 @@ class ONNXU:
                         if a.name == 'pads':
                             pads = self._as_numpy(a)
                             assert len(pads) == 8
-                            assert set(pads[[0,1,4,5]]) == set([0])
-                            assert set(pads[[2,3,6,7]]) == set([pads[2]])
+                            assert set(pads[[0, 1, 4, 5]]) == set([0])
+                            assert set(pads[[2, 3, 6, 7]]) == set([pads[2]])
                             padding = pads[2]
 
-                layer = Conv(B.shape[0], W, B, kernel_size, stride, padding, arch[-1].out_shape)
-                 
+                layer = Conv(B.shape[0], W, B, kernel_size,
+                             stride, padding, arch[-1].out_shape)
+
                 nb_op_add = (kernel_size ** 3) * np.prod(layer.out_shape)
-                nb_op_mul = ((kernel_size-1) * (kernel_size ** 2) +1) * np.prod(layer.out_shape)
+                nb_op_mul = ((kernel_size-1) * (kernel_size **
+                             2) + 1) * np.prod(layer.out_shape)
                 self.nb_ops += [(nb_op_add, nb_op_mul)]
                 self.nb_neurons += [np.prod(layer.out_shape)]
-                
+
             elif node.op_type == 'Gemm' or node.op_type == 'MatMul':
                 if node.op_type == 'Gemm':
                     W_name = node.input[1]
@@ -142,7 +147,7 @@ class ONNXU:
                 nb_op_mul = np.prod(layer.out_shape)
                 self.nb_ops += [(nb_op_add, nb_op_mul)]
                 self.nb_neurons += [np.prod(layer.out_shape)]
- 
+
             elif node.op_type == 'Relu':
                 layer = ReLU(arch[-1].out_shape)
 
@@ -182,7 +187,8 @@ class ONNXU:
                         padding = self._as_numpy(a)[0]
                     else:
                         assert False
-                layer = Pool("max", kernel_size, stride, padding, arch[-1].out_shape)
+                layer = Pool("max", kernel_size, stride,
+                             padding, arch[-1].out_shape)
 
             # elif node.op_type == 'Concat':
             #     nb_inputs = len(node.input)

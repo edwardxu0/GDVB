@@ -2,7 +2,7 @@ import random
 import datetime
 
 from .verification_benchmark import VerificationBenchmark
-from .evolutionary.evo_bench import EvoBench
+from ..evolutionary.evo_bench import EvoBench
 
 
 # main benchmark generation function

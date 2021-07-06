@@ -1,3 +1,4 @@
+from gdvb.plot import PLOT
 import matplotlib.pyplot as plt
 import numpy as np
 import os
@@ -15,7 +16,6 @@ import matplotlib.ticker as mticker
 fontP = FontProperties()
 root = './data'
 
-from gdvb.plot import PLOT
 
 class PIE_SCATTER(PLOT):
     def __init__(self, data):
@@ -62,7 +62,8 @@ class PIE_SCATTER(PLOT):
 
         answers_pool = ['unsat', 'sat', 'unknown', 'oor', 'error']
         # color_list = sns.color_palette()
-        color_list = ['lightgreen', 'deepskyblue', 'yellow', 'darkorange', 'crimson']
+        color_list = ['lightgreen', 'deepskyblue',
+                      'yellow', 'darkorange', 'crimson']
 
         # make legend
         legend_elements = []
@@ -89,14 +90,14 @@ class PIE_SCATTER(PLOT):
             ax.get_legend().remove()
         #plt.xlabel('nueron', fontsize=20)
         plt.xlabel(xlabel)
-        #plt.xticks(np.arange(0,levels[0]+1).tolist(),fontsize=16)
-        plt.xticks(np.arange(0,levels[0]+1).tolist(),[0]+xtics)
+        # plt.xticks(np.arange(0,levels[0]+1).tolist(),fontsize=16)
+        plt.xticks(np.arange(0, levels[0]+1).tolist(), [0]+xtics)
         plt.xlim(0, levels[0] + 1)
         #plt.ylabel('FC', fontsize=20)
         plt.ylabel(ylabel)
-        #plt.yticks(np.arange(0,levels[1]+1).tolist(),fontsize=16)
-        plt.yticks(np.arange(0,levels[1]+1).tolist(),[0]+ytics)
+        # plt.yticks(np.arange(0,levels[1]+1).tolist(),fontsize=16)
+        plt.yticks(np.arange(0, levels[1]+1).tolist(), [0]+ytics)
         plt.ylim(0, levels[1] + 1)
         #plt.title('title', fontsize=40)
         #plt.savefig(f'{res_dir}/{v}.png', bbox_inches='tight')
-        #plt.show()
+        # plt.show()

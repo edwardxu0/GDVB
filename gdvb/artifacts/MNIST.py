@@ -34,9 +34,11 @@ class MNIST(Artifact):
 
                 npy_img_path = os.path.join(output_dir, f"{idx.item()}.npy")
                 image_shape = (self.input_shape[0], height, width)
-                np.save(npy_img_path, sx.reshape(self.input_shape[0], height, width))
+                np.save(npy_img_path, sx.reshape(
+                    self.input_shape[0], height, width))
 
-                property_path = os.path.join(output_dir, f"robustness_{i}_{epsilon}.py")
+                property_path = os.path.join(
+                    output_dir, f"robustness_{i}_{epsilon}.py")
 
                 property_lines = ["from dnnv.properties import *\n",
                                   "import numpy as np\n\n",

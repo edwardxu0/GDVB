@@ -38,7 +38,7 @@ class Task:
         lines += ['export GRB_LICENSE_FILE=/u/dx3yy/.gurobikeys/`hostname`.gurobi.lic']
         lines += ['cat /proc/sys/kernel/hostname']
         lines += cmds
-        
+
         lines = [x+'\n' for x in lines]
         open(self.slurm_path, 'w').writelines(lines)
 
@@ -67,8 +67,10 @@ class Task:
     def request_node(self):
         while True:
             node_avl_flag = False
-            tmp_file = './tmp/'+''.join(random.choice(string.ascii_lowercase) for i in range(16))
-            
+            tmp_file = './tmp/' + \
+                ''.join(random.choice(string.ascii_lowercase)
+                        for i in range(16))
+
             # sqcmd = f'squeue | grep cortado > {tmp_file}'
             sqcmd = f'squeue  > {tmp_file}'
             # sqcmd = f'squeue -u dx3yy > {tmp_file}'
@@ -90,8 +92,8 @@ class Task:
                         cmd = f'sinfo > tmp/sinfo.txt'
                         os.system(cmd)
                         sinfo_lines = open('tmp/sinfo.txt', 'r').readlines()
-                        
-                        temp = re.compile("([a-zA-Z]+)([0-9]+)") 
+
+                        temp = re.compile("([a-zA-Z]+)([0-9]+)")
                         nname, digits = temp.match(unavil_node).groups()
                         for sl in sinfo_lines:
                             if 'drain' in sl or 'down' in sl or 'drng' in sl:
@@ -123,5 +125,5 @@ class Task:
                     break
             if node_avl_flag:
                 break
-    
+
         return na

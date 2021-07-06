@@ -43,7 +43,8 @@ class Settings:
 
         self.tmp_dir = './tmp'
         pathlib.Path(self.tmp_dir).mkdir(parents=True, exist_ok=True)
-        self.sub_dirs = ['dis_config', 'dis_model', 'dis_log', 'props', 'veri_log']
+        self.sub_dirs = ['dis_config', 'dis_model',
+                         'dis_log', 'props', 'veri_log']
         if configs['train']['dispatch']['platform'] == 'slurm':
             self.sub_dirs += ['dis_slurm']
         if configs['verify']['dispatch']['platform'] == 'slurm':
@@ -63,4 +64,5 @@ class Settings:
         for sd in self.sub_dirs:
             attr = sd + '_dir'
             self.__setattr__(attr, os.path.join(self.root, sd))
-            pathlib.Path(self.__getattribute__(attr)).mkdir(parents=True, exist_ok=True)
+            pathlib.Path(self.__getattribute__(attr)).mkdir(
+                parents=True, exist_ok=True)

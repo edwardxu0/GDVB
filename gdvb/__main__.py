@@ -1,6 +1,6 @@
 from . import cli
 from . import config
-from . import genbench
+from .core import genbench
 from . import logging
 
 
