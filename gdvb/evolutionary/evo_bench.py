@@ -90,9 +90,9 @@ class EvoBench:
                 self.global_max[param] =True
 
             if param == 'fc':
-                min_step = 1 / F(len(evo_step.benchmark.fc_ids))
+                min_step = F(1) / F(len(evo_step.benchmark.fc_ids))
             elif param == 'conv':
-                min_step = 1 / F(len(evo_step.benchmark.conv_ids))
+                min_step = F(1) / F(len(evo_step.benchmark.conv_ids))
             else:
                 min_step = 0
 
@@ -113,7 +113,8 @@ class EvoBench:
                 level_max *= inflation_rate
             else:
                 zoom_in = True
-            
+
+            zoom_in = True
             # expand
             if not zoom_in:
                 #level_min = min_step if level_min < min_step else level_min
@@ -127,14 +128,17 @@ class EvoBench:
 
             # zoom in
             else:
-                old_step = (level_max - level_min) / (nb_levels - 1)
-                new_step = old_step / arity
+                old_step = F(level_max - level_min) / F(nb_levels - 1)
+                new_step = old_step / F(arity)
                 if new_step < min_step:
                     self.logger.warn(f'new_step:{new_step} < min_step:{min_step}')
                     new_step = min_step
 
                 print(f'old step: {old_step}, new step: {new_step}')
 
+                min_cut = 0 if not min_cut else min_cut
+                max_cut = 0 if not max_cut else max_cut
+                
                 level_min = level_min + min_cut * old_step - new_step
                 if level_min < min_step:
                     self.logger.warn(f'Removed "0" level.')
@@ -248,7 +252,9 @@ class EvoBench:
                     new_step = min_step
 
                 print(f'old step: {old_step}, new step: {new_step}')
-
+                
+                min_cut = 0 if not min_cut else min_cut
+                max_cut = 0 if not max_cut else max_cut
                 level_min = level_min + min_cut * old_step - new_step
                 if level_min == 0:
                     self.logger.warn(f'Removed "0" level.')
