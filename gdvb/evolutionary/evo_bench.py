@@ -1,5 +1,4 @@
 import copy
-from os import fchdir
 import numpy as np
 
 from fractions import Fraction as F
@@ -72,6 +71,7 @@ class EvoBench:
             axes.remove(i)
             axes = [i] + axes
             raw = list(evo_step.nb_solved.values())[0].transpose(axes)
+            print(raw)
 
             # TODO ???
             # cut levels that are too easy and too hard
@@ -84,16 +84,15 @@ class EvoBench:
 
             # TODO ???
             # set global_min and global_max
-            if min_cut is not None and min_cut > 0:
+            if min_cut and min_cut > 0:
                 self.global_min[f.type] = True
-            if max_cut is not None and max_cut > 0:
+            if max_cut and max_cut > 0:
                 self.global_max[f.type] = True
 
             # find lower and upper boders
             if not self.global_min[f.type] and not self.global_max[f.type]:
                 subdivision = False
-                f.set_start_end(
-                    f.start*deflation_rate, f.end*inflation_rate)
+                f.set_start_end(f.start*deflation_rate, f.end*inflation_rate)
             elif not self.global_min[f.type] and self.global_max[f.type]:
                 subdivision = False
                 f.set_start(f.start*deflation_rate)
@@ -117,7 +116,7 @@ class EvoBench:
 
             # subdivide the level plane
             if subdivision:
-                fchdir.subdivision(arity)
+                f.subdivision(arity)
 
             start, end, levels = f.get()
             ca_configs_new['parameters']['level'][f.type] = levels
