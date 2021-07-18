@@ -11,7 +11,7 @@ from ..artifacts.MNIST import MNIST
 from ..artifacts.CIFAR10 import CIFAR10
 from ..artifacts.DAVE2 import DAVE2
 from ..nn.layers import Dense, Conv, Transpose, Flatten
-from ..dispatcher import Task
+from ..pipeline.dispatcher import Task
 from ..pipeline.R4V import R4V
 from ..pipeline.DNNV import DNNV
 from ..pipeline.DNNF import DNNF
