@@ -4,7 +4,7 @@ from fractions import Fraction as F
 
 
 class Factor:
-    # definition attrribute:
+    # definition attribute:
     # 1. defines the level coverage
     # 2. can be changed
     start = None
@@ -17,8 +17,8 @@ class Factor:
     type = None
     min_step = None
 
-    # inffered attributes:
-    # 1. inffered variables based on definition
+    # inferred attributes:
+    # 1. inferred variables based on definition
     # 2. changes when definition attributes changes
     step = None
 
@@ -35,7 +35,7 @@ class Factor:
         self._workout()
 
     def _check_min_step(self):
-        # inffered attribute
+        # inferred attribute
         self.step = (self.end - self.start)/(self.levels - 1)
         if self.min_step and self.start < self.min_step:
             self.start = self.min_step
