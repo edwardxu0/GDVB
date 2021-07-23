@@ -13,6 +13,8 @@ class EvoBench:
         self.logger = seed_benchmark.settings.logger
         self.seed_benchmark = seed_benchmark
         self.evo_configs = seed_benchmark.settings.evolutionary
+        self.evo_params = self.evo_configs['parameters']
+        assert len(self.evo_params) == 2
         self._init_parameters()
 
     def _init_parameters(self):
@@ -61,11 +63,6 @@ class EvoBench:
             self.steps += [next_evo_step]
 
     def evolve(self, evo_step):
-        evo_params = self.evo_configs['parameters']
-        assert len(evo_params) == 2
-        arity = self.evo_configs['arity']
-        inflation_rate = self.evo_configs['inflation_rate']
-        deflation_rate = self.evo_configs['deflation_rate']
 
         ca_configs = evo_step.benchmark.ca_configs
 
@@ -75,7 +72,7 @@ class EvoBench:
             f = copy.deepcopy(f)
             print(f'Working on factor: {f}')
 
-            axes = list(range(len(evo_params)))
+            axes = list(range(len(self.evo_params)))
             axes.remove(i)
             axes = [i] + axes
             raw = list(evo_step.nb_solved.values())[0].transpose(axes)
@@ -101,20 +98,40 @@ class EvoBench:
         if np.all(actions == 'stop'):
             stop = True
         elif np.any(actions == 'expand'):
-            next_ca_configs = self.expanding(evo_step, actions, inflation_rate)
-            stop = False
+            next_ca_configs = self.expanding(evo_step, actions)
+
+            _stop = []
+            for p in self.evo_params:
+                this_end = ca_configs['parameters']['range'][p][1]
+                next_end = next_ca_configs['parameters']['range'][p][1]
+                _stop += [this_end == next_end]
+            _stop = np.array(_stop)
+            stop = np.all(_stop == True)
         else:
             assert False
+
         return next_ca_configs, stop
 
-    def expanding(self, evo_step, actions, inflation_rate):
+    def expanding(self, evo_step, actions):
         ca_configs = evo_step.benchmark.ca_configs
         ca_configs_new = copy.deepcopy(ca_configs)
+
+        arity = self.evo_configs['arity']
+        inflation_rate = self.evo_configs['inflation_rate']
+        deflation_rate = self.evo_configs['deflation_rate']
+
+        parameters_upper_bounds = self.evo_configs['parameters_upper_bounds']
 
         for i, f in enumerate(evo_step.factors):
             f = copy.deepcopy(f)
             if actions[i] == 'expand':
-                f.set_end(f.end*inflation_rate)
+                # f.set_end(f.end*inflation_rate)
+                start = f.start*inflation_rate
+                end = f.end*inflation_rate
+
+                if f.type in parameters_upper_bounds:
+                    end = min(end, F(parameters_upper_bounds[f.type]))
+                f.set_start_end(start, end)
             start, end, levels = f.get()
             ca_configs_new['parameters']['level'][f.type] = levels
             ca_configs_new['parameters']['range'][f.type] = [start, end]

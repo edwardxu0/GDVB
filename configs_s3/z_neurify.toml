@@ -23,11 +23,12 @@ name = 'REevo_neurify'
 
 [evolutionary]
 	iterations = 10
-	parameters = ['neu', 'fc']
 	arity = 2
 	inflation_rate = 2
 	deflation_rate = 0.5
 
+	parameters = ['neu', 'fc']
+	parameters_upper_bounds = {'fc'='128/3'}
 
 [train]
 	epochs = 10
@@ -38,7 +39,6 @@ name = 'REevo_neurify'
 		nb_gpus = 1
 		platform = "slurm"
 		exclude = 'ai01,ai02,ai03,ai04,ai05,cheetah02,affogato11,affogato12,affogato13,affogato14,lynx01,lynx02,lynx04,lynx05,lynx06,lynx07,cheetah01'
-		#exclude = 'ai01,ai02,ai03,ai04,ai05,ai06,cheetah03,affogato11,affogato12,affogato13,affogato14,affogato15'
 
 
 [verify]
