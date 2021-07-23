@@ -23,11 +23,12 @@ name = 'REevo_edp'
 
 [evolutionary]
 	iterations = 10
-	parameters = ['neu', 'fc']
 	arity = 2
 	inflation_rate = 2
 	deflation_rate = 0.5
 
+	parameters = ['neu', 'fc']
+	parameters_upper_bounds = {'fc'='128/3'}
 
 [train]
 	epochs = 10
