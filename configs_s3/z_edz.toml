@@ -1,4 +1,4 @@
-name = 's2_mnist_lar_neurify'
+name = 'REevo_edz'
 
 [dnn]
 	artifact = 'MNIST'
@@ -37,8 +37,8 @@ name = 's2_mnist_lar_neurify'
 	[train.dispatch]
 		nb_gpus = 1
 		platform = "slurm"
-		#exclude = 'ai01,ai02,ai03,ai04,ai05,ai06,cheetah01,cheetah02,cheetah03,affogato11,affogato12,affogato13,affogato14,affogato15,lynx01,lynx02,lynx03,lynx04,lynx05,lynx06,lynx07,ristretto01,ristretto02,ristretto03,ristretto04'
-		exclude = 'ai01,ai02,ai03,ai04,ai05,ai06,cheetah03,affogato11,affogato12,affogato13,affogato14,affogato15,ristretto01,ristretto02,ristretto03,ristretto04,lotus'
+		exclude = 'ai01,ai02,ai03,ai04,ai05,cheetah02,affogato11,affogato12,affogato13,affogato14,lynx01,lynx02,lynx04,lynx05,lynx06,lynx07,cheetah01'
+		#exclude = 'ai01,ai02,ai03,ai04,ai05,ai06,cheetah03,affogato11,affogato12,affogato13,affogato14,affogato15'
 
 
 [verify]
@@ -47,7 +47,7 @@ name = 's2_mnist_lar_neurify'
 	time = 600
 	memory = '16G'
 	[verify.verifiers]
-		DNNV = ['neurify']
+		DNNV = ['eran_deepzono']
 		# DNNV = ['eran_deeppoly','neurify','nnenum']
 		# DNNF = ['default']
 

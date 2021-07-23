@@ -255,8 +255,9 @@ class VerificationProblem:
                 if 'validation error' in line:
                     relative_loss += [float(line.strip().split('=')[-1])]
         if len(relative_loss) != self.settings.training_configs['epochs']:
-            self.settings.logger.warning(f"Training may not be finished. "
-                                         f"({len(relative_loss)}/{self.settings.training_configs['epochs']})")
+            # self.settings.logger.warning(f"Training may not be finished. "
+            #                              f"({len(relative_loss)}/{self.settings.training_configs['epochs']})")
+            raise Exception(f"Training may not be finished. ({len(relative_loss)}/{self.settings.training_configs['epochs']}) {self.dis_log_path}")
         return relative_loss
 
     def gen_prop(self):
@@ -460,6 +461,12 @@ class VerificationProblem:
                 verification_answer = 'undetermined'
                 verification_time = -1
                 self.settings.logger.warning(f'Undetermined job: {log_path}')
+
+                '''
+                os.remove(log_path)
+                os.remove(log_path.replace('.out','.err'))
+                print("removed failed log.")
+                '''
 
             assert verification_answer, verification_time
             assert verification_answer in ['sat', 'unsat', 'unknown', 'error', 'timeout',

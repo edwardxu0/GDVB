@@ -1,0 +1,1 @@
+res_ase/s1_cifar_convbig.10/veri_log/neu=1.0_fc=1.0_conv=0.0_idm=0.2_ids=1.0_eps=0.8_prop=2_SF=64.000_T=14400_M=64G:eran_deepzono.out
