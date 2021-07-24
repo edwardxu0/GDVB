@@ -96,6 +96,7 @@ class EvoBench:
 
         print(actions)
         if np.all(actions == 'stop'):
+            next_ca_configs = copy.deepcopy(ca_configs)
             stop = True
         elif np.any(actions == 'expand'):
             next_ca_configs = self.expanding(evo_step, actions)

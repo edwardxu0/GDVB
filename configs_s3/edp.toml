@@ -1,4 +1,4 @@
-name = 'REevo_edz'
+name = 'REevo_edp'
 
 [dnn]
 	artifact = 'MNIST'
@@ -38,9 +38,9 @@ name = 'REevo_edz'
 	[train.dispatch]
 		nb_gpus = 1
 		platform = "slurm"
-		exclude = 'ai01,ai02,ai03,ai04,ai05,cheetah02,affogato11,affogato12,affogato13,affogato14,lynx01,lynx02,lynx04,lynx05,lynx06,lynx07,cheetah01'
-		#exclude = 'ai01,ai02,ai03,ai04,ai05,ai06,cheetah03,affogato11,affogato12,affogato13,affogato14,affogato15'
-
+		exclude = """ai01,ai02,ai03,ai04,ai05,\
+				   affogato11,affogato12,affogato13,affogato14,\
+				   lynx01,lynx02,lynx04,lynx05,lynx06,lynx07"""
 
 [verify]
 	debug = true
@@ -48,7 +48,7 @@ name = 'REevo_edz'
 	time = 600
 	memory = '16G'
 	[verify.verifiers]
-		DNNV = ['eran_deepzono']
+		DNNV = ['eran_deeppoly']
 		# DNNV = ['eran_deeppoly','neurify','nnenum']
 		# DNNF = ['default']
 

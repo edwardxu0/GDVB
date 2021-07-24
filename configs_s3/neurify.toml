@@ -38,8 +38,9 @@ name = 'REevo_neurify'
 	[train.dispatch]
 		nb_gpus = 1
 		platform = "slurm"
-		exclude = 'ai01,ai02,ai03,ai04,ai05,cheetah02,affogato11,affogato12,affogato13,affogato14,lynx01,lynx02,lynx04,lynx05,lynx06,lynx07,cheetah01'
-
+		exclude = """ai01,ai02,ai03,ai04,ai05,\
+				   affogato11,affogato12,affogato13,affogato14,\
+				   lynx01,lynx02,lynx04,lynx05,lynx06,lynx07"""
 
 [verify]
 	debug = true
