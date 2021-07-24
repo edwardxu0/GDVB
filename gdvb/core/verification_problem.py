@@ -244,7 +244,6 @@ class VerificationProblem:
                         self.dis_slurm_path
                         )
             self.settings.logger.debug(f'Command: {cmd}')
-            print(cmd)
             task.run()
 
     def analyze_training(self):
@@ -257,7 +256,8 @@ class VerificationProblem:
         if len(relative_loss) != self.settings.training_configs['epochs']:
             # self.settings.logger.warning(f"Training may not be finished. "
             #                              f"({len(relative_loss)}/{self.settings.training_configs['epochs']})")
-            raise Exception(f"Training may not be finished. ({len(relative_loss)}/{self.settings.training_configs['epochs']}) {self.dis_log_path}")
+            raise Exception(
+                f"Training may not be finished. ({len(relative_loss)}/{self.settings.training_configs['epochs']}) {self.dis_log_path}")
         return relative_loss
 
     def gen_prop(self):

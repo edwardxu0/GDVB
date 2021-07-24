@@ -442,10 +442,15 @@ class VerificationBenchmark:
         else:
             return all(verified)
 
-    def analyze(self):
+    def analyze_all(self):
+        self.analyze_training()
+        self.analyze_verification()
+
+    def analyze_training(self):
         for vp in self.verification_problems:
             self.training_loss[vp.vp_name] = vp.analyze_training()
 
+    def analyze_verification(self):
         for vp in self.verification_problems:
             self.verification_results[vp.vp_name] = vp.analyze_verification()
 

@@ -34,8 +34,10 @@ class EvoStep:
         return factors
 
     def forward(self):
+        # launch training jobs
         self.benchmark.train()
 
+        # wait for training
         nb_train_tasks = len(self.benchmark.verification_problems)
         progress_bar = tqdm(total=nb_train_tasks,
                             desc="Waiting on training ... ",
@@ -52,8 +54,13 @@ class EvoStep:
             nb_trained_pre = nb_trained_now
         progress_bar.close()
 
+        # analyze training results
+        self.benchmark.analyze_training()
+
+        # launch verification jobs
         self.benchmark.verify()
 
+        # wait for verification
         nb_verification_tasks = len(self.benchmark.verification_problems)
         progress_bar = tqdm(total=nb_verification_tasks,
                             desc="Waiting on verification ... ",
@@ -70,7 +77,8 @@ class EvoStep:
             nb_verified_pre = nb_verified_now
         progress_bar.close()
 
-        self.benchmark.analyze()
+        # analyze verification results
+        self.benchmark.analyze_verification()
 
     # process verification results for things
     def evaluate(self):
