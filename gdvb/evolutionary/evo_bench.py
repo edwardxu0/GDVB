@@ -2,10 +2,13 @@ import copy
 import numpy as np
 
 from fractions import Fraction as F
+from pathlib import Path
 
 from ..core.verification_benchmark import VerificationBenchmark
 
 from .evo_step import EvoStep
+
+from ..plot.pie_scatter import PieScatter2D
 
 
 class EvoBench:
@@ -21,6 +24,7 @@ class EvoBench:
         self.steps = []
         self.global_min = {}
         self.global_max = {}
+        self.res = {}
 
         for p in self.seed_benchmark.settings.evolutionary['parameters']:
             self.global_min[p] = False
@@ -46,7 +50,8 @@ class EvoBench:
 
             evo_step.forward()
             evo_step.evaluate()
-            evo_step.plot(i)
+            evo_step.plot(i+1)
+            self.collect_res(evo_step)
 
             next_ca_configs, stop = self.evolve(evo_step)
             if stop:
@@ -62,6 +67,9 @@ class EvoBench:
 
             self.steps += [next_evo_step]
 
+        self.plot()
+        self.logger.info('Evo bench finished successfuly!')
+
     def evolve(self, evo_step):
 
         ca_configs = evo_step.benchmark.ca_configs
@@ -75,6 +83,8 @@ class EvoBench:
             axes = list(range(len(self.evo_params)))
             axes.remove(i)
             axes = [i] + axes
+
+            # TODO: only supports one([0]) verifier per time
             raw = list(evo_step.nb_solved.values())[0].transpose(axes)
             print(raw)
 
@@ -108,6 +118,7 @@ class EvoBench:
                 _stop += [this_end == next_end]
             _stop = np.array(_stop)
             stop = np.all(_stop == True)
+            print(_stop, stop)
         else:
             assert False
 
@@ -126,12 +137,12 @@ class EvoBench:
         for i, f in enumerate(evo_step.factors):
             f = copy.deepcopy(f)
             if actions[i] == 'expand':
-                # f.set_end(f.end*inflation_rate)
                 start = f.start*inflation_rate
                 end = f.end*inflation_rate
 
                 if f.type in parameters_upper_bounds:
                     end = min(end, F(parameters_upper_bounds[f.type]))
+                print(start, end)
                 f.set_start_end(start, end)
             start, end, levels = f.get()
             ca_configs_new['parameters']['level'][f.type] = levels
@@ -211,3 +222,46 @@ class EvoBench:
             ca_configs_new['parameters']['range'][f.type] = [start, end]
 
         return ca_configs_new
+
+    def collect_res(self, evo_step):
+        if not self.res:
+            self.res = {v: {} for v in evo_step.answers}
+
+        levels = tuple(f.explict_levels for f in evo_step.factors)
+        print("levels: ", levels)
+
+        # TODO : WTF????
+        ids = np.array(np.meshgrid(
+            levels[0], levels[1])).T.reshape(-1, len(self.evo_params))
+
+        data = list(evo_step.answers.values())[0]
+        data = data.reshape(-1, data.shape[-1])
+
+        verifier = list(evo_step.answers)[0]
+        for i, id in enumerate(ids):
+            self.res[verifier][tuple(id)] = data[i]
+
+    # plot two factors with properties: |F| = 3
+    # TODO: update plotter to accept more thatn two factors
+    def plot(self):
+        labels = [x for x in self.evo_params]
+        ticks = {x: set() for x in self.evo_params}
+
+        verifier = list(self.steps[0].answers)[0]
+        ticks = np.array([list(x)
+                         for x in self.res[verifier].keys()], dtype=np.float32)
+        data = np.array(
+            [x for x in self.res[verifier].values()], dtype=np.float32)
+
+        ticks_f1 = set(ticks[:, 0].tolist())
+        ticks_f2 = set(ticks[:, 1].tolist())
+
+        labels_f1 = labels[0]
+        labels_f2 = labels[1]
+        print(data.shape)
+
+        pie_scatter = PieScatter2D(data)
+        pie_scatter.draw(ticks_f1, ticks_f2, labels_f1, labels_f2)
+        pdf_dir = f'./pdfs_{verifier}'
+        Path(pdf_dir).mkdir(parents=True, exist_ok=True)
+        pie_scatter.save(f'{pdf_dir}/all.pdf')

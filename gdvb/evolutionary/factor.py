@@ -9,7 +9,7 @@ class Factor:
     # 2. can be changed
     start = None
     end = None
-    levels = None
+    nb_levels = None
 
     # innert attributes:
     # 1. defines the limitation of self
@@ -22,11 +22,11 @@ class Factor:
     # 2. changes when definition attributes changes
     step = None
 
-    def __init__(self, type, start, end, levels, fc_conv_ids):
+    def __init__(self, type, start, end, nb_levels, fc_conv_ids):
         # definition attributes
         self.start = F(start)
         self.end = F(end)
-        self.levels = int(levels)
+        self.nb_levels = int(nb_levels)
 
         # innert attributes
         self.type = type
@@ -36,7 +36,7 @@ class Factor:
 
     def _check_min_step(self):
         # inferred attribute
-        self.step = (self.end - self.start)/(self.levels - 1)
+        self.step = (self.end - self.start)/(self.nb_levels - 1)
         if self.min_step and self.start < self.min_step:
             self.start = self.min_step
         if self.min_step and self.step < self.min_step:
@@ -44,8 +44,10 @@ class Factor:
 
     def _workout(self):
         self._check_min_step()
-        self.explict = np.arange(self.start, self.end + self.step, self.step)
-        assert(self.levels == len(self.explict))
+        self.explict_levels = np.arange(self.start,
+                                        self.end + self.step, self.step)
+        assert(self.nb_levels == len(self.explict_levels)
+               ), f"{self.nb_levels}/{self.explict_levels}"
 
     # scale
     def scale(self, coefficient):
@@ -67,16 +69,16 @@ class Factor:
         self._workout()
 
     def subdivision(self, arity):
-        self.levels = int(self.levels * F(arity))
+        self.nb_levels = int(self.nb_levels * F(arity))
         self._workout()
 
     def get(self):
-        return self.start, self.end, self.levels
+        return self.start, self.end, self.nb_levels
 
     def __str__(self):
         res = f'{self.type} : ['
-        assert len(self.explict) > 0
-        for x in self.explict:
+        assert len(self.explict_levels) > 0
+        for x in self.explict_levels:
             res += f'{x}, '
         res = res[:-2] + ']'
         return res

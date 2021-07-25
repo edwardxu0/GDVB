@@ -17,7 +17,7 @@ fontP = FontProperties()
 root = './data'
 
 
-class PIE_SCATTER(PLOT):
+class PieScatter2D(PLOT):
     def __init__(self, data):
         self.data = data
         self.plt = plt
@@ -52,13 +52,10 @@ class PIE_SCATTER(PLOT):
 
         return ax
 
-    def update_ticks(self, x, pos):
-        ticks = (np.arange(0.05, 1.05, 0.05) * 784).tolist()
-        return ticks[pos]
-
     def draw(self, xtics, ytics, xlabel, ylabel):
 
         levels = self.data.shape
+        print(self.data.shape)
 
         answers_pool = ['unsat', 'sat', 'unknown', 'oor', 'error']
         # color_list = sns.color_palette()
@@ -91,12 +88,12 @@ class PIE_SCATTER(PLOT):
         #plt.xlabel('nueron', fontsize=20)
         plt.xlabel(xlabel)
         # plt.xticks(np.arange(0,levels[0]+1).tolist(),fontsize=16)
-        plt.xticks(np.arange(0, levels[0]+1).tolist(), [0]+xtics)
+        #plt.xticks(np.arange(0, levels[0]+1).tolist(), [0]+xtics)
         plt.xlim(0, levels[0] + 1)
         #plt.ylabel('FC', fontsize=20)
         plt.ylabel(ylabel)
         # plt.yticks(np.arange(0,levels[1]+1).tolist(),fontsize=16)
-        plt.yticks(np.arange(0, levels[1]+1).tolist(), [0]+ytics)
+        #plt.yticks(np.arange(0, levels[1]+1).tolist(), [0]+ytics)
         plt.ylim(0, levels[1] + 1)
         #plt.title('title', fontsize=40)
         #plt.savefig(f'{res_dir}/{v}.png', bbox_inches='tight')

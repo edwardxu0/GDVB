@@ -9,7 +9,7 @@ from fractions import Fraction as F
 
 from .factor import Factor
 
-from ..plot.pie_scatter import PIE_SCATTER
+from ..plot.pie_scatter import PieScatter2D
 
 TIME_BREAK = 10
 
@@ -109,29 +109,26 @@ class EvoStep:
                 if problem.verification_results[verifier][0] in ['sat', 'unsat']:
                     solved_per_verifiers[verifier][idx] += 1
                 prop_id = problem.vpc['prop']
-                code = benchmark.settings.answer_code[problem.verification_results[verifier][0]]
-                answers_per_verifiers[verifier][idx+(prop_id,)] = code
+                answer_code = benchmark.settings.answer_code[problem.verification_results[verifier][0]]
+                answers_per_verifiers[verifier][idx+(prop_id,)] = answer_code
 
         self.nb_solved = solved_per_verifiers
         self.answers = answers_per_verifiers
 
+    # plot two factors with properties: |F| = 3
+    # TODO: update plotter to accept more thatn two factors
+
     def plot(self, iteration):
-        parameters = self.benchmark.ca_configs['parameters']
+        # TODO: only supports one([0]) verifier per time
         data = list(self.answers.values())[0]
 
-        labels = []
-        ticks = []
-        for p in self.evo_params:
-            labels += [p]
-            nb_levels = F(parameters['level'][p])
-            level_min = F(parameters['range'][p][0])
-            level_max = F(parameters['range'][p][1])
-            step = (level_max - level_min) / (nb_levels - 1)
-            tick = np.arange(level_min, level_max + step, step)
-            tick = [f'{float(x):.4f}' for x in tick]
-            ticks += [tick]
+        labels = self.evo_params
+        ticks = [np.array(x.explict_levels, dtype=np.float32).tolist()
+                 for x in self.factors]
 
-        pie_scatter = PIE_SCATTER(data)
+        print(len(data), len(ticks[0]), len(ticks[1]))
+
+        pie_scatter = PieScatter2D(data)
         pie_scatter.draw(ticks[0], ticks[1], labels[0], labels[1])
         pdf_dir = f'./pdfs_{list(self.answers.keys())[0]}'
         Path(pdf_dir).mkdir(parents=True, exist_ok=True)

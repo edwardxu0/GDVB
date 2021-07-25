@@ -15,8 +15,6 @@ from ..nn.layers import Dense, Conv
 from fractions import Fraction as F
 from .verification_problem import VerificationProblem
 
-from ..plot.pie_scatter import PIE_SCATTER
-
 
 class VerificationBenchmark:
 
