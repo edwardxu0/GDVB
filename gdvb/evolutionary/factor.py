@@ -36,18 +36,22 @@ class Factor:
 
     def _check_min_step(self):
         # inferred attribute
+        activated = False
         self.step = (self.end - self.start)/(self.nb_levels - 1)
         if self.min_step and self.start < self.min_step:
             self.start = self.min_step
+            activated = True
         if self.min_step and self.step < self.min_step:
             self.step = self.min_step
+            activated = True
+        return activated
 
     def _workout(self):
-        self._check_min_step()
-        self.explict_levels = np.arange(self.start,
-                                        self.end + self.step, self.step)
-        assert(self.nb_levels == len(self.explict_levels)
-               ), f"{self.nb_levels}/{self.explict_levels}"
+        level_too_small = self._check_min_step()
+        self.explict_levels = np.arange(self.start, self.end + self.step, self.step)
+        if level_too_small:
+            self.nb_levels = len(self.explict_levels)
+        assert(self.nb_levels == len(self.explict_levels)), f"{self.nb_levels} vs. {self.explict_levels}"
 
     # scale
     def scale(self, coefficient):

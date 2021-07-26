@@ -125,11 +125,10 @@ class EvoStep:
         labels = self.evo_params
         ticks = [np.array(x.explict_levels, dtype=np.float32).tolist()
                  for x in self.factors]
-
-        print(len(data), len(ticks[0]), len(ticks[1]))
-
+        x_ticks = [f'{x:.4f}' for x in ticks[0]]
+        y_ticks = [f'{x:.4f}' for x in ticks[1]]
         pie_scatter = PieScatter2D(data)
-        pie_scatter.draw(ticks[0], ticks[1], labels[0], labels[1])
+        pie_scatter.draw(x_ticks, y_ticks, labels[0], labels[1])
         pdf_dir = f'./pdfs_{list(self.answers.keys())[0]}'
         Path(pdf_dir).mkdir(parents=True, exist_ok=True)
         pie_scatter.save(f'{pdf_dir}/{iteration}.pdf')

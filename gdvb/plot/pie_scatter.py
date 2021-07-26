@@ -7,6 +7,7 @@ import pandas as pd
 import seaborn as sns
 import pathlib
 
+from matplotlib.ticker import FormatStrFormatter, ScalarFormatter
 import matplotlib.colors as colors
 from matplotlib.patches import Patch
 
@@ -53,9 +54,7 @@ class PieScatter2D(PLOT):
         return ax
 
     def draw(self, xtics, ytics, xlabel, ylabel):
-
         levels = self.data.shape
-        print(self.data.shape)
 
         answers_pool = ['unsat', 'sat', 'unknown', 'oor', 'error']
         # color_list = sns.color_palette()
@@ -85,16 +84,68 @@ class PieScatter2D(PLOT):
         # plt.legend(handles=legend_elements, bbox_to_anchor=(2, 1), loc = 'upper right', prop=fontP)
         if ax.get_legend() is not None:
             ax.get_legend().remove()
-        #plt.xlabel('nueron', fontsize=20)
+        # plt.xlabel('nueron', fontsize=20)
         plt.xlabel(xlabel)
         # plt.xticks(np.arange(0,levels[0]+1).tolist(),fontsize=16)
-        #plt.xticks(np.arange(0, levels[0]+1).tolist(), [0]+xtics)
+        plt.xticks(np.arange(0, levels[0]+1).tolist(), [0]+xtics)
         plt.xlim(0, levels[0] + 1)
-        #plt.ylabel('FC', fontsize=20)
+        # plt.ylabel('FC', fontsize=20)
         plt.ylabel(ylabel)
         # plt.yticks(np.arange(0,levels[1]+1).tolist(),fontsize=16)
-        #plt.yticks(np.arange(0, levels[1]+1).tolist(), [0]+ytics)
+        plt.yticks(np.arange(0, levels[1]+1).tolist(), [0]+ytics)
         plt.ylim(0, levels[1] + 1)
-        #plt.title('title', fontsize=40)
-        #plt.savefig(f'{res_dir}/{v}.png', bbox_inches='tight')
+        # plt.title('title', fontsize=40)
+        # plt.savefig(f'{res_dir}/{v}.png', bbox_inches='tight')
         # plt.show()
+
+    def draw_with_ticks(self, xticks, yticks, xlabel, ylabel, x_log_scale=False, y_log_scale=False, pie_size=1000):
+        assert len(xticks) == len(yticks)
+        assert len(xticks) == len(self.data)
+
+        answers_pool = ['unsat', 'sat', 'unknown', 'oor', 'error']
+        color_list = ['lightgreen', 'deepskyblue', 'yellow', 'darkorange', 'crimson']
+
+        # make legend
+        legend_elements = []
+        for i, ans in enumerate(answers_pool):
+            le = Patch(facecolor=color_list[i], edgecolor='r', label=ans)
+            legend_elements += [le]
+
+        size_x = len(set(xticks))+1
+        size_y = len(set(yticks))+1
+
+        fig, ax = plt.subplots(figsize=((size_x, size_y)))
+        fontP.set_size(20)
+
+        for i, raw in enumerate(self.data):
+            Z = []
+            for k in range(1, len(raw)+1):
+                Z += [len(np.where(k == raw)[0])]
+            loc_x = xticks[i]
+            loc_y = yticks[i]
+            self.draw_pie(Z, loc_x, loc_y, pie_size, color_list, ax=ax)
+
+        if ax.get_legend() is not None:
+            ax.get_legend().remove()
+
+        ax.get_xaxis().set_major_formatter(FormatStrFormatter('%.2f'))
+        ax.get_yaxis().set_major_formatter(FormatStrFormatter('%.2f'))
+
+        plt.xlabel(xlabel)
+        # plt.xticks(np.arange(0, levels[0]+1).tolist(), [0]+xticks)
+        plt.xticks(list(set(xticks)))
+        if x_log_scale:
+            plt.xscale('log')
+        else:
+            plt.xlim(0, max(xticks)*(1+1/size_x))
+
+        plt.ylabel(ylabel)
+        # plt.yticks(np.arange(0, levels[1]+1).tolist(), [0]+yticks)
+        plt.yticks(list(set(yticks)))
+
+        if y_log_scale:
+            plt.yscale('log')
+        else:
+            plt.ylim(0, max(yticks)*(1+1/size_y))
+        
+        
