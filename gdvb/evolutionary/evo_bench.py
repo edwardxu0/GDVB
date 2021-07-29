@@ -69,7 +69,7 @@ class EvoBench:
             evo_step.evaluate()
             evo_step.plot(i+1)
             self.collect_res(evo_step)
-            self.plot()
+            self.plot(i+1)
 
             next_ca_configs = self.evolve(evo_step)
 
@@ -86,7 +86,7 @@ class EvoBench:
 
             self.steps += [next_evo_step]
 
-        self.plot()
+        self.plot(i+1)
         self.logger.info('Evo bench finished successfuly!')
         print('Evo bench finished successfuly!')
 
@@ -283,7 +283,7 @@ class EvoBench:
 
     # plot two factors with properties: |F| = 3
     # TODO: update plotter to accept more thatn two factors
-    def plot(self):
+    def plot(self, iteration):
         labels = [x for x in self.evo_params]
         ticks = {x: set() for x in self.evo_params}
 
@@ -301,9 +301,9 @@ class EvoBench:
 
         pie_scatter = PieScatter2D(data)
         pie_scatter.draw_with_ticks(ticks_f1, ticks_f2, labels_f1, labels_f2)
-        pdf_dir = f'./pdfs_{verifier}'
+        pdf_dir = f'./img/{verifier}'
         Path(pdf_dir).mkdir(parents=True, exist_ok=True)
-        pie_scatter.save(f'{pdf_dir}/all.pdf')
+        pie_scatter.save(f'{pdf_dir}/all_{iteration}.pdf')
 
         pie_scatter.draw_with_ticks(ticks_f1, ticks_f2, labels_f1, labels_f2, x_log_scale=True, y_log_scale=True)
-        pie_scatter.save(f'{pdf_dir}/all_log.pdf')
+        pie_scatter.save(f'{pdf_dir}/all_log_{iteration}.pdf')

@@ -129,6 +129,6 @@ class EvoStep:
         y_ticks = [f'{x:.4f}' for x in ticks[1]]
         pie_scatter = PieScatter2D(data)
         pie_scatter.draw(x_ticks, y_ticks, labels[0], labels[1])
-        pdf_dir = f'./pdfs_{list(self.answers.keys())[0]}'
+        pdf_dir = f'./img/{list(self.answers.keys())[0]}'
         Path(pdf_dir).mkdir(parents=True, exist_ok=True)
         pie_scatter.save(f'{pdf_dir}/{iteration}.pdf')
