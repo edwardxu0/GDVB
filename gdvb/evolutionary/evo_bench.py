@@ -303,7 +303,7 @@ class EvoBench:
         pie_scatter.draw_with_ticks(ticks_f1, ticks_f2, labels_f1, labels_f2)
         pdf_dir = f'./img/{verifier}'
         Path(pdf_dir).mkdir(parents=True, exist_ok=True)
-        pie_scatter.save(f'{pdf_dir}/all_{iteration}.pdf')
+        pie_scatter.save(f'{pdf_dir}/all_{iteration}.png')
 
         pie_scatter.draw_with_ticks(ticks_f1, ticks_f2, labels_f1, labels_f2, x_log_scale=True, y_log_scale=True)
-        pie_scatter.save(f'{pdf_dir}/all_log_{iteration}.pdf')
+        pie_scatter.save(f'{pdf_dir}/all_log_{iteration}.png')
