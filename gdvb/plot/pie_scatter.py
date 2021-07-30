@@ -147,5 +147,3 @@ class PieScatter2D(PLOT):
             plt.yscale('log')
         else:
             plt.ylim(0, max(yticks)*(1+1/size_y))
-        
-        
