@@ -1,6 +1,6 @@
 class R4V:
     def __init__(self, options):
-        self._executor = './scripts/run_r4v.sh'
+        self._executor = './scripts/run_R4V.sh'
         self._pre_params, self._post_params = self._parse_options(options)
 
     @staticmethod

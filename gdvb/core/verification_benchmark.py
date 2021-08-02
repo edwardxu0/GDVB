@@ -25,6 +25,7 @@ class VerificationBenchmark:
         self.artifact = self._create_artifact(dnn_configs)
         self.settings.logger.info('Computing Factors')
         (self.parameters, self.fc_ids, self.conv_ids) = self._gen_parameters(ca_configs)
+        print(self.parameters)
         self._debug_layer()
         self.settings.logger.info('Computing Covering Array')
         self.ca = self._gen_ca(ca_configs)

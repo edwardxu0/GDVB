@@ -1,6 +1,6 @@
 class DNNV:
     def __init__(self, options):
-        self._executor = './scripts/run_dnnv.sh'
+        self._executor = './scripts/run_DNNV.sh'
         self._pre_params, self._post_params, self.verifier_name = self._parse_options(
             options)
 
@@ -35,3 +35,9 @@ class DNNV:
         for p in self._post_params:
             cmd += f' {p}'
         return cmd
+
+
+class DNNV_wb(DNNV):
+    def __init__(self, options):
+        super().__init__(options)
+        self._executor = './scripts/run_DNNV_wb.sh'

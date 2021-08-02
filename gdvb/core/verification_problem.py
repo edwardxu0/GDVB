@@ -13,7 +13,7 @@ from ..artifacts.DAVE2 import DAVE2
 from ..nn.layers import Dense, Conv, Transpose, Flatten
 from ..pipeline.dispatcher import Task
 from ..pipeline.R4V import R4V
-from ..pipeline.DNNV import DNNV
+from ..pipeline.DNNV import DNNV, DNNV_wb
 from ..pipeline.DNNF import DNNF
 
 
@@ -310,18 +310,20 @@ class VerificationProblem:
             options += ['debug']
         verifier = globals()[tool](options)
 
+
         time_limit = self.settings.verification_configs['time']
         memory_limit = self.settings.verification_configs['memory']
 
-        net_path = self.dis_model_path
+
+        dnnv_wb_flag = '_wb' if isinstance(verifier, DNNV_wb) else ''
         self.veri_log_path = os.path.join(
             self.settings.veri_log_dir,
-            f'{self.vp_name}_T={time_limit}_M={memory_limit}:{verifier.verifier_name}.out')
+            f'{self.vp_name}_T={time_limit}_M={memory_limit}:{verifier.verifier_name}{dnnv_wb_flag}.out')
 
         if self.settings.verification_configs['dispatch']['platform'] == 'slurm':
             slurm_script_path = os.path.join(
                 self.settings.veri_slurm_dir,
-                f'{self.vp_name}_T={time_limit}_M={memory_limit}:{verifier.verifier_name}.slurm')
+                f'{self.vp_name}_T={time_limit}_M={memory_limit}:{verifier.verifier_name}{dnnv_wb_flag}.slurm')
         else:
             slurm_script_path = None
 
@@ -339,7 +341,7 @@ class VerificationProblem:
             self.prop_dir, f"robustness_{self.vpc['prop']}_{eps}.py")
 
         cmd = f'python -W ignore ./lib/DNNV/tools/resmonitor.py -T {time_limit} -M {memory_limit} '
-        cmd += verifier.execute([property_path, '--network N', net_path])
+        cmd += verifier.execute([property_path, '--network N', self.dis_model_path])
         cmds = [cmd]
         task = Task(cmds,
                     self.settings.verification_configs['dispatch'],
@@ -361,9 +363,11 @@ class VerificationProblem:
         time_limit = self.settings.verification_configs['time']
         memory_limit = self.settings.verification_configs['memory']
         for verifier in verifiers:
+
+            dnnv_wb_flag = '_wb' if isinstance(verifier, DNNV_wb) else ''
             log_path = os.path.join(
                 self.settings.veri_log_dir,
-                f'{self.vp_name}_T={time_limit}_M={memory_limit}:{verifier.verifier_name}.out')
+                f'{self.vp_name}_T={time_limit}_M={memory_limit}:{verifier.verifier_name}{dnnv_wb_flag}.out')
 
             if not os.path.exists(log_path):
                 verification_answer = 'unrun'
