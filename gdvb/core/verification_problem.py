@@ -72,8 +72,8 @@ class VerificationProblem:
             self.net_name += f'_SF={dis_strats[strategies.index("scale")][2]:{self.settings.precision}}'
             self.vp_name += f'_SF={dis_strats[strategies.index("scale")][2]:{self.settings.precision}}'
         else:
-            self.net_name += f'_{1:{self.settings.precision}}'
-            self.vp_name += f'_{1:{self.settings.precision}}'
+            self.net_name += f'_SF={1:{self.settings.precision}}'
+            self.vp_name += f'_SF={1:{self.settings.precision}}'
 
         self.drop_ids = drop_ids
         self.scale_ids_factors = scale_ids_factors
@@ -310,10 +310,8 @@ class VerificationProblem:
             options += ['debug']
         verifier = globals()[tool](options)
 
-
         time_limit = self.settings.verification_configs['time']
         memory_limit = self.settings.verification_configs['memory']
-
 
         dnnv_wb_flag = '_wb' if isinstance(verifier, DNNV_wb) else ''
         self.veri_log_path = os.path.join(
