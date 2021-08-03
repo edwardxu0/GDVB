@@ -40,7 +40,7 @@ name = 'REevo_planet'
 		platform = "slurm"
 		exclude = """ai01,ai02,ai03,ai04,ai05,\
 				   affogato11,affogato12,affogato13,affogato14,\
-				   lynx01,lynx02,lynx04,lynx05,lynx06,lynx07"""
+				   lynx01,lynx02,lynx04,lynx05,lynx06,lynx07,cheetah01"""
 
 [verify]
 	debug = true
