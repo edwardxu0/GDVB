@@ -150,7 +150,7 @@ class EvoBench:
 
             actions += [action]
 
-        print(f'Evo state={self.state}, ; Actions={actions}')
+        print(f'Evo state={self.state}; Actions={actions}')
 
         # check needs to expand?
         if all(x == EvoAction.Empty for x in actions):
@@ -232,6 +232,7 @@ class EvoBench:
             res += [this_start == that_start]
             res += [this_end == that_end]
             res += [this_level == that_level]
+        print(res, all(x for x in res))
         return all(x for x in res)
 
     def collect_res(self, evo_step):
