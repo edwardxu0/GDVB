@@ -107,7 +107,7 @@ class EvoBench:
         # 1) check starting point based on observations from the exploration states
         # 2) prune overly easy and overly hard levels
         # 3) stop when necessary, go to analyze state
-        elif self.state == EvoState.Refine:
+        if self.state == EvoState.Refine:
 
             self.refine_iterations -= 1
             if self.refine_iterations == 0:
@@ -117,8 +117,6 @@ class EvoBench:
                 next_ca_configs = self.first_refine(evo_step)
                 if self.check_same_ca_configs(ca_configs, next_ca_configs):
                     self.state = EvoState.Done
-        else:
-            raise NotImplementedError()
 
         return next_ca_configs
 
