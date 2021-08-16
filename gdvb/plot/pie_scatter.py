@@ -1,18 +1,11 @@
 from gdvb.plot import PLOT
 import matplotlib.pyplot as plt
 import numpy as np
-import os
-import pickle
-import pandas as pd
-import seaborn as sns
-import pathlib
 
-from matplotlib.ticker import FormatStrFormatter, ScalarFormatter
-import matplotlib.colors as colors
+from matplotlib.ticker import FormatStrFormatter
 from matplotlib.patches import Patch
 
 from matplotlib.font_manager import FontProperties
-import matplotlib.ticker as mticker
 
 fontP = FontProperties()
 root = './data'
@@ -54,6 +47,8 @@ class PieScatter2D(PLOT):
         return ax
 
     def draw(self, xtics, ytics, xlabel, ylabel):
+        super.draw()
+
         levels = self.data.shape
 
         answers_pool = ['unsat', 'sat', 'unknown', 'oor', 'error']

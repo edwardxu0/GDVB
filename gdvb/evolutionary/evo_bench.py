@@ -108,7 +108,6 @@ class EvoBench:
         # 2) prune overly easy and overly hard levels
         # 3) stop when necessary, go to analyze state
         if self.state == EvoState.Refine:
-
             self.refine_iterations -= 1
             if self.refine_iterations == 0:
                 next_ca_configs = None
@@ -262,10 +261,11 @@ class EvoBench:
         ticks = {x: set() for x in self.evo_params}
 
         verifier = list(self.steps[0].answers)[0]
-        ticks = np.array([list(x)
-                          for x in self.res[verifier].keys()], dtype=np.float32)
-        data = np.array(
-            [x for x in self.res[verifier].values()], dtype=np.float32)
+        ticks = np.array([list(x) for x in self.res[verifier].keys()], dtype=np.float32)
+        data = np.array([x for x in self.res[verifier].values()], dtype=np.float32)
+
+        #print(set(sorted(np.array([list(x) for x in self.res[verifier].keys()])[:, 0].tolist())))
+        #print(set(sorted(np.array([list(x) for x in self.res[verifier].keys()])[:, 1].tolist())))
 
         ticks_f1 = ticks[:, 0].tolist()
         ticks_f2 = ticks[:, 1].tolist()

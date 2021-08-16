@@ -123,8 +123,11 @@ class EvoStep:
         data = list(self.answers.values())[0]
 
         labels = self.evo_params
-        ticks = [np.array(x.explict_levels, dtype=np.float32).tolist()
-                 for x in self.factors]
+        ticks = [np.array(x.explict_levels, dtype=np.float32).tolist() for x in self.factors]
+
+        print('XXXXXXXXXXXXXXXXX', set(sorted([np.array(x.explict_levels).tolist() for x in self.factors][0])))
+        print('XXXXXXXXXXXXXXXXX', set(sorted([np.array(x.explict_levels).tolist() for x in self.factors][1])))
+
         x_ticks = [f'{x:.4f}' for x in ticks[0]]
         y_ticks = [f'{x:.4f}' for x in ticks[1]]
         pie_scatter = PieScatter2D(data)

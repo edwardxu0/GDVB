@@ -3,12 +3,17 @@
 import os
 import argparse
 import datetime
+import pathlib
 import json
 import statistics
 import numpy as np
 import matplotlib.pyplot as plt
+import seaborn as sns
 
-HEADER_RESULTS = ['answer', 'time', 'sub answers', '# states', '# safe relu', '# unsafe relu', 'avg. relu time']
+from natsort import natsorted
+
+TIMEOUT = 600
+HEADER_RESULTS = ['answer', 'time', 'sub answers', 'sub times', 'dnnv pre time']
 
 
 def _parse_args():
@@ -16,7 +21,7 @@ def _parse_args():
     parser.add_argument('task', type=str, choices=['parse', 'plot'])
     parser.add_argument('root', type=str)
     parser.add_argument('output_path', type=str)
-    parser.add_argument('--verifier', type=str, choices=['ALL', 'eran_deepzono_wb', 'neurify_wb', 'nnenum_wb'])
+    parser.add_argument('-v', '--verifier', type=str, choices=['ALL', 'eran_deepzono_wb', 'neurify_wb', 'nnenum_wb'])
     args = parser.parse_args()
     return args
 
@@ -38,7 +43,7 @@ def parse_answer_time(lines):
         if 'INS(dnnv): checking sub property: 0' in l:
             # print(l)
             idx_end = l.index(' INS(dnnv)')
-            time_string = l[idx_end-19:idx_end]
+            time_string = l[idx_end-19: idx_end]
             dnnv_pre_time_end = datetime.datetime.strptime(time_string, '%d/%m/%Y %H:%M:%S')
             dnnv_pre_time = (dnnv_pre_time_end - dnnv_pre_time_start).total_seconds()
 
@@ -70,7 +75,7 @@ def parse_answer_time(lines):
     if dnnv_pre_time is None:
         for l in lines:
             if 'INS(dnnv): verification starts' in l:
-                time_string = l[:19]
+                time_string = l[: 19]
                 dnnv_pre_time_end = datetime.datetime.strptime(time_string, '%d/%m/%Y %H:%M:%S')
                 dnnv_pre_time = (dnnv_pre_time_end - dnnv_pre_time_start).total_seconds()
 
@@ -82,31 +87,47 @@ def parse_answer_time(lines):
 
 
 def parse_eran_dz_raw(lines):
-    nb_states = []
+    nb_states_all = []
     nb_safe_relu_all = []
     nb_unsafe_relu_all = []
     unsafe_relu_time_all = []
-
-    pre_time_all = []
     layer_time_all = []
-    post_time_all = []
 
-    unsafe_relu_time = []
+    # pre_time_all = []
+    # post_time_all = []
+
+    # init metrics for composed property, for debug purpose
+    sub_prop_finish_flag = None
+    nb_states = None
     nb_safe_relu = 0
     nb_unsafe_relu = 0
-    for l in lines:
-        if 'INS(eran): verifier starts here.' in l:
-            unsafe_relu_time = []
-            nb_safe_relu = 0
-            nb_unsafe_relu = 0
+    unsafe_relu_time = []
+    layer_time = []
 
+    for l in lines:
         if 'INS(eran)' in l:
+
+            # init metrics for each sub property
             if 'INS(eran): verifier starts here.' in l:
+                sub_prop_finish_flag = False
+                nb_states = None
+                #nb_safe_relu = 0
+                #nb_unsafe_relu = 0
+                unsafe_relu_time = []
                 layer_time = []
+
+            # collect subproperty metrics when verifier finishes
             elif 'INS(eran): verifier ends here.' in l:
+                #sub_prop_finish_flag = True
+                nb_states_all += [nb_states]
+                #nb_safe_relu_all += [nb_safe_relu]
+                #nb_unsafe_relu_all += [nb_unsafe_relu]
+                unsafe_relu_time_all += [unsafe_relu_time]
                 layer_time_all += [layer_time]
-            elif 'INS(eran): number of executions: ' in l:
-                nb_states += [int(l.strip().split(' ')[-1])]
+
+            if 'INS(eran): number of executions: ' in l:
+                nb_states = int(l.strip().split(' ')[-1])
+
             elif 'transformed node ' in l:
                 layer_time += [float(l.strip().split(' ')[-2])]
 
@@ -114,11 +135,10 @@ def parse_eran_dz_raw(lines):
             if 'unsafe ReLU took' in l:
                 idx = l.index('unsafe ReLU took')+17
                 try:
-                    tmp = float(l[idx:idx+8])
-                    unsafe_relu_time += [tmp]
+                    unsafe_relu_time += [float(l[idx: idx+8])]
+
                 except ValueError:
-                    # print('Warning: unsafe relu time ignored with line:')
-                    # print(f'\t{l}')
+                    # print(f'Warning: unsafe relu time ignored with line: {l}')
                     pass
 
             if 'INS(elina): ReLU activations(lt0, gt0, o/w): ' in l:
@@ -129,20 +149,26 @@ def parse_eran_dz_raw(lines):
                     try:
                         nb_safe_relu += int(tokens[0]) + int(tokens[1])
                         nb_unsafe_relu += int(tokens[2])
+
                     except ValueError:
-                        # print('Warning: safe/unsafe relu count ignored with line:')
-                        # print(f'\t{l}')
+                        # print(f'Warning: safe/unsafe relu count ignored with line: \t{l}')
                         pass
 
-    average_unsafe_relu_time = np.mean(np.array(unsafe_relu_time))
-    '''
-    print(verifier_answer, verifier_time)
-    print(nb_states)
-    print(f'safe relu: {nb_safe_relu}')
-    print(f'unsafe relu: {nb_unsafe_relu}')
-    print('unsafe relu: ',len(unsafe_relu_time), )
-    '''
-    return nb_states, nb_safe_relu, nb_unsafe_relu, average_unsafe_relu_time, layer_time_all
+    if not sub_prop_finish_flag:
+        nb_states_all += [nb_states]
+        nb_safe_relu_all += [nb_safe_relu]
+        nb_unsafe_relu_all += [nb_unsafe_relu]
+        unsafe_relu_time_all += [unsafe_relu_time]
+        layer_time_all += [layer_time]
+
+    metric_lengths = [len(nb_states_all), len(nb_safe_relu_all), len(
+        nb_unsafe_relu_all), len(unsafe_relu_time_all), len(layer_time_all)]
+
+    print(nb_unsafe_relu_all)
+
+    #assert all([x == metric_lengths[0] for x in metric_lengths])
+
+    return nb_states_all, nb_safe_relu_all, nb_unsafe_relu_all, unsafe_relu_time_all, layer_time_all
 
 
 def parse_neurify(lines):
@@ -238,22 +264,20 @@ def parse_nnenum(lines):
 
 
 def parse(root, verifier):
-    data = {}
 
-    file_paths = sorted(os.listdir(root))
+    file_paths = natsorted(os.listdir(root))
     file_paths = [x for x in file_paths if '.out' in x]
     if verifier != 'ALL':
         file_paths = [x for x in file_paths if verifier == x.split(':')[1].split('.')[0]]
     raw_results = []
     for file_path in file_paths:
-        # print(file_path)
+        print(file_path)
         verifier = file_path.strip().split(':')[1].split('.')[0]
         if verifier != 'ALL':
             if verifier != verifier:
                 continue
             else:
                 pass
-                # print(file_path)
 
         tokens = file_path.strip().split(':')[0].split('_')
 
@@ -277,105 +301,95 @@ def parse(root, verifier):
                 assert False, f'unknown factor {factor}'
 
         lines = open(os.path.join(root, file_path), 'r').readlines()
-        lines2 = open(os.path.join(root, file_path[:-3]+'err'), 'r').readlines()
-        lines = lines2[:10] + lines + lines2[-10:]
+        lines2 = open(os.path.join(root, file_path[: -3]+'err'), 'r').readlines()
+        lines = lines2[: 10] + lines + lines2[-10:]
 
         answer_time = parse_answer_time(lines)
         if verifier == 'eran_deepzono_wb':
             res = parse_eran_dz_raw(lines)
+            header = HEADER_RESULTS + ['# states', '# safe relu', '# unsafe relu', 'avg. relu time', 'layer times']
         elif verifier == 'neurify_wb':
             res = parse_neurify(lines)
-            res = list(res)
-            print(os.path.join(root, file_path), res[1], res[-1])
-
-            if res[1][0] == 0:
-                data[tuple(levels[:2])] = [res[1][0], 0]
-            else:
-                tmp = []
-                for x in res[-1]:
-                    for y in x:
-                        tmp += [y]
-
-                data[tuple(levels[:2])] = [res[1][0], np.mean(tmp)]
-
         elif verifier == 'nnenum_wb':
             res = parse_nnenum(lines)
             res = list(res)
             res.insert(1, 'N/A')
             res.insert(1, 'N/A')
 
+        # res=nb_states, nb_safe_relu, nb_unsafe_relu, average_unsafe_relu_time, layer_time_all
         parsed_info = [verifier] + levels + list(answer_time) + list(res)
-        # print(parsed_info, len(parsed_info), len(['verifier'] + factors + HEADER_RESULTS))
-
         # add header
         if len(raw_results) == 0:
-            header = '; '.join(['verifier'] + factors + HEADER_RESULTS)
+            header = '; '.join(['verifier'] + factors + header)
             raw_results += [header+'\n']
 
         parsed_info_line = '; '.join([str(x) for x in parsed_info])
         raw_results += [parsed_info_line+'\n']
-    print(data)
-    xy = np.array(list(data.keys()))
-    X1 = [float(x) for x in xy[:, 0]]
-    Y1 = [float(x) for x in xy[:, 1]]
-    ZZZ = np.array(list(data.values()))
-    Z1 = ZZZ[:, 0]
-    Z2_ = ZZZ[:, 1]
 
-    X2 = []
-    Y2 = []
-    Z2 = []
-
-    for i, z2 in enumerate(Z2_):
-        if z2 != 0:
-            Z2 += [z2]
-            X2 += [X1[i]]
-            Y2 += [Y1[i]]
-
-    print("Z2", Z2)
-
-    fig = plt.figure()
-    ax = fig.add_subplot(projection='3d')
-    #ax.scatter(X2, Y2, Z2)
-    Z2=np.array(Z2)
-    ax.plot_surface(X2, Y2, Z2)
-    ax.set_xticks(X2)
-    ax.set_xlabel(factors[0])
-    ax.set_yticks(Y2)
-    ax.set_ylabel(factors[1])
-    ax.set_zlabel('Avg. Time of Split(s)')
-    plt.show()
-    exit()
     return raw_results
 
 
-def plot_eran(args):
-    lines = open(args.output_path, 'r').readlines()
-    # print(len(lines))
+def plot_heatmap(df):
+    X = list(df['neu'])
+    Y = list(df['fc'])
+    Z = list(df['prop'])
+    print(list(df['# unsafe relu']))
+    df['# unsafe relu sub1'] = [json.loads(x)[0] for x in df['# unsafe relu']]
+    df['# unsafe relu sub2'] = [np.sum(json.loads(x)) for x in df['# unsafe relu']]
+    print(list(df['# unsafe relu sub1']))
+    print(list(df['# unsafe relu sub2']))
+
+    data = np.array(df['# unsafe relu sub1'])
+    # data = data.reshape([len(set(X)), len(set(Y)), len(set(Z))])
+    data = np.mean(data.reshape(-1, 5), axis=1).reshape(len(set(X)), len(set(Y))).transpose()
+
+    fig, ax = plt.subplots(1, 1, figsize=(7, 9))
+    sns.heatmap(data, square=True, linewidth=0.1, linecolor='white', ax=ax, cbar_kws={"shrink": 0.6, 'pad': 0.01})
+    ax.invert_yaxis()
+
+    plt.xticks(ticks=np.arange(len(set(X)))+0.5, labels=list(set(X)))
+    plt.yticks(ticks=np.arange(len(set(Y)))+0.5, labels=list(set(Y)), rotation=0)
+
+    plt.xlabel('Neuron Level Scale')
+    plt.ylabel('Layer Level Scale')
+    plt.title('# Unsafe ReLUs', size=16)
+    plt.savefig(f'eran_deepzono_heatmap.png', bbox_inches='tight')
+
+
+def plot_eran(output_path):
+    lines = open(output_path, 'r').readlines()
 
     labels = []
     dnnv_pre_times = []
     layer_times = []
+    nb_safe_relu = []
+    nb_unsafe_relu = []
+    levels = []
+    import pandas as pd
+    df = pd.read_csv(output_path, sep=';')
+    df.columns = df.columns.str.strip()
+
+    print(df)
+
     for l in lines[1:]:
-        print(l)
-        tokens = l.strip().split(';')
+        tokens = [x.strip() for x in l.strip().split(';')]
+        # print(tokens[:-2])
+        levels = [()]
         labels += [f'{tokens[1]}/{tokens[2]}/{tokens[3]}']
-        dnnv_pre_times += [float(tokens[9])]
-
+        dnnv_pre_times += [float(tokens[8])]
         layer_time = json.loads(tokens[-1])
-        if len(layer_time) > 0:
-            layer_times += [layer_time[0]]
-        else:
-            layer_times += [[]]
+        layer_times += [layer_time[0]]
 
-    # print(labels)
-    # print(dnnv_pre_times)
-    # print(len(layer_times))
+    plot_heatmap(df)
+    plot_eran_stackedbar(dnnv_pre_times, layer_times)
+
+
+def plot_eran_stackedbar(dnnv_pre_times, layer_times):
 
     width = 0.5
     fig, ax = plt.subplots()
 
-    ax.bar(range(len(dnnv_pre_times)), dnnv_pre_times, width, color='red', label='dnnv_pretime')
+    ax.bar(range(len(dnnv_pre_times)), dnnv_pre_times, width, color='green', label='dnnv_pretime')
     max_layers = np.max([len(x) for x in layer_times])
 
     bottom = np.array(dnnv_pre_times)
@@ -383,31 +397,37 @@ def plot_eran(args):
         if i > 0:
             bottom += np.array(Ys)
         Ys = []
-        for x in layer_times:
-            if len(x) < i + 1:
-                Ys += [0]
+        Cs = []
+        for j, x in enumerate(layer_times):
+            if not x:
+                Ys += [TIMEOUT]
+                bottom[j] = 0
+                Cs += ['red']
             else:
-                Ys += [x[i]]
-        if i % 2 == 0:
-            label = 'affine'
-            color = 'blue'
-        else:
-            label = 'relu'
-            color = 'orange'
+                if len(x) < i + 1:
+                    Ys += [0]
+                else:
+                    Ys += [x[i]]
 
-        ax.bar(range(len(dnnv_pre_times)), Ys, width, color=color,
+                if i % 2 == 0:
+                    label = 'affine'
+                    Cs += ['blue']
+                else:
+                    label = 'relu'
+                    Cs += ['orange']
+
+        ax.bar(range(len(dnnv_pre_times)), Ys, width, color=Cs,
                alpha=(i+1)/(max_layers), label=label, bottom=bottom)
 
-    labels = np.array(labels)
+    # labels = np.array(labels)
 
-    plt.xticks(np.array(range(0, 500, 50)), labels[range(0, 500, 50)])
+    # plt.xticks(np.array(range(0, 500, 50)), labels[range(0, 500, 50)])
     # ax.set_xticklabels(ax.get_xticks(), rotation=-90)
     # plt.gca().axes.get_xaxis().set_visible(False)
     ax.set_ylabel('verification time')
     # ax.set_title('Scores by group and gender')
-    ax.legend()
-    plt.show()
-    exit()
+    # ax.legend()
+    plt.savefig(f'eran_deepzono.png', bbox_inches='tight')
 
     for x in layer_times:
         print(len(x))
@@ -500,15 +520,16 @@ def plot_neurify(output_path):
 
 
 def main(args):
-
+    pathlib.Path(args.output_path).mkdir(exist_ok=True, parents=True)
     output_path = os.path.join(args.output_path, args.verifier+".csv")
 
     if args.task == 'parse':
         raw_results = parse(args.root, args.verifier)
         open(output_path, 'w').writelines(raw_results)
+        plot_eran(output_path)
     elif args.task == 'plot':
         if args.verifier == 'eran_deepzono_wb':
-            plot_eran(args)
+            plot_eran(output_path)
         elif args.verifier == 'neurify_wb':
             plot_neurify(output_path)
         else:
