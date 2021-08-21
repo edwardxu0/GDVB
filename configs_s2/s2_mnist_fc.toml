@@ -49,13 +49,11 @@ name = 's2_mnist_fc'
 	time = 600
 	memory = '16G'
 	[verify.verifiers]
-		DNNV = ['eran_deepzono']
-		# DNNV = ['eran_deeppoly','neurify','nnenum']
-		# DNNF = ['default']
+		DNNV = ['eran_deepzono','eran_deeppoly','eran_refinezono','eran_refinepoly','neurify','planet','bab','bab_sb','reluplex','marabou','nnenum','mipverify','verinet']
+		DNNF = ['default']
 
 	[verify.dispatch]
 		platform = "slurm"
-		#reservation = "dx3yy_28"
 		nb_cpus = 6
 		nodes = ['cortado01','cortado02','cortado03','cortado04','cortado05','cortado06','cortado07','cortado08','cortado09','cortado10']
 		task_per_node = 7
