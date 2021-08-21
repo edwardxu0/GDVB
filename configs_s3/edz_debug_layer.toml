@@ -13,12 +13,13 @@ name = 'REevo_edz'
 	[ca.parameters]
 		[ca.parameters.level]
 			neu = 1
-			fc = 20
+			fc = 31
 			prop = 5
 
 		[ca.parameters.range]
 			neu = ['101/33', '101/33']
-			fc = ['877/66', '97/6']
+			#fc = ['877/66', '97/6']
+			fc = ['877/66', '581/33']
 			prop = [0, 4]
 
 [evolutionary]
@@ -39,7 +40,7 @@ name = 'REevo_edz'
 		nb_gpus = 1
 		platform = "slurm"
 		exclude = """ai01,ai02,ai03,ai04,ai05,\
-				   affogato11,affogato12,affogato13,affogato14,\
+				   affogato12,affogato13,affogato14,\
 				   lynx01,lynx02,lynx04,lynx05,lynx06,lynx07,cheetah01,adriatic01,adriatic02,adriatic03,adriatic04,adriatic05,adriatic06,ristretto03,ristretto04"""
 
 [verify]

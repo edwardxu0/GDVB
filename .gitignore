@@ -1,6 +1,5 @@
 *~
-/tmp
-/results
+/tmp*
 /res*
 /attic
 /data
