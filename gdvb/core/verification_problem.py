@@ -29,7 +29,7 @@ class VerificationProblem:
             if factor in ['prop']:
                 token = f'{factor}={level}_'
             else:
-                token = f'{factor}={level:{self.settings.precision}}_'
+                token = f'{factor}={level:.{self.settings.precision}f}_'
             self.vp_name += token
             if factor not in ['eps', 'prop']:
                 self.net_name += token
@@ -69,11 +69,11 @@ class VerificationProblem:
 
         strategies = [x[0] for x in dis_strats]
         if 'scale' in strategies:
-            self.net_name += f'_SF={dis_strats[strategies.index("scale")][2]:{self.settings.precision}}'
-            self.vp_name += f'_SF={dis_strats[strategies.index("scale")][2]:{self.settings.precision}}'
+            self.net_name += f'_SF={dis_strats[strategies.index("scale")][2]:.{self.settings.precision}f}'
+            self.vp_name += f'_SF={dis_strats[strategies.index("scale")][2]:.{self.settings.precision}f}'
         else:
-            self.net_name += f'_SF={1:{self.settings.precision}}'
-            self.vp_name += f'_SF={1:{self.settings.precision}}'
+            self.net_name += f'_SF={1:.{self.settings.precision}f}'
+            self.vp_name += f'_SF={1:.{self.settings.precision}f}'
 
         self.drop_ids = drop_ids
         self.scale_ids_factors = scale_ids_factors
@@ -274,6 +274,7 @@ class VerificationProblem:
                     F(self.settings.verification_configs['eps'])
             else:
                 eps = self.settings.verification_configs['eps']
+            eps = round(float(eps), self.settings.precision)
 
             skip_layers = 0 if 'skip_layers' not in self.settings.verification_configs\
                 else self.settings.verification_configs['skip_layers']

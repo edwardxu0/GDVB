@@ -47,7 +47,6 @@ class PieScatter2D(PLOT):
         return ax
 
     def draw(self, xtics, ytics, xlabel, ylabel):
-        super.draw()
 
         levels = self.data.shape
 
