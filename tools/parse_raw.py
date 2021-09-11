@@ -111,17 +111,17 @@ def parse_eran_dz_raw(lines):
             if 'INS(eran): verifier starts here.' in l:
                 sub_prop_finish_flag = False
                 nb_states = None
-                #nb_safe_relu = 0
-                #nb_unsafe_relu = 0
+                # nb_safe_relu = 0
+                # nb_unsafe_relu = 0
                 unsafe_relu_time = []
                 layer_time = []
 
             # collect subproperty metrics when verifier finishes
             elif 'INS(eran): verifier ends here.' in l:
-                #sub_prop_finish_flag = True
+                # sub_prop_finish_flag = True
                 nb_states_all += [nb_states]
-                #nb_safe_relu_all += [nb_safe_relu]
-                #nb_unsafe_relu_all += [nb_unsafe_relu]
+                # nb_safe_relu_all += [nb_safe_relu]
+                # nb_unsafe_relu_all += [nb_unsafe_relu]
                 unsafe_relu_time_all += [unsafe_relu_time]
                 layer_time_all += [layer_time]
 
@@ -166,7 +166,7 @@ def parse_eran_dz_raw(lines):
 
     print(nb_unsafe_relu_all)
 
-    #assert all([x == metric_lengths[0] for x in metric_lengths])
+    # assert all([x == metric_lengths[0] for x in metric_lengths])
 
     return nb_states_all, nb_safe_relu_all, nb_unsafe_relu_all, unsafe_relu_time_all, layer_time_all
 
@@ -267,6 +267,7 @@ def parse(root, verifier):
 
     file_paths = natsorted(os.listdir(root))
     file_paths = [x for x in file_paths if '.out' in x]
+    file_paths = [x for x in file_paths if f'T={TIMEOUT}' in x]
     if verifier != 'ALL':
         file_paths = [x for x in file_paths if verifier == x.split(':')[1].split('.')[0]]
     raw_results = []
@@ -310,6 +311,7 @@ def parse(root, verifier):
             header = HEADER_RESULTS + ['# states', '# safe relu', '# unsafe relu', 'avg. relu time', 'layer times']
         elif verifier == 'neurify_wb':
             res = parse_neurify(lines)
+            header = HEADER_RESULTS + ['# states', '# unsafe relu', 'pre times', 'split times']
         elif verifier == 'nnenum_wb':
             res = parse_nnenum(lines)
             res = list(res)
@@ -339,17 +341,20 @@ def plot_heatmap(df):
     print(list(df['# unsafe relu sub1']))
     print(list(df['# unsafe relu sub2']))
 
+    print(set(X), set(Y), set(Z))
+
     data = np.array(df['# unsafe relu sub1'])
     # data = data.reshape([len(set(X)), len(set(Y)), len(set(Z))])
     data = np.mean(data.reshape(-1, 5), axis=1).reshape(len(set(X)), len(set(Y))).transpose()
 
     fig, ax = plt.subplots(1, 1, figsize=(7, 9))
     sns.heatmap(data, square=True, linewidth=0.1, linecolor='white', ax=ax, cbar_kws={"shrink": 0.6, 'pad': 0.01})
+
     ax.invert_yaxis()
-
-    plt.xticks(ticks=np.arange(len(set(X)))+0.5, labels=list(set(X)))
-    plt.yticks(ticks=np.arange(len(set(Y)))+0.5, labels=list(set(Y)), rotation=0)
-
+    xticks = [f'{x:.4f}' for x in sorted(list(set(X)))]
+    yticks = [f'{x:.4f}' for x in sorted(list(set(Y)))]
+    plt.xticks(ticks=np.arange(len(set(X)))+0.5, labels=xticks)
+    plt.yticks(ticks=np.arange(len(set(Y)))+0.5, labels=yticks, rotation=0)
     plt.xlabel('Neuron Level Scale')
     plt.ylabel('Layer Level Scale')
     plt.title('# Unsafe ReLUs', size=16)
@@ -369,8 +374,15 @@ def plot_eran(output_path):
     df = pd.read_csv(output_path, sep=';')
     df.columns = df.columns.str.strip()
 
+    # select for s3 case study
+    df = df[df['neu'].isin([2.8788, 3.0606, 3.2424, 3.4242, 3.6061, 3.7879, 3.9697])]
+    df = df[df['fc'].isin([6.0909, 7.5303, 8.9697, 10.4091, 11.8485, 13.2879, 14.7273, 16.1667, 17.6061])]
     print(df)
 
+    # plot heatmap
+    plot_heatmap(df)
+
+    # plot stacked bar
     for l in lines[1:]:
         tokens = [x.strip() for x in l.strip().split(';')]
         # print(tokens[:-2])
@@ -380,12 +392,10 @@ def plot_eran(output_path):
         layer_time = json.loads(tokens[-1])
         layer_times += [layer_time[0]]
 
-    plot_heatmap(df)
     plot_eran_stackedbar(dnnv_pre_times, layer_times)
 
 
 def plot_eran_stackedbar(dnnv_pre_times, layer_times):
-
     width = 0.5
     fig, ax = plt.subplots()
 
@@ -453,6 +463,25 @@ def plot_eran_stackedbar(dnnv_pre_times, layer_times):
 
 
 def plot_neurify(output_path):
+    lines = open(output_path, 'r').readlines()
+
+    labels = []
+
+    import pandas as pd
+    df = pd.read_csv(output_path, sep=';')
+    df.columns = df.columns.str.strip()
+
+    df = df[df['prop'].isin(range(5))]
+    # select for s3 case study
+    print(df)
+
+    # plot heatmap
+    plot_heatmap(df)
+
+    # plot_neurify_stackedbar(dnnv_pre_times, layer_times)
+
+
+def plot_neurify_stackedbar(output_path):
     lines = open(output_path, 'r').readlines()
     if 'eps' in output_path:
         base_idx = 9
@@ -526,7 +555,6 @@ def main(args):
     if args.task == 'parse':
         raw_results = parse(args.root, args.verifier)
         open(output_path, 'w').writelines(raw_results)
-        plot_eran(output_path)
     elif args.task == 'plot':
         if args.verifier == 'eran_deepzono_wb':
             plot_eran(output_path)
