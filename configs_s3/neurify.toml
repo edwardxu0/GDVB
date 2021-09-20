@@ -1,4 +1,4 @@
-name = 'REevo_edp'
+name = 'REevo_neurify'
 
 [dnn]
 	artifact = 'MNIST'
@@ -39,7 +39,8 @@ name = 'REevo_edp'
 		nb_gpus = 1
 		platform = "slurm"
 		exclude = """ai01,ai02,ai03,ai04,ai05,\
-				   affogato11,affogato12,affogato13,affogato14,\
+				   affogato12,affogato13,affogato14,\
+				   adriatic03,adriatic04,adriatic05,adriatic06,\
 				   lynx01,lynx02,lynx04,lynx05,lynx06,lynx07,cheetah01"""
 
 [verify]

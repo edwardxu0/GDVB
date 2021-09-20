@@ -254,10 +254,10 @@ class VerificationProblem:
                 if 'validation error' in line:
                     relative_loss += [float(line.strip().split('=')[-1])]
         if len(relative_loss) != self.settings.training_configs['epochs']:
-            # self.settings.logger.warning(f"Training may not be finished. "
-            #                              f"({len(relative_loss)}/{self.settings.training_configs['epochs']})")
-            raise Exception(
-                f"Training may not be finished. ({len(relative_loss)}/{self.settings.training_configs['epochs']}) {self.dis_log_path}")
+            self.settings.logger.warning(f"Training may not be finished. "
+                                          f"({len(relative_loss)}/{self.settings.training_configs['epochs']})")
+            #raise Exception(
+            #    f"Training may not be finished. ({len(relative_loss)}/{self.settings.training_configs['epochs']}) {self.dis_log_path}")
         return relative_loss
 
     def gen_prop(self):
@@ -335,6 +335,7 @@ class VerificationProblem:
                 F(self.settings.verification_configs['eps'])
         else:
             eps = self.settings.verification_configs['eps']
+        eps = round(float(eps), self.settings.precision)
 
         property_path = os.path.join(
             self.prop_dir, f"robustness_{self.vpc['prop']}_{eps}.py")
@@ -458,12 +459,16 @@ class VerificationProblem:
                         verification_time = -1
                         self.settings.logger.warning(
                             f'Failed job({verification_answer}): {log_path}')
+                        # cmd = f'rm {log_path}'
+                        # os.system(cmd)
                         break
 
             if not verification_answer and (i + 1 in [LINES_TO_CHECK, len(lines)] or len(lines) == 0):
                 verification_answer = 'undetermined'
                 verification_time = -1
                 self.settings.logger.warning(f'Undetermined job: {log_path}')
+                # cmd = f'rm {log_path}'
+                # os.system(cmd)
 
                 '''
                 os.remove(log_path)

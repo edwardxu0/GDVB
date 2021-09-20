@@ -5,7 +5,7 @@ name = 's1_cifar_convbig'
 	onnx = "./configs/networks/cifar_conv_big.onnx"
 	r4v_config = "./configs/networks/cifar_conv_big.toml"
 	supported_layers= ['Conv', 'FC', 'Transpose', 'Flatten']
-	start_layer = 0dispatch
+	start_layer = 0
 
 [ca]
 	strength = 2
@@ -30,8 +30,7 @@ name = 's1_cifar_convbig'
 			prop = [0,4]
 	
 	[ca.constraints]
-		value = [
-		'fc=0 => conv!=0']
+		value = ['fc=0 => conv!=0']
 
 [train]
 	epochs = 10
@@ -40,7 +39,11 @@ name = 's1_cifar_convbig'
 	[train.dispatch]
 		nb_gpus = 1
 		platform = "slurm"
-		exclude = 'ai01,ai02,ai03,ai04,ai05,ai06,cheetah01,cheetah02,cheetah03,affogato11,affogato12,affogato13,affogato14,affogato15,lynx01,lynx02,lynx03,lynx04,lynx05,lynx06,lynx07,ristretto01,ristretto02,ristretto03,ristretto04'
+		exclude = """ai01,ai02,ai03,ai04,ai05,\
+				   affogato13,affogato14,affogato15,\
+				   adriatic03,adriatic04,adriatic05,adriatic06,\
+				   lynx01,lynx02,lynx04,lynx05,lynx06,lynx07,cheetah01,\
+				   ristretto01,ristretto02,ristretto03,ristretto04"""
 
 
 [verify]
@@ -54,7 +57,6 @@ name = 's1_cifar_convbig'
 
 	[verify.dispatch]
 		platform = "slurm"
-		reservation = "dx3yy_28"
 		nb_cpus = 6
-		nodes = ['cortado04','cortado05','cortado06','cortado07','cortado08','cortado09','cortado10']
+		nodes = ['cortado01','cortado02','cortado03','cortado04','cortado05','cortado06','cortado07','cortado08','cortado09','cortado10']
 		task_per_node = 7

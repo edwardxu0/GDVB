@@ -85,7 +85,7 @@ class Task:
 
             nodenodavil_flag = False
             for l in sq_lines:
-                if 'ReqNodeNotAvail' in l and 'dx3yy' in l:
+                if 'ReqNodeNotAvail' in l and 'dx3yy' in l and 'GDVB_V' in l:
                     nodenodavil_flag = True
                     unavil_node = l[:-1].split(',')[-1].split(':')[1][:-1]
                     if unavil_node in self.nodes:

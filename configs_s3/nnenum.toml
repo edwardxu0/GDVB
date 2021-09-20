@@ -1,4 +1,4 @@
-name = 's2_mnist_eps'
+name = 'REevo_nnenum'
 
 [dnn]
 	artifact = 'MNIST'
@@ -12,17 +12,17 @@ name = 's2_mnist_eps'
 
 	[ca.parameters]
 		[ca.parameters.level]
-			neu = 9
-			eps = 9
+			neu = 3
+			fc = 3
 			prop = 5
 
 		[ca.parameters.range]
-			neu = ['1/3', '3']
-			eps = ['1/3', '3']
+			neu = ['1/3', '1']
+			fc = ['1/3', '1']
 			prop = [0, 4]
 
 [evolutionary]
-	iterations = 1
+	iterations = 10
 	arity = 2
 	inflation_rate = 2
 	deflation_rate = 0.5
@@ -49,12 +49,13 @@ name = 's2_mnist_eps'
 	time = 600
 	memory = '16G'
 	[verify.verifiers]
-		DNNV = ['eran_deepzono','eran_deeppoly','eran_refinezono','eran_refinepoly','neurify','planet','bab','bab_sb','reluplex','marabou','nnenum','mipverify','verinet']
-		DNNF = ['default']
+		DNNV = ['nnenum']
+		# DNNV = ['eran_deeppoly','neurify','nnenum']
+		# DNNF = ['default']
 
 	[verify.dispatch]
 		platform = "slurm"
+		#reservation = "dx3yy_28"
 		nb_cpus = 6
-		#nodes = ['cortado01','cortado02','cortado03','cortado04','cortado05','cortado06','cortado07','cortado08','cortado09','cortado10']
-		nodes = ['cortado09','cortado10']
+		nodes = ['cortado01','cortado02','cortado03','cortado04','cortado05','cortado06','cortado07','cortado08','cortado09','cortado10']
 		task_per_node = 7
