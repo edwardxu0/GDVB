@@ -1,4 +1,4 @@
-name = 'REevo_nnenum'
+name = 'REevo_verinet'
 
 [dnn]
 	artifact = 'MNIST'
@@ -49,7 +49,7 @@ name = 'REevo_nnenum'
 	time = 600
 	memory = '16G'
 	[verify.verifiers]
-		DNNV = ['nnenum']
+		DNNV = ['verinet']
 		# DNNV = ['eran_deeppoly','neurify','nnenum']
 		# DNNF = ['default']
 

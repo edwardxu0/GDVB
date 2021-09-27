@@ -55,6 +55,5 @@ name = 's2_mnist_fc'
 	[verify.dispatch]
 		platform = "slurm"
 		nb_cpus = 6
-		#nodes = ['cortado01','cortado02','cortado03','cortado04','cortado05','cortado06','cortado07','cortado08','cortado09','cortado10']
-		nodes = ['cortado09','cortado10']
+		nodes = ['cortado01','cortado02','cortado03','cortado04','cortado05','cortado06','cortado07','cortado08','cortado09','cortado10']
 		task_per_node = 7

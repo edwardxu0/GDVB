@@ -55,6 +55,7 @@ class Task:
                 node = self.request_node()
                 cmd += f' -w {node}'
             cmd += f' {self.slurm_path}'
+            print(cmd)
             subprocess.run(cmd, shell=True)
 
         elif self.platform == 'local':

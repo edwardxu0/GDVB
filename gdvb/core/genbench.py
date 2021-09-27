@@ -20,12 +20,12 @@ def gen(settings):
         pass
     elif settings.task == 'train':
         verification_benchmark.train()
-        verification_benchmark.analyze_training()
+        # verification_benchmark.analyze_training()
     elif settings.task == 'gen_props':
         verification_benchmark.gen_props()
     elif settings.task == 'verify':
         verification_benchmark.verify()
-        verification_benchmark.analyze_verification()
+        # verification_benchmark.analyze_verification()
     elif settings.task == 'analyze':
         verification_benchmark.analyze_all()
         verification_benchmark.save_results()

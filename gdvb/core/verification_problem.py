@@ -255,9 +255,8 @@ class VerificationProblem:
                     relative_loss += [float(line.strip().split('=')[-1])]
         if len(relative_loss) != self.settings.training_configs['epochs']:
             self.settings.logger.warning(f"Training may not be finished. "
-                                          f"({len(relative_loss)}/{self.settings.training_configs['epochs']})")
-            #raise Exception(
-            #    f"Training may not be finished. ({len(relative_loss)}/{self.settings.training_configs['epochs']}) {self.dis_log_path}")
+                                         f"({len(relative_loss)}/{self.settings.training_configs['epochs']}) {self.dis_log_path}")
+            raise Exception(f"Training may not be finished. ({len(relative_loss)}/{self.settings.training_configs['epochs']}) {self.dis_log_path}")
         return relative_loss
 
     def gen_prop(self):
@@ -371,7 +370,7 @@ class VerificationProblem:
 
             if not os.path.exists(log_path):
                 verification_answer = 'unrun'
-                self.settings.logger.warning(f'Unrun: {log_path}')
+                self.settings.logger.warning(f'unrun: {log_path}')
                 verification_time = -1
             else:
                 LINES_TO_CHECK = 300
@@ -459,30 +458,30 @@ class VerificationProblem:
                         verification_time = -1
                         self.settings.logger.warning(
                             f'Failed job({verification_answer}): {log_path}')
-                        # cmd = f'rm {log_path}'
-                        # os.system(cmd)
                         break
 
             if not verification_answer and (i + 1 in [LINES_TO_CHECK, len(lines)] or len(lines) == 0):
                 verification_answer = 'undetermined'
                 verification_time = -1
                 self.settings.logger.warning(f'Undetermined job: {log_path}')
-                # cmd = f'rm {log_path}'
-                # os.system(cmd)
 
-                '''
+            if False and verification_answer == 'error':
+                print(f"No!!! Error {log_path}")
                 os.remove(log_path)
                 os.remove(log_path.replace('.out','.err'))
-                print("removed failed log.")
-                '''
+                print(f"Removed failed log: {log_path}")
+
+            if True and verification_answer in ['undetermined', 'unrun', 'rerun']:
+                os.remove(log_path)
+                os.remove(log_path.replace('.out','.err'))
+                print(f"Removed failed log: {log_path}")
 
             assert verification_answer, verification_time
             assert verification_answer in ['sat', 'unsat', 'unknown', 'error', 'timeout',
                                            'memout', 'exception', 'rerun', 'unrun', 'undetermined'],\
                 f'{verification_answer}:{log_path}'
 
-            verification_results[verifier.verifier_name] = [
-                verification_answer, verification_time]
+            verification_results[verifier.verifier_name] = [verification_answer, verification_time]
 
         self.verification_results = verification_results
         return verification_results

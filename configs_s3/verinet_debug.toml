@@ -1,4 +1,4 @@
-name = 'REevo_nnenum'
+name = 'REevo_verinet_debug'
 
 [dnn]
 	artifact = 'MNIST'
@@ -12,17 +12,17 @@ name = 'REevo_nnenum'
 
 	[ca.parameters]
 		[ca.parameters.level]
-			neu = 3
-			fc = 3
+			neu = 11
+			fc = 9
 			prop = 5
 
 		[ca.parameters.range]
-			neu = ['1/3', '1']
-			fc = ['1/3', '1']
+			neu = ['295/33', '650/33']
+			fc = ['676/33', '32/1']
 			prop = [0, 4]
 
 [evolutionary]
-	iterations = 10
+	iterations = 1
 	arity = 2
 	inflation_rate = 2
 	deflation_rate = 0.5
@@ -49,7 +49,7 @@ name = 'REevo_nnenum'
 	time = 600
 	memory = '16G'
 	[verify.verifiers]
-		DNNV = ['nnenum']
+		DNNV = ['verinet']
 		# DNNV = ['eran_deeppoly','neurify','nnenum']
 		# DNNF = ['default']
 
