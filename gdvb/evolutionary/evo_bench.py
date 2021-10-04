@@ -114,6 +114,11 @@ class EvoBench:
                 self.state = EvoState.Done
             else:
                 next_ca_configs = self.first_refine(evo_step)
+
+                # cleans previous benchmark results for refiner plot
+                # self.res = None
+                # self.res_nb_solved = None
+
                 if self.check_same_ca_configs(ca_configs, next_ca_configs):
                     self.state = EvoState.Done
 
@@ -188,6 +193,7 @@ class EvoBench:
         return ca_configs_next
 
     def first_refine(self, evo_step):
+        print("REFINE!!!!!!!!!!!!!")
         ca_configs = evo_step.benchmark.ca_configs
         ca_configs_next = copy.deepcopy(ca_configs)
         arity = self.evo_configs['arity']
@@ -198,14 +204,36 @@ class EvoBench:
         for i, f in enumerate(evo_step.factors):
             f = copy.deepcopy(f)
 
-            all_e = list(set(x[i] for x in raw))
-            min_e = min(all_e)
-            start = min_e
+            all_levels = set(x[i] for x in raw)
+            min_level = min(all_levels)
+            max_level = max(all_levels)
 
-            max_e = max([x[i] for x in raw if raw[x] != i])
+            print(all_levels, min_level, max_level)
 
-            tmp = [x for x in all_e if x > max_e]
-            end = min(tmp) if tmp else max_e
+            povit_min_candidates = [min_level]
+            povit_max_candidates = [max_level]
+            for l in all_levels:
+                min_pass = True
+                max_pass = True
+                for x in raw:
+                    if x[i] <= l:
+                        if raw[x] == ca_configs['parameters']['level']['prop']:
+                            min_pass = False
+                    if x[i] >= l:
+                        if raw[x] != 0:
+                            max_pass = False
+
+                if min_pass:
+                    povit_min_candidates += [l]
+                if max_pass:
+                    povit_max_candidates += [l]
+
+            print("povit_min_candidates: ", povit_min_candidates)
+            print("povit_max_candidates: ", povit_max_candidates)
+            start = max(povit_min_candidates)
+            end = min(povit_max_candidates)
+
+            print("START:", start, "END:", end)
 
             f.set_start_end(start, end)
             f.subdivision(arity)
@@ -264,8 +292,8 @@ class EvoBench:
         ticks = np.array([list(x) for x in self.res[verifier].keys()], dtype=np.float32)
         data = np.array([x for x in self.res[verifier].values()], dtype=np.float32)
 
-        print(set(sorted(np.array([list(x) for x in self.res[verifier].keys()])[:, 0].tolist())))
-        print(set(sorted(np.array([list(x) for x in self.res[verifier].keys()])[:, 1].tolist())))
+        # print(self.evo_param[0], set(sorted(np.array([list(x) for x in self.res[verifier].keys()])[:, 0].tolist())))
+        # print(self.evo_param[1], set(sorted(np.array([list(x) for x in self.res[verifier].keys()])[:, 1].tolist())))
 
         ticks_f1 = ticks[:, 0].tolist()
         ticks_f2 = ticks[:, 1].tolist()
