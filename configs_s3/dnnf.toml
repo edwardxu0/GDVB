@@ -1,4 +1,4 @@
-name = 'REevo_nnenum'
+name = 'REevo_dnnf'
 
 [dnn]
 	artifact = 'MNIST'
@@ -49,13 +49,13 @@ name = 'REevo_nnenum'
 	time = 600
 	memory = '16G'
 	[verify.verifiers]
-		DNNV = ['nnenum']
+		# DNNV = ['verinet']
 		# DNNV = ['eran_deeppoly','neurify','nnenum']
-		# DNNF = ['default']
+		DNNF = ['default']
 
 	[verify.dispatch]
 		platform = "slurm"
 		#reservation = "dx3yy_28"
 		nb_cpus = 6
 		nodes = ['cortado01','cortado02','cortado03','cortado04','cortado05','cortado06','cortado07','cortado08']
-		task_per_node = 3
+		task_per_node = 7
