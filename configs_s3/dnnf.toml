@@ -57,5 +57,5 @@ name = 'REevo_dnnf'
 		platform = "slurm"
 		#reservation = "dx3yy_28"
 		nb_cpus = 6
-		nodes = ['cortado01','cortado02','cortado03','cortado04','cortado05','cortado06','cortado07','cortado08']
+		nodes = ['cortado02','cortado03','cortado04','cortado05','cortado06','cortado07','cortado08','cortado09']
 		task_per_node = 7
