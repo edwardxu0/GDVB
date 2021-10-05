@@ -115,9 +115,9 @@ class EvoBench:
             else:
                 next_ca_configs = self.first_refine(evo_step)
 
-                # cleans previous benchmark results for refiner plot
-                # self.res = None
-                # self.res_nb_solved = None
+                # cleans previous benchmark results for refinement phase
+                self.res = None
+                self.res_nb_solved = None
 
                 if self.check_same_ca_configs(ca_configs, next_ca_configs):
                     self.state = EvoState.Done
