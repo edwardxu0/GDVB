@@ -471,7 +471,7 @@ class VerificationProblem:
                 os.remove(log_path.replace('.out','.err'))
                 print(f"Removed failed log: {log_path}")
 
-            if True and verification_answer in ['undetermined', 'unrun', 'rerun']:
+            if False and verification_answer in ['undetermined', 'unrun', 'rerun']:
                 os.remove(log_path)
                 os.remove(log_path.replace('.out','.err'))
                 print(f"Removed failed log: {log_path}")
