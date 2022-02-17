@@ -46,7 +46,7 @@ class PieScatter2D(PLOT):
 
         return ax
 
-    def draw(self, xtics, ytics, xlabel, ylabel):
+    def draw(self, xtics, ytics, xlabel, ylabel, title=False):
 
         levels = self.data.shape
 
@@ -88,7 +88,10 @@ class PieScatter2D(PLOT):
         # plt.yticks(np.arange(0,levels[1]+1).tolist(),fontsize=16)
         plt.yticks(np.arange(0, levels[1]+1).tolist(), [0]+ytics)
         plt.ylim(0, levels[1] + 1)
-        # plt.title('title', fontsize=40)
+        
+        if title:
+            plt.title(title)
+            
         # plt.savefig(f'{res_dir}/{v}.png', bbox_inches='tight')
         # plt.show()
 
