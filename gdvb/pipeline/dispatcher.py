@@ -24,6 +24,31 @@ class Task:
             nb_gpus = dispatch['nb_gpus'] if 'nb_gpus' in dispatch else 0
             self.configure_slurm(self.cmds, task_name, nb_gpus)
 
+
+    # execute task
+    def run(self):
+        if self.platform == 'slurm':
+            cmd = 'sbatch'
+            cmd += f' --exclude={self.exclude}' if self.exclude else ''
+            cmd += f' --reservation {self.reservation}' if self.reservation else ''
+            cmd += f' -c {self.nb_cpus}' if self.nb_cpus else ''
+
+            if self.nodes:
+                print(f'Requesting a node from: {self.nodes}')
+                node = self.request_node()
+                cmd += f' -w {node}'
+            cmd += f' {self.slurm_path}'
+            print(cmd)
+            subprocess.run(cmd, shell=True)
+        elif self.platform == 'local':
+            for cmd in self.cmds:
+                cmd += f' > {self.output_path} 2> {self.error_path}'
+                subprocess.run(cmd, shell=True)
+        else:
+            assert False
+
+    # SLURM SCRIPTS
+    # TODO: make more general
     # configure slurm script if running on slurm server
     def configure_slurm(self, cmds, task_name, nb_gpus):
         lines = ['#!/bin/sh',
@@ -41,29 +66,6 @@ class Task:
 
         lines = [x+'\n' for x in lines]
         open(self.slurm_path, 'w').writelines(lines)
-
-    # execute task
-    def run(self):
-        if self.platform == 'slurm':
-            cmd = 'sbatch'
-            cmd += f' --exclude={self.exclude}' if self.exclude else ''
-            cmd += f' --reservation {self.reservation}' if self.reservation else ''
-            cmd += f' -c {self.nb_cpus}' if self.nb_cpus else ''
-
-            if self.nodes:
-                print(f'Requesting a node from: {self.nodes}')
-                node = self.request_node()
-                cmd += f' -w {node}'
-            cmd += f' {self.slurm_path}'
-            print(cmd)
-            subprocess.run(cmd, shell=True)
-
-        elif self.platform == 'local':
-            for cmd in self.cmds:
-                cmd += f' > {self.output_path} 2> {self.error_path}'
-                subprocess.run(cmd, shell=True)
-        else:
-            assert False
 
     def request_node(self):
         while True:

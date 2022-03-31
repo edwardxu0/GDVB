@@ -373,11 +373,11 @@ class VerificationProblem:
                 self.settings.logger.warning(f'unrun: {log_path}')
                 verification_time = -1
             else:
-                LINES_TO_CHECK = 300
+                LINES_TO_CHECK = 100
                 lines_err = list(reversed(open(log_path, 'r').readlines()))
                 lines_out = list(
                     reversed(open(os.path.splitext(log_path)[0] + '.err', 'r').readlines()))
-                # lines = lines_out[:LINES_TO_CHECK] + lines_err[:LINES_TO_CHECK]
+                lines = lines_out[:LINES_TO_CHECK] + lines_err[:LINES_TO_CHECK]
                 lines = lines_out + lines_err
 
                 verification_answer = None

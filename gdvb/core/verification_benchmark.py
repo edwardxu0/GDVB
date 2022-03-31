@@ -25,7 +25,6 @@ class VerificationBenchmark:
         self.artifact = self._create_artifact(dnn_configs)
         self.settings.logger.info('Computing Factors')
         (self.parameters, self.fc_ids, self.conv_ids) = self._gen_parameters(ca_configs)
-        print(self.parameters)
         self._debug_layer()
         self.settings.logger.info('Computing Covering Array')
         self.ca = self._gen_ca(ca_configs)
@@ -135,7 +134,7 @@ class VerificationBenchmark:
 
         open(ca_config_path, 'w').writelines(lines)
 
-        acts_path = './lib/acts.jar'
+        acts_path = os.environ["acts_path"]
         if not os.path.exists(acts_path):
             raise FileNotFoundError(
                 f'CA generator ACTS is not found at :{acts_path}')
@@ -209,7 +208,7 @@ class VerificationBenchmark:
                 elif vpc['fc'] > 1:
                     # append fully connected layers to the last hidden layer
                     # nb_neurons = nb_neurons in the last hidden layer
-                    if self.settings.training_configs['add_scheme'] == 'same_as_last_relu':
+                    if self.settings.training_configs['add_scheme'] == 'last_same_relu':
                         last_layer_id = np.max(self.fc_ids)
                         nb_layer_to_add = np.arange(
                             1, round(len(self.fc_ids) * (vpc['fc'] - 1))+1, 1)
@@ -242,7 +241,7 @@ class VerificationBenchmark:
                 elif vpc['conv'] > 1:
                     # append convolutional layers to the last hidden layer
                     # nb_neurons = nb_neurons in the last hidden layer
-                    if self.settings.training_configs['add_scheme'] == 'same_as_last_relu':
+                    if self.settings.training_configs['add_scheme'] == 'last_same_relu':
                         last_layer_id = np.max(self.conv_ids)
                         nb_layer_to_add = np.arange(
                             1, round(len(self.conv_ids) * (vpc['conv'] - 1))+1, 1)
@@ -266,6 +265,37 @@ class VerificationBenchmark:
                 else:
                     pass
 
+            if 'lay' in vpc:
+                if vpc['lay'] < 1:
+                    # randomly select layers to drop
+                    if self.settings.training_configs['drop_scheme'] == 'random':
+                        drop_fc_ids = sorted(random.sample(self.fc_ids, int(
+                            round(len(self.fc_ids) * (1 - vpc['fc'])))))
+                        drop_ids += drop_fc_ids
+                    else:
+                        raise NotImplementedError(f'Unsupported drop scheme: '
+                                                  f'{self.settings.training_configs["drop_scheme"]}')
+                elif vpc['lay'] > 1:
+                    # append fully connected layers to the last hidden layer
+                    # nb_neurons = nb_neurons in the last hidden layer
+                    if self.settings.training_configs['add_scheme'] == 'last_same_relu':
+                        last_layer_id = np.max(self.fc_ids)
+                        nb_layer_to_add = np.arange(
+                            1, round(len(self.fc_ids) * (vpc['fc'] - 1))+1, 1)
+                        fc_add_ids = [
+                            x + last_layer_id for x in nb_layer_to_add]
+                        nb_neurons = self.artifact.layers[last_layer_id].size
+                        layer = {'layer_type': 'FullyConnected',
+                                 'parameters': nb_neurons,
+                                 'activation_function': 'relu',
+                                 'layer_id': fc_add_ids}
+                        layers_add += [layer]
+                        add_ids += fc_add_ids
+                    else:
+                        raise NotImplementedError(f'Unsupported drop scheme: '
+                                                  f'{self.settings.training_configs["drop_scheme"]}')
+                else:
+                    pass
             n = VerificationProblem(self.settings, vpc, self)
             dis_strats = [['drop', x] for x in drop_ids]
             dis_strats += [['add', x] for x in layers_add]

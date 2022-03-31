@@ -8,7 +8,7 @@ def configure(args):
     config_file = open(args.configs, 'r').read()
     configs = toml.loads(config_file)
 
-    configs['root'] = os.path.join(args.root, f'{configs["name"]}.{args.seed}')
+    configs['root'] = os.path.join(args.result_dir, f'{configs["name"]}.{args.seed}')
     configs['seed'] = args.seed
     configs['task'] = args.task
     configs['override'] = args.override

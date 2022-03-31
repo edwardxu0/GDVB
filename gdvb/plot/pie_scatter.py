@@ -46,7 +46,7 @@ class PieScatter2D(PLOT):
 
         return ax
 
-    def draw(self, xtics, ytics, xlabel, ylabel, title=False):
+    def draw(self, xtics, ytics, xlabel, ylabel, title=False, rotation=(0,0)):
 
         levels = self.data.shape
 
@@ -81,12 +81,13 @@ class PieScatter2D(PLOT):
         # plt.xlabel('nueron', fontsize=20)
         plt.xlabel(xlabel)
         # plt.xticks(np.arange(0,levels[0]+1).tolist(),fontsize=16)
-        plt.xticks(np.arange(0, levels[0]+1).tolist(), [0]+xtics)
+        plt.xticks(np.arange(0, levels[0]+1).tolist(), [0]+xtics, rotation=rotation[0])
+    
         plt.xlim(0, levels[0] + 1)
         # plt.ylabel('FC', fontsize=20)
         plt.ylabel(ylabel)
         # plt.yticks(np.arange(0,levels[1]+1).tolist(),fontsize=16)
-        plt.yticks(np.arange(0, levels[1]+1).tolist(), [0]+ytics)
+        plt.yticks(np.arange(0, levels[1]+1).tolist(), [0]+ytics, rotation=rotation[1])
         plt.ylim(0, levels[1] + 1)
         
         if title:
