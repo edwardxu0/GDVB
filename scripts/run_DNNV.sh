@@ -1,5 +1,5 @@
 #!/bin/bash
 
-. .venv/bin/activate
+source $DNNV/.venv/bin/activate
 
 dnnv $@

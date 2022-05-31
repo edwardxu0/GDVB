@@ -339,7 +339,7 @@ class VerificationProblem:
         property_path = os.path.join(
             self.prop_dir, f"robustness_{self.vpc['prop']}_{eps}.py")
 
-        cmd = f'python -W ignore ./lib/DNNV/tools/resmonitor.py -T {time_limit} -M {memory_limit} '
+        cmd = f'python -W ignore $DNNV/tools/resmonitor.py -T {time_limit} -M {memory_limit} '
         cmd += verifier.execute([property_path, '--network N', self.dis_model_path])
         cmds = [cmd]
         task = Task(cmds,

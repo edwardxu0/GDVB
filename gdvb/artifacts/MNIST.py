@@ -33,9 +33,9 @@ class MNIST(Artifact):
                 img.save(new_img_path)
 
                 npy_img_path = os.path.join(output_dir, f"{idx.item()}.npy")
-                image_shape = (self.input_shape[0], height, width)
+                image_shape = (1, self.input_shape[0], height, width)
                 np.save(npy_img_path, sx.reshape(
-                    self.input_shape[0], height, width))
+                    1, self.input_shape[0], height, width))
 
                 property_path = os.path.join(
                     output_dir, f"robustness_{i}_{epsilon}.py")
@@ -56,7 +56,7 @@ class MNIST(Artifact):
                                    "    x_,\n",
                                    "    Implies(\n",
                                    "        ((x - epsilon) < x_ < (x + epsilon)),\n",
-                                   "        argmax(N[input_layer:](x_)) == argmax(N[input_layer:](x)),\n",
+                                   "        np.argmax(N[input_layer:](x_)) == np.argmax(N[input_layer:](x)),\n",
                                    "    ),\n",
                                    ")\n"]
 
