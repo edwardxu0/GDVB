@@ -1,7 +1,6 @@
 import os
 import subprocess
-import random
-import string
+import uuid
 import time
 import re
 
@@ -24,8 +23,8 @@ class Task:
             nb_gpus = dispatch['nb_gpus'] if 'nb_gpus' in dispatch else 0
             self.configure_slurm(self.cmds, task_name, nb_gpus)
 
-
     # execute task
+
     def run(self):
         if self.platform == 'slurm':
             cmd = 'sbatch'
@@ -51,6 +50,7 @@ class Task:
     # TODO: make more general
     # configure slurm script if running on slurm server
     def configure_slurm(self, cmds, task_name, nb_gpus):
+        tmpdir = f'/tmp/{uuid.uuid1()}'
         lines = ['#!/bin/sh',
                  f'#SBATCH --job-name={task_name}',
                  f'#SBATCH --output={self.output_path}',
@@ -58,75 +58,72 @@ class Task:
         if nb_gpus != 0:
             lines += ['#SBATCH --partition=gpu',
                       f'#SBATCH --gres=gpu:{nb_gpus}']
+        lines += [f'export TMPDIR={tmpdir}',
+                  f'mkdir {tmpdir}',
+                  'cat /proc/sys/kernel/hostname',
+                  'export GRB_LICENSE_FILE=/u/dx3yy/.gurobikeys/`hostname`.gurobi.lic']
 
-        # TODO: remove hard coded gurobi license
-        lines += ['export GRB_LICENSE_FILE=/u/dx3yy/.gurobikeys/`hostname`.gurobi.lic']
-        lines += ['cat /proc/sys/kernel/hostname']
         lines += cmds
+        lines += [f'rm -rf {tmpdir}']
 
         lines = [x+'\n' for x in lines]
         open(self.slurm_path, 'w').writelines(lines)
 
     def request_node(self):
         while True:
-            node_avl_flag = False
-            tmp_file = './tmp/' + \
-                ''.join(random.choice(string.ascii_lowercase)
-                        for i in range(16))
+            sq_file = 'squeue.txt'
+            si_file = 'sinfo.txt'
 
-            # sqcmd = f'squeue | grep cortado > {tmp_file}'
-            sqcmd = f'squeue  > {tmp_file}'
-            # sqcmd = f'squeue -u dx3yy > {tmp_file}'
-            time.sleep(3)
-            os.system(sqcmd)
-            sq_lines = open(tmp_file, 'r').readlines()[1:]
-            os.remove(tmp_file)
+            sq_cmd = f'squeue  > {sq_file}'
+            os.system(sq_cmd)
+            sq_lines = open(sq_file, 'r').readlines()[1:]
+            os.remove(sq_file)
 
-            nodes_avl = {}
+            nodes_alive = {}
             for node in self.nodes:
-                nodes_avl[node] = 0
+                nodes_alive[node] = 0
 
-            nodenodavil_flag = False
+            alive = True
             for l in sq_lines:
-                if 'ReqNodeNotAvail' in l and 'dx3yy' in l and 'GDVB_V' in l:
-                    nodenodavil_flag = True
+                if 'ReqNodeNotAvail' in l and 'GDVB_V' in l:
                     unavil_node = l[:-1].split(',')[-1].split(':')[1][:-1]
                     if unavil_node in self.nodes:
-                        cmd = f'sinfo > tmp/sinfo.txt'
+                        alive = False
+                        cmd = f'sinfo > {si_file}'
                         os.system(cmd)
-                        sinfo_lines = open('tmp/sinfo.txt', 'r').readlines()
+                        si_lines = open(si_file, 'r').readlines()
+                        os.remove(si_file)
 
                         temp = re.compile("([a-zA-Z]+)([0-9]+)")
-                        nname, digits = temp.match(unavil_node).groups()
-                        for sl in sinfo_lines:
-                            if 'drain' in sl or 'down' in sl or 'drng' in sl:
-                                if nname in sl and digits in sl:
+                        name, digits = temp.match(unavil_node).groups()
+                        for l in si_lines:
+                            if 'drain' in l or 'down' in l or 'drng' in l:
+                                if name in l and digits in l:
                                     self.nodes.remove(unavil_node)
                                     if len(self.nodes) == 0:
-                                        print('No avilable nodes. exiting.')
+                                        print('No available nodes. exiting.')
                                         exit()
-                                    nodenodavil_flag = False
-                    else:
-                        nodenodavil_flag = False
-                    if nodenodavil_flag:
+                                    alive = True
+                    if alive:
                         break
 
                 if ' R ' in l and l != '':
                     node = l.strip().split(' ')[-1]
                     if node in self.nodes:
-                        nodes_avl[node] += 1
+                        nodes_alive[node] += 1
 
-            if nodenodavil_flag:
-                print('node unavialiable. waiting ...')
+            if not alive:
+                print('Nodes unavialiable. Waiting ...')
+                time.sleep(10)
                 continue
 
-            # print(nodes_avl)
-
-            for na in nodes_avl:
-                if nodes_avl[na] < self.task_per_node:
-                    node_avl_flag = True
+            goon = False
+            for na in nodes_alive:
+                if nodes_alive[na] < self.task_per_node:
+                    goon = True
                     break
-            if node_avl_flag:
+            if goon:
+                time.sleep(3)
                 break
 
         return na
