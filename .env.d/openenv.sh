@@ -6,7 +6,6 @@ source .venv/bin/activate
 if [ -z ${GDVB} ]; then
   export GDVB=`pwd`
 fi
-export TMPDIR=$GDVB/tmp
 
 # libraries
 export R4V="${GDVB}/lib/R4V"

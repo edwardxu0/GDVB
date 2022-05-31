@@ -41,10 +41,8 @@ class Settings:
         self.verification_configs = configs['verify']
         self.evolutionary = configs['evolutionary'] if 'evolutionary' in configs else None
 
-        self.tmp_dir = './tmp'
-        pathlib.Path(self.tmp_dir).mkdir(parents=True, exist_ok=True)
-        self.sub_dirs = ['dis_config', 'dis_model',
-                         'dis_log', 'props', 'veri_log']
+        self.sub_dirs = ['dis_config', 'dis_model', 'dis_log', 'props', 'veri_log']
+        
         if configs['train']['dispatch']['platform'] == 'slurm':
             self.sub_dirs += ['dis_slurm']
         if configs['verify']['dispatch']['platform'] == 'slurm':
