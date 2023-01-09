@@ -3,10 +3,13 @@ import subprocess
 import uuid
 import time
 import re
+import tempfile
 
 
 class Task:
-    def __init__(self, cmds, dispatch, task_name, output_path, slurm_path):
+    def __init__(
+        self, cmds, dispatch, task_name, output_path, slurm_path, need_warming_up=False
+    ):
         self.cmds = cmds
         self.platform = dispatch["platform"]
         self.output_path = output_path
@@ -14,15 +17,16 @@ class Task:
         self.error_path = output_path
 
         self.exclude = dispatch["exclude"] if "exclude" in dispatch else None
+
         self.reservation = (
             dispatch["reservation"] if "reservation" in dispatch else None
         )
-        self.nb_cpus = dispatch["nb_cpus"] if "nb_cpus" in dispatch else None
+        self.nb_cpus = dispatch["nb_cpus"] if "nb_cpus" in dispatch else 1
         self.nodes = dispatch["nodes"] if "nodes" in dispatch else None
         self.task_per_node = (
             dispatch["task_per_node"] if "task_per_node" in dispatch else None
         )
-
+        self.need_warming_up = need_warming_up
         if self.platform == "slurm":
             self.slurm_path = slurm_path
             nb_gpus = dispatch["nb_gpus"] if "nb_gpus" in dispatch else 0
@@ -35,7 +39,6 @@ class Task:
             cmd = "sbatch"
             cmd += f" --exclude={self.exclude}" if self.exclude else ""
             cmd += f" --reservation {self.reservation}" if self.reservation else ""
-            cmd += f" -c {self.nb_cpus}" if self.nb_cpus else ""
 
             if self.nodes:
                 print(f"Requesting a node from: {self.nodes}")
@@ -61,6 +64,7 @@ class Task:
             f"#SBATCH --job-name={task_name}",
             f"#SBATCH --output={self.output_path}",
             f"#SBATCH --error={self.error_path}",
+            f"#SBATCH --ntasks={self.nb_cpus}",
         ]
         if nb_gpus != 0:
             lines += ["#SBATCH --partition=gpu", f"#SBATCH --gres=gpu:{nb_gpus}"]
@@ -70,8 +74,10 @@ class Task:
             "cat /proc/sys/kernel/hostname",
             "export GRB_LICENSE_FILE=/u/dx3yy/.gurobikeys/`hostname`.gurobi.lic",
         ]
-        lines += ['echo "********Dry_Run********"']
-        lines += cmds
+        if self.need_warming_up:
+            lines += ['echo "********Dry_Run********"']
+            lines += cmds
+
         lines += ['echo "********Wet_Run********"']
         lines += cmds
         lines += [f"rm -rf {tmpdir}"]
@@ -81,8 +87,8 @@ class Task:
 
     def request_node(self):
         while True:
-            sq_file = "squeue.txt"
-            si_file = "sinfo.txt"
+            sq_file = tempfile.NamedTemporaryFile().name
+            si_file = tempfile.NamedTemporaryFile().name
 
             sq_cmd = f"squeue  > {sq_file}"
             os.system(sq_cmd)
@@ -95,7 +101,7 @@ class Task:
 
             alive = True
             for l in sq_lines:
-                if "ReqNodeNotAvail" in l and "GDVB_V" in l:
+                if "ReqNodeNotAvail" in l and "V_" in l:
                     unavil_node = l[:-1].split(",")[-1].split(":")[1][:-1]
                     if unavil_node in self.nodes:
                         alive = False
@@ -123,7 +129,7 @@ class Task:
                         nodes_alive[node] += 1
 
             if not alive:
-                print("Nodes unavialiable. Waiting ...")
+                print("Nodes unavailable. Waiting ...")
                 time.sleep(10)
                 continue
 

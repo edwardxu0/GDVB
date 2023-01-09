@@ -10,6 +10,8 @@ from ..artifacts.ACAS import ACAS
 from ..artifacts.MNIST import MNIST
 from ..artifacts.CIFAR10 import CIFAR10
 from ..artifacts.DAVE2 import DAVE2
+from ..artifacts.TaxiNet import TaxiNet
+
 from ..nn.layers import Dense, Conv, Transpose, Flatten
 from ..pipeline.dispatcher import Task
 from ..pipeline.R4V import R4V
@@ -57,6 +59,7 @@ class VerificationProblem:
             if ds[0] == "drop":
                 drop_ids += [ds[1]]
             elif ds[0] == "add":
+                print(ds, ds[1])
                 added_layers += [ds[1]]
             elif ds[0] == "scale":
                 scale_ids_factors += [[ds[1], ds[2]]]
@@ -77,6 +80,7 @@ class VerificationProblem:
         self.drop_ids = drop_ids
         self.scale_ids_factors = scale_ids_factors
         self.added_layers = added_layers
+        print(added_layers)
 
         self.dis_config_path = os.path.join(
             self.settings.dis_config_dir, self.net_name + ".toml"
@@ -156,6 +160,8 @@ class VerificationProblem:
                     self.remaining_layer_ids += [i]
 
             # add layers
+            if self.added_layers:
+                print("added layers: ", self.added_layers)
             for layer in self.added_layers:
                 if layer["layer_type"] == "FullyConnected":
                     for layer_id in layer["layer_id"]:
@@ -168,6 +174,7 @@ class VerificationProblem:
                         new_layer = Dense(size, None, None, in_shape)
                         self.layers.insert(layer_id, new_layer)
                         self.nb_neurons.insert(layer_id, np.prod(new_layer.out_shape))
+                        print("conv", size, size, self.fc_and_conv_kernel_sizes)
                         self.fc_and_conv_kernel_sizes.insert(layer_id, size)
                 else:
                     raise NotImplementedError
@@ -253,12 +260,23 @@ class VerificationProblem:
 
             cmd = R4V(["distill", "debug"]).execute([self.dis_config_path])
             cmds = [cmd]
+
+            exclude = (
+                os.environ["train_nodes_exclude"]
+                if "train_nodes_exclude" in os.environ
+                else None
+            )
+            dispatch = self.settings.training_configs["dispatch"]
+            if exclude:
+                dispatch["exclude"] = exclude
+
             task = Task(
                 cmds,
-                self.settings.training_configs["dispatch"],
-                "GDVB_Train",
+                dispatch,
+                "GDVB_T",
                 self.dis_log_path,
                 self.dis_slurm_path,
+                need_warming_up=False,
             )
             self.settings.logger.debug(f"Command: {cmd}")
             task.run()
@@ -285,7 +303,9 @@ class VerificationProblem:
             prop_id = self.vpc["prop"]
             self.verification_benchmark.artifact.generate_property(prop_id)
 
-        elif isinstance(self.verification_benchmark.artifact, (MNIST, CIFAR10, DAVE2)):
+        elif isinstance(
+            self.verification_benchmark.artifact, (MNIST, CIFAR10, DAVE2, TaxiNet)
+        ):
             data_config = self.distillation_config["distillation"]["data"]
             prop_id = self.vpc["prop"]
 
@@ -316,7 +336,7 @@ class VerificationProblem:
 
     # am I verified?
     def verified(self):
-        log_path = self.veri_log_path[:-3] + "err"
+        log_path = self.veri_log_path
         verified = False
         if os.path.exists(log_path):
             lines = open(log_path).readlines()[-10:]
@@ -324,8 +344,9 @@ class VerificationProblem:
                 if any(
                     x in line
                     for x in [
+                        # "Process finished successfully",
+                        "  result: ",
                         "Timeout (terminating process)",
-                        "Process finished successfully",
                         "Out of Memory (terminating process)",
                     ]
                 ):
@@ -372,15 +393,22 @@ class VerificationProblem:
             self.prop_dir, f"robustness_{self.vpc['prop']}_{eps}.py"
         )
 
-        cmd = f"python -W ignore $DNNV/tools/resmonitor.py -T {time_limit+60} -M {memory_limit} "
+        cmd = f"python -W ignore $DNNV/tools/resmonitor.py -q -T {time_limit+60} -M {memory_limit} "
         cmd += verifier.execute([property_path, "--network N", self.dis_model_path])
         cmds = [cmd]
+
+        nodes = os.environ["verify_nodes"] if "verify_nodes" in os.environ else None
+        dispatch = self.settings.verification_configs["dispatch"]
+        if nodes:
+            dispatch["nodes"] = nodes.split(",")
+
         task = Task(
             cmds,
-            self.settings.verification_configs["dispatch"],
-            "GDVB_Verify",
+            dispatch,
+            "GDVB_V",
             self.veri_log_path,
             slurm_script_path,
+            need_warming_up=True,
         )
         self.settings.logger.debug(f"Command: {cmd}")
         task.run()
@@ -409,14 +437,21 @@ class VerificationProblem:
                 verification_time = -1
             else:
                 LINES_TO_CHECK = 100
-                lines_err = list(reversed(open(log_path, "r").readlines()))
-                lines_out = list(
-                    reversed(
-                        open(os.path.splitext(log_path)[0] + ".err", "r").readlines()
+                lines_out = list(reversed(open(log_path, "r").readlines()))
+
+                if os.path.exists(os.path.splitext(log_path)[0] + ".err"):
+                    lines_err = list(
+                        reversed(
+                            open(
+                                os.path.splitext(log_path)[0] + ".err", "r"
+                            ).readlines()
+                        )
                     )
-                )
-                lines = lines_out[:LINES_TO_CHECK] + lines_err[:LINES_TO_CHECK]
-                lines = lines_out + lines_err
+                    lines = lines_err[:LINES_TO_CHECK] + lines_out[:LINES_TO_CHECK]
+                else:
+                    wet_run_idx = lines_out.index("********Wet_Run********\n")
+                    lines = lines_out[: wet_run_idx + 1]
+                    lines = lines[:LINES_TO_CHECK]
 
                 verification_answer = None
                 verification_time = None
@@ -495,6 +530,7 @@ class VerificationProblem:
                         "ValueError: Unknown arguments: --",
                         "--- Logging error ---",
                         "corrupted size vs. prev_size",
+                        "No space left on device",
                     ]
                     if any(re.search(x, l) for x in rerun_patterns):
                         verification_answer = "rerun"
@@ -535,6 +571,12 @@ class VerificationProblem:
                 "unrun",
                 "undetermined",
             ], f"{verification_answer}:{log_path}"
+
+            # double check verification time to recover time loss
+            if verification_answer in ["sat", "unsat", "unknown"]:
+                if verification_time > time_limit:
+                    verification_time = time_limit
+                    verification_answer = "timeout"
 
             verification_results[verifier.verifier_name] = [
                 verification_answer,

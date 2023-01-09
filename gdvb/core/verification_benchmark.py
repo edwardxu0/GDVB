@@ -10,6 +10,7 @@ from ..artifacts.ACAS import ACAS
 from ..artifacts.MNIST import MNIST
 from ..artifacts.CIFAR10 import CIFAR10
 from ..artifacts.DAVE2 import DAVE2
+from ..artifacts.TaxiNet import TaxiNet
 from ..nn.layers import Dense, Conv
 
 from fractions import Fraction as F
@@ -341,18 +342,19 @@ class VerificationBenchmark:
             else:
                 transform = None
 
-            # input dimension
+            # input dimensions
             if "idm" in vpc:
+                id_f = vpc["idm"]
                 height = transform["height"]
                 width = transform["width"]
-                assert height == width
-
-                id_f = vpc["idm"]
-                new_height = int(round(np.sqrt(height * width * id_f)))
+                new_height = int(np.sqrt(id_f) * height)
+                new_width = int(np.sqrt(id_f) * width)
                 transform["height"] = new_height
-                transform["width"] = new_height
+                transform["width"] = new_width
+
                 if new_height != height:
-                    dis_strats += [["scale_input", new_height / height]]
+                    assert new_width != width
+                    dis_strats += [["scale_input", np.sqrt(id_f)]]
 
             # input domain size
             if "ids" in vpc:
@@ -417,6 +419,7 @@ class VerificationBenchmark:
                     f"Layers to Add: {add_ids}, Delete: {drop_ids}."
                 )
                 self.settings.logger.debug(f"Layers to Scale: {scale_ids}.")
+                print(n.fc_and_conv_kernel_sizes, scale_ids)
                 for x in scale_ids:
                     assert n.fc_and_conv_kernel_sizes[x] > 0
                     if int(n.fc_and_conv_kernel_sizes[x] * neuron_scale_factor) == 0:
