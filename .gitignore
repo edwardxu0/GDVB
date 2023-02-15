@@ -4,8 +4,7 @@
 /res*
 /attic
 /data
-/lib/acts.jar
-/lib/gurobi.lic
+/lib
 /.idea/
 /pdfs_*
 /img*
