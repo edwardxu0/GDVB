@@ -26,18 +26,20 @@ def main(args):
         lines = open(os.path.join(prop_dir, x), "r").readlines()
         test += [x for x in lines if "python" in x]
 
-    if args.artifact == "MNIST":
-        dataset = datasets.MNIST(
+    if args.artifact in ["MNIST", "CIFAR10"]:
+        dataset_train = eval(f"datasets.MNIST")(
             root="./data", train=True, download=True, transform=None
         )
-    elif args.artifact == "DAVE2":
-        pass
+        dataset_test = eval(f"datasets.MNIST")(
+            root="./data", train=False, download=True, transform=None
+        )
+        dataset = dataset_train+dataset_test
     else:
         assert False
 
     benchmark_csv = []
-    test = list(set(test))
 
+    print(test)
     for x in test:
         tks = x.split()
         # print(tks)
@@ -51,7 +53,7 @@ def main(args):
         assert model_file and property_file
 
         lines = open(property_file, "r").readlines()
-        # print(lines)
+        print(lines)
 
         # calculate input constraints
         img = [x for x in lines if "Image" in x]
@@ -76,7 +78,7 @@ def main(args):
 
         # 2) define output
         vnn_lib_lines += [""]
-        if args.artifact == "MNIST":
+        if args.artifact in ["MNIST", "CIFAR10"]:
             nb_output = 10
         elif args.artifact == "DAVE2":
             nb_output = 1
@@ -96,7 +98,7 @@ def main(args):
 
         # 4) define output constraints:
         vnn_lib_lines += ["", f"; Output constraints:"]
-        if args.artifact == "MNIST":
+        if args.artifact in ["MNIST", "CIFAR10"]:
             label = dataset[img_id][1]
             vnn_lib_lines += ["(assert (or"]
             for x in range(10):
@@ -124,6 +126,7 @@ def main(args):
         # save property file
         property_name = f'{model_file.split("/")[-1][:-5]}_{img_id}_{eps}.vnnlib'
         property_dir = os.path.join(args.root, "vnnlib")
+        print(property_dir)
         pathlib.Path(property_dir).mkdir(parents=True, exist_ok=True)
 
         open(os.path.join(property_dir, property_name), "w").writelines(

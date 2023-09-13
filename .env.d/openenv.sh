@@ -1,6 +1,7 @@
 #!/bin/bash
 
-source .venv/bin/activate
+#source .venv/bin/activate
+conda activate gdvb
 
 # GDVB
 if [ -z ${GDVB} ]; then

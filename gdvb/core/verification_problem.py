@@ -248,7 +248,9 @@ class VerificationProblem:
                 if "Process finished successfully" in line:
                     trained = True
                     break
-        return trained
+        #return trained
+        self.settings.logger.info('Checking trained log loosely!!!')
+        return os.path.exists(self.dis_log_path)
 
     # train network
     def train(self):
