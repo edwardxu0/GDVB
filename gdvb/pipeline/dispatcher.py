@@ -33,9 +33,13 @@ class Task:
             self.configure_slurm(self.cmds, task_name, nb_gpus)
 
     # execute task
-
     def run(self):
-        if self.platform == "slurm":
+        if self.platform == "local":
+            for cmd in self.cmds:
+                cmd += f" > {self.output_path} 2> {self.error_path}"
+                subprocess.run(cmd, shell=True)
+
+        elif self.platform == "slurm":
             cmd = "sbatch"
             cmd += f" --exclude={self.exclude}" if self.exclude else ""
             cmd += f" --reservation {self.reservation}" if self.reservation else ""
@@ -47,10 +51,7 @@ class Task:
             cmd += f" {self.slurm_path}"
             print(cmd)
             subprocess.run(cmd, shell=True)
-        elif self.platform == "local":
-            for cmd in self.cmds:
-                cmd += f" > {self.output_path} 2> {self.error_path}"
-                subprocess.run(cmd, shell=True)
+
         else:
             assert False
 
@@ -67,7 +68,10 @@ class Task:
             f"#SBATCH --ntasks={self.nb_cpus}",
         ]
         if nb_gpus != 0:
-            lines += ["#SBATCH --partition=gpu", f"#SBATCH --gres=gpu:{nb_gpus}"]
+            lines += [
+                "#SBATCH --partition=gpu",
+                f"#SBATCH --gres=gpu:{nb_gpus}",
+            ]
         lines += [
             f"export TMPDIR={tmpdir}",
             f"mkdir {tmpdir}",

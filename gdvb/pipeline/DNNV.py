@@ -1,6 +1,6 @@
 class DNNV:
     def __init__(self, options):
-        self._executor = "./scripts/run_DNNV.sh"
+        self._executor = "$GDVB/scripts/run_DNNV.sh"
         self._pre_params, self._post_params, self.verifier_name = self._parse_options(
             options
         )

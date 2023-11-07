@@ -43,7 +43,14 @@ class Settings:
             configs["evolutionary"] if "evolutionary" in configs else None
         )
 
-        self.sub_dirs = ["dis_config", "dis_model", "dis_log", "props", "veri_log"]
+        self.sub_dirs = [
+            "dis_config",
+            "dis_model",
+            "dis_log",
+            "props",
+            "veri_log",
+            "veri_config",
+        ]
 
         if configs["train"]["dispatch"]["platform"] == "slurm":
             self.sub_dirs += ["dis_slurm"]

@@ -12,6 +12,7 @@ from r4v.distillation.data import get_data_loader
 class DAVE2(Artifact):
     def __init__(self, dnn_configs):
         super().__init__(dnn_configs)
+        self.__name__ = "DAVE2"
         self.input_shape = (3, 100, 100)
 
     def generate_property(

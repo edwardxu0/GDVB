@@ -1,7 +1,6 @@
 #!/bin/bash
 
-cd $DNNF
-. $DNNF/.env.d/openenv.sh
-cd $GDVB
+. $GDVB/scripts/init_conda.sh
+conda activate dnnf
 
 python -m dnnf $@

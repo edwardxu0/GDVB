@@ -69,14 +69,14 @@ class VerificationBenchmark:
 
                 if level_size == 1:
                     assert level_min == level_max
-                    level = np.array([level_min], dtype=np.float)
+                    level = np.array([level_min], dtype=np.float32)
                 else:
                     level_range = level_max - level_min
                     level_step = level_range / (level_size - 1)
                     level = np.arange(level_min, level_max + level_step, level_step)
-                    level = np.array(level, dtype=np.float)
+                    level = np.array(level, dtype=np.float32)
                 if key == "prop":
-                    level = np.array(level, dtype=np.int)
+                    level = np.array(level, dtype=np.int32)
 
                 assert len(level) == level_size
                 parameters[key] = level

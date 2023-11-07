@@ -14,6 +14,7 @@ from r4v.distillation.data import get_data_loader
 class TaxiNet(Artifact):
     def __init__(self, dnn_configs):
         super().__init__(dnn_configs)
+        self.__name__ = "TaxiNet"
         r4v_config = toml.load(dnn_configs["r4v_config"])
         self.input_shape = tuple(
             r4v_config["distillation"]["teacher"]["input_shape"][1:]

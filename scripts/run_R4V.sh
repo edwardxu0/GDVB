@@ -1,7 +1,8 @@
 #!/bin/bash
 
-#. $R4V/.venv/bin/activate
 
-# conda activate r4v
+. $GDVB/scripts/init_conda.sh
+. $R4V/.env.d/openenv.sh
 
 python -m r4v $@
+

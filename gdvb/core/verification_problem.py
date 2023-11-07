@@ -17,6 +17,7 @@ from ..pipeline.dispatcher import Task
 from ..pipeline.R4V import R4V
 from ..pipeline.DNNV import DNNV, DNNV_wb
 from ..pipeline.DNNF import DNNF
+from ..pipeline.SwarmHost import SwarmHost
 
 
 class VerificationProblem:
@@ -248,8 +249,8 @@ class VerificationProblem:
                 if "Process finished successfully" in line:
                     trained = True
                     break
-        #return trained
-        self.settings.logger.info('Checking trained log loosely!!!')
+        # return trained
+        self.settings.logger.info("Checking trained log loosely!!!")
         return os.path.exists(self.dis_log_path)
 
     # train network
@@ -340,16 +341,19 @@ class VerificationProblem:
     def verified(self):
         log_path = self.veri_log_path
         verified = False
+        self.settings.logger.debug(f"Checking log file: {log_path}")
         if os.path.exists(log_path):
-            lines = open(log_path).readlines()[-10:]
+            lines = open(log_path).readlines()
             for line in lines:
                 if any(
                     x in line
                     for x in [
-                        # "Process finished successfully",
+                        # dnnv
                         "  result: ",
                         "Timeout (terminating process)",
                         "Out of Memory (terminating process)",
+                        # swarm_host
+                        "Result: ",
                     ]
                 ):
                     verified = True
@@ -395,8 +399,29 @@ class VerificationProblem:
             self.prop_dir, f"robustness_{self.vpc['prop']}_{eps}.py"
         )
 
-        cmd = f"python -W ignore $DNNV/tools/resmonitor.py -q -T {time_limit+60} -M {memory_limit} "
-        cmd += verifier.execute([property_path, "--network N", self.dis_model_path])
+        if any(isinstance(verifier, x) for x in [DNNV, DNNV_wb, DNNF]):
+            cmd = f"python -W ignore $DNNV/tools/resmonitor.py -q -T {time_limit+60} -M {memory_limit} "
+            cmd += verifier.execute([property_path, "--network N", self.dis_model_path])
+        elif isinstance(verifier, SwarmHost):
+            self.veri_config_path = os.path.join(
+                self.settings.veri_config_dir,
+                f"{self.vp_name}_T={time_limit}_M={memory_limit}:{verifier.verifier_name}{dnnv_wb_flag}.yaml",
+            )
+            cmd = verifier.execute(
+                [
+                    "V",
+                    f"--onnx {self.dis_model_path}",
+                    f"--artifact {self.verification_benchmark.artifact.__name__}",
+                    f"--property_id {self.vpc['prop']}",
+                    f"--eps {eps}",
+                    f"--property_dir {self.prop_dir}",
+                    f"--veri_config_path {self.veri_config_path}",
+                    f"-t {time_limit}",
+                    f"-m {memory_limit}",
+                ]
+            )
+        else:
+            raise NotImplementedError
         cmds = [cmd]
 
         nodes = os.environ["verify_nodes"] if "verify_nodes" in os.environ else None
@@ -404,13 +429,15 @@ class VerificationProblem:
         if nodes:
             dispatch["nodes"] = nodes.split(",")
 
+        warm_up = dispatch["platform"] == "slurm"
+
         task = Task(
             cmds,
             dispatch,
             "GDVB_V",
             self.veri_log_path,
             slurm_script_path,
-            need_warming_up=True,
+            need_warming_up=warm_up,
         )
         self.settings.logger.debug(f"Command: {cmd}")
         task.run()
@@ -426,7 +453,6 @@ class VerificationProblem:
         time_limit = self.settings.verification_configs["time"]
         memory_limit = self.settings.verification_configs["memory"]
         for verifier in verifiers:
-
             dnnv_wb_flag = "_wb" if isinstance(verifier, DNNV_wb) else ""
             log_path = os.path.join(
                 self.settings.veri_log_dir,
@@ -438,8 +464,7 @@ class VerificationProblem:
                 self.settings.logger.warning(f"unrun: {log_path}")
                 verification_time = -1
             else:
-                LINES_TO_CHECK = 100
-                lines_out = list(reversed(open(log_path, "r").readlines()))
+                lines = list(reversed(open(log_path, "r").readlines()))
 
                 if os.path.exists(os.path.splitext(log_path)[0] + ".err"):
                     lines_err = list(
@@ -449,16 +474,11 @@ class VerificationProblem:
                             ).readlines()
                         )
                     )
-                    lines = lines_err[:LINES_TO_CHECK] + lines_out[:LINES_TO_CHECK]
-                else:
-                    wet_run_idx = lines_out.index("********Wet_Run********\n")
-                    lines = lines_out[: wet_run_idx + 1]
-                    lines = lines[:LINES_TO_CHECK]
+                    lines = lines_err + lines
 
                 verification_answer = None
                 verification_time = None
                 for i, l in enumerate(lines):
-
                     if re.match(r"INFO*", l):
                         continue
 
@@ -506,6 +526,15 @@ class VerificationProblem:
                             )
                         break
 
+                    if re.search("Result: ", l):
+                        print("1: ", "lines[i - 1]", lines[i - 1])
+                        print("2: ", lines[i - 1].strip().split()[-1])
+                        print("3: ", log_path)
+
+                        verification_answer = l.strip().split()[-1]
+                        verification_time = float(lines[i - 1].strip().split()[-1])
+                        break
+
                     # exceptions that DNNV didn't catch
                     # exception_patterns = ["Aborted         "]
                     # if any(re.search(x, l) for x in exception_patterns):
@@ -542,9 +571,7 @@ class VerificationProblem:
                         )
                         break
 
-            if not verification_answer and (
-                i + 1 in [LINES_TO_CHECK, len(lines)] or len(lines) == 0
-            ):
+            if not verification_answer:
                 verification_answer = "undetermined"
                 verification_time = -1
                 self.settings.logger.warning(f"Undetermined job: {log_path}")
