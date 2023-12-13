@@ -419,7 +419,7 @@ class VerificationBenchmark:
                     f"Layers to Add: {add_ids}, Delete: {drop_ids}."
                 )
                 self.settings.logger.debug(f"Layers to Scale: {scale_ids}.")
-                print(n.fc_and_conv_kernel_sizes, scale_ids)
+                # print(n.fc_and_conv_kernel_sizes, scale_ids)
                 for x in scale_ids:
                     assert n.fc_and_conv_kernel_sizes[x] > 0
                     if int(n.fc_and_conv_kernel_sizes[x] * neuron_scale_factor) == 0:
@@ -438,10 +438,10 @@ class VerificationBenchmark:
                     "student"
                 ] = transform
             network_specifications += [n]
-            self.settings.logger.debug("----------New Network----------")
-            self.settings.logger.debug(f"Number neurons: {np.sum(n.nb_neurons)}")
-            for i, x in enumerate(n.layers):
-                self.settings.logger.debug(f"{i}: {x}")
+            #self.settings.logger.debug("----------New Network----------")
+            #self.settings.logger.debug(f"Number neurons: {np.sum(n.nb_neurons)}")
+            #for i, x in enumerate(n.layers):
+            #    self.settings.logger.debug(f"{i}: {x}")
 
         self.settings.logger.info(f"# NN: {len(network_specifications)}")
         return network_specifications
@@ -463,7 +463,7 @@ class VerificationBenchmark:
         progress_bar.close()
 
     def trained(self, count=False):
-        trained = [x.trained() for x in self.verification_problems]
+        trained = [x.trained(True) for x in self.verification_problems]
         if count:
             return trained.count(True)
         else:

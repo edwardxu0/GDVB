@@ -8,6 +8,8 @@ if [ -z ${GDVB} ]; then
   export GDVB=`pwd`
 fi
 
+export ROOT=`pwd`
+
 # libraries
 export R4V="${GDVB}/lib/R4V"
 export DNNV="${GDVB}/lib/DNNV"

@@ -59,10 +59,6 @@ class ONNXU:
         else:
             print(self.input_shape)
             assert False
-            
-        print(self.input_format)
-        print(self.input_shape)
-        
 
         nodes = iter(model.graph.node)
         nodes_list = model.graph.node

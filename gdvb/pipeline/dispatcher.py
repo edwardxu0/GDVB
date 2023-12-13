@@ -8,15 +8,17 @@ import tempfile
 
 class Task:
     def __init__(
-        self, cmds, dispatch, task_name, output_path, slurm_path, need_warming_up=False
+        self, cmds, dispatch, task_name, output_path, slurm_path, setup_cmds=None, need_warming_up=False
     ):
         self.cmds = cmds
         self.platform = dispatch["platform"]
+        
         self.output_path = output_path
         # self.error_path = f"{os.path.splitext(output_path)[0]}.err"
         self.error_path = output_path
 
         self.exclude = dispatch["exclude"] if "exclude" in dispatch else None
+        self.partition = dispatch["partition"] if "partition" in dispatch else None
 
         self.reservation = (
             dispatch["reservation"] if "reservation" in dispatch else None
@@ -26,6 +28,7 @@ class Task:
         self.task_per_node = (
             dispatch["task_per_node"] if "task_per_node" in dispatch else None
         )
+        self.setup_cmds = setup_cmds
         self.need_warming_up = need_warming_up
         if self.platform == "slurm":
             self.slurm_path = slurm_path
@@ -35,13 +38,14 @@ class Task:
     # execute task
     def run(self):
         if self.platform == "local":
+            if self.setup_cmds:
+                self.cmds = self.setup_cmds+self.cmds
             for cmd in self.cmds:
                 cmd += f" > {self.output_path} 2> {self.error_path}"
                 subprocess.run(cmd, shell=True)
 
         elif self.platform == "slurm":
             cmd = "sbatch"
-            cmd += f" --exclude={self.exclude}" if self.exclude else ""
             cmd += f" --reservation {self.reservation}" if self.reservation else ""
 
             if self.nodes:
@@ -72,16 +76,21 @@ class Task:
                 "#SBATCH --partition=gpu",
                 f"#SBATCH --gres=gpu:{nb_gpus}",
             ]
+        if self.exclude:
+            lines += [f"#SBATCH --exclude={self.exclude}"]
+        if self.partition:
+            lines += [f"#SBATCH --partition={self.partition}"]
         lines += [
             f"export TMPDIR={tmpdir}",
             f"mkdir {tmpdir}",
             "cat /proc/sys/kernel/hostname",
             "export GRB_LICENSE_FILE=/u/dx3yy/.gurobikeys/`hostname`.gurobi.lic",
         ]
+        if self.setup_cmds:
+            lines += self.setup_cmds
         if self.need_warming_up:
             lines += ['echo "********Dry_Run********"']
             lines += cmds
-
         lines += ['echo "********Wet_Run********"']
         lines += cmds
         lines += [f"rm -rf {tmpdir}"]
@@ -143,7 +152,7 @@ class Task:
                     goon = True
                     break
             if goon:
-                time.sleep(3)
+                #time.sleep(3)
                 break
 
         return na

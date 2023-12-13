@@ -29,6 +29,7 @@ mean=[0.1307]
 std=[0.3081]
 height=28
 width=28
+min_value=0
 max_value=1
 
 [distillation.data.transform.student]
@@ -37,6 +38,7 @@ mean=[0.1307]
 std=[0.3081]
 height=28
 width=28
+min_value=0
 max_value=1
 
 [distillation.data.train]

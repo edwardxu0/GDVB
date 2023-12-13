@@ -12,10 +12,10 @@ class SwarmHost:
         verifier_name = None
         for op in options:
             if op in [
-                "abcrown",
+                "acrown","abcrown",'mnbab','nnenum','verinet','neuralsat','veristable'
             ]:
                 verifier_name = op
-                post_params += [f"--verifier {op}"]
+                pre_params += [f"{op}"]
             elif op == "debug":
                 post_params += ["--debug"]
             else:
@@ -23,8 +23,9 @@ class SwarmHost:
         assert verifier_name is not None
         return pre_params, post_params, verifier_name
 
-    def execute(self, params):
+    def execute(self, params, task='V'):
         cmd = self._executor
+        cmd += f' {task}'
         for p in self._pre_params:
             cmd += f" {p}"
         for p in params:

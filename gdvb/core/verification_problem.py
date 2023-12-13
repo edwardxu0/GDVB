@@ -49,10 +49,6 @@ class VerificationProblem:
         self.verification_results = {}
 
     def set_distillation_strategies(self, dis_strats):
-        self.settings.logger.debug("Distillation Strategies:")
-        for i, x in enumerate(dis_strats):
-            self.settings.logger.debug(f"{i}: {x}")
-
         drop_ids = []
         added_layers = []
         scale_ids_factors = []
@@ -60,7 +56,6 @@ class VerificationProblem:
             if ds[0] == "drop":
                 drop_ids += [ds[1]]
             elif ds[0] == "add":
-                print(ds, ds[1])
                 added_layers += [ds[1]]
             elif ds[0] == "scale":
                 scale_ids_factors += [[ds[1], ds[2]]]
@@ -81,7 +76,6 @@ class VerificationProblem:
         self.drop_ids = drop_ids
         self.scale_ids_factors = scale_ids_factors
         self.added_layers = added_layers
-        print(added_layers)
 
         self.dis_config_path = os.path.join(
             self.settings.dis_config_dir, self.net_name + ".toml"
@@ -161,8 +155,6 @@ class VerificationProblem:
                     self.remaining_layer_ids += [i]
 
             # add layers
-            if self.added_layers:
-                print("added layers: ", self.added_layers)
             for layer in self.added_layers:
                 if layer["layer_type"] == "FullyConnected":
                     for layer_id in layer["layer_id"]:
@@ -175,7 +167,6 @@ class VerificationProblem:
                         new_layer = Dense(size, None, None, in_shape)
                         self.layers.insert(layer_id, new_layer)
                         self.nb_neurons.insert(layer_id, np.prod(new_layer.out_shape))
-                        print("conv", size, size, self.fc_and_conv_kernel_sizes)
                         self.fc_and_conv_kernel_sizes.insert(layer_id, size)
                 else:
                     raise NotImplementedError
@@ -241,21 +232,23 @@ class VerificationProblem:
         open(self.dis_config_path, "a").writelines(lines)
 
     # am I trained?
-    def trained(self):
+    def trained(self, strict):
         trained = False
-        if os.path.exists(self.dis_log_path):
-            lines = open(self.dis_log_path, "r").readlines()[-10:]
-            for line in lines:
-                if "Process finished successfully" in line:
-                    trained = True
-                    break
-        # return trained
-        self.settings.logger.info("Checking trained log loosely!!!")
-        return os.path.exists(self.dis_log_path)
+        if strict:
+            if os.path.exists(self.dis_log_path):
+                lines = open(self.dis_log_path, "r").readlines()[-10:]
+                for line in lines:
+                    if "Process finished successfully" in line:
+                        trained = True
+                        break
+        else:
+            trained = os.path.exists(self.dis_log_path)
+        return trained
+        
 
     # train network
     def train(self):
-        if not self.settings.override and self.trained():
+        if not self.settings.override and self.trained(False):
             self.settings.logger.info(f"Skipping trained network ...")
             return
         else:
@@ -313,7 +306,7 @@ class VerificationProblem:
             prop_id = self.vpc["prop"]
 
             if "eps" in self.vpc:
-                eps = F(self.vpc["eps"]) * F(self.settings.verification_configs["eps"])
+                eps = F(str(self.vpc["eps"])) * F(str(self.settings.verification_configs["eps"]))
             else:
                 eps = self.settings.verification_configs["eps"]
             eps = round(float(eps), self.settings.precision)
@@ -341,12 +334,18 @@ class VerificationProblem:
     def verified(self):
         log_path = self.veri_log_path
         verified = False
-        self.settings.logger.debug(f"Checking log file: {log_path}")
+        #self.settings.logger.debug(f"Checking log file: {log_path}")
         if os.path.exists(log_path):
             lines = open(log_path).readlines()
             for line in lines:
                 if any(
                     x in line
+                    for x in ['(resmonitor) Process finished successfully',
+                              "Timeout (terminating process)",
+                        "Out of Memory (terminating process)",]
+                    
+                ):
+                    '''
                     for x in [
                         # dnnv
                         "  result: ",
@@ -354,22 +353,32 @@ class VerificationProblem:
                         "Out of Memory (terminating process)",
                         # swarm_host
                         "Result: ",
+                        # TODO: fix if possible
+                        # hacks for neurify and vnnlib
+                        'vnnlib SAT',
+                        'vnnlib UNSAT',
+                        'vnnlib UNKNOWN'
                     ]
-                ):
+                    '''
                     verified = True
                     break
+        if not verified:
+            self.settings.logger.debug(f"Unverified log file: {log_path}")
         return verified
 
     # verify network
     def verify(self, tool, options):
         options = [options]
-        if self.settings.verification_configs["debug"]:
+        configs_v = self.settings.verification_configs
+        
+        if "debug" in configs_v and configs_v["debug"]:
             options += ["debug"]
         verifier = globals()[tool](options)
 
         # added 60 for DNNV load time
-        time_limit = self.settings.verification_configs["time"]
-        memory_limit = self.settings.verification_configs["memory"]
+        
+        time_limit = configs_v["time"]
+        memory_limit = configs_v["memory"]
 
         dnnv_wb_flag = "_wb" if isinstance(verifier, DNNV_wb) else ""
         self.veri_log_path = os.path.join(
@@ -377,7 +386,7 @@ class VerificationProblem:
             f"{self.vp_name}_T={time_limit}_M={memory_limit}:{verifier.verifier_name}{dnnv_wb_flag}.out",
         )
 
-        if self.settings.verification_configs["dispatch"]["platform"] == "slurm":
+        if configs_v["dispatch"]["platform"] == "slurm":
             slurm_script_path = os.path.join(
                 self.settings.veri_slurm_dir,
                 f"{self.vp_name}_T={time_limit}_M={memory_limit}:{verifier.verifier_name}{dnnv_wb_flag}.slurm",
@@ -390,26 +399,33 @@ class VerificationProblem:
             return
 
         if "eps" in self.vpc:
-            eps = F(self.vpc["eps"]) * F(self.settings.verification_configs["eps"])
+            eps = F(str(self.vpc["eps"])) * F(str(configs_v["eps"]))
         else:
-            eps = self.settings.verification_configs["eps"]
+            eps = configs_v["eps"]
         eps = round(float(eps), self.settings.precision)
 
         property_path = os.path.join(
             self.prop_dir, f"robustness_{self.vpc['prop']}_{eps}.py"
         )
 
+        ### Verifier frameworks
+        # DNNV family executor
         if any(isinstance(verifier, x) for x in [DNNV, DNNV_wb, DNNF]):
             cmd = f"python -W ignore $DNNV/tools/resmonitor.py -q -T {time_limit+60} -M {memory_limit} "
             cmd += verifier.execute([property_path, "--network N", self.dis_model_path])
+        
+        # SwarmHost executor
         elif isinstance(verifier, SwarmHost):
             self.veri_config_path = os.path.join(
                 self.settings.veri_config_dir,
                 f"{self.vp_name}_T={time_limit}_M={memory_limit}:{verifier.verifier_name}{dnnv_wb_flag}.yaml",
             )
+            data_config =  self.distillation_config["distillation"]["data"]["transform"]["student"]
+            p_mean = ' '.join(str(x) for x in data_config['mean'])
+            p_std = ' '.join(str(x) for x in data_config['std'])
+            print(f'{data_config}')
             cmd = verifier.execute(
                 [
-                    "V",
                     f"--onnx {self.dis_model_path}",
                     f"--artifact {self.verification_benchmark.artifact.__name__}",
                     f"--property_id {self.vpc['prop']}",
@@ -418,6 +434,9 @@ class VerificationProblem:
                     f"--veri_config_path {self.veri_config_path}",
                     f"-t {time_limit}",
                     f"-m {memory_limit}",
+                    f"--p_mean {p_mean}",
+                    f"--p_std {p_std}",
+                    #f"--p_clip",
                 ]
             )
         else:
@@ -425,33 +444,35 @@ class VerificationProblem:
         cmds = [cmd]
 
         nodes = os.environ["verify_nodes"] if "verify_nodes" in os.environ else None
-        dispatch = self.settings.verification_configs["dispatch"]
+        dispatch = configs_v["dispatch"]
         if nodes:
             dispatch["nodes"] = nodes.split(",")
-
         warm_up = dispatch["platform"] == "slurm"
-
+        
+        setup_cmds = None if not 'setup_cmds' in configs_v else configs_v['setup_cmds']
         task = Task(
             cmds,
             dispatch,
             "GDVB_V",
             self.veri_log_path,
             slurm_script_path,
+            setup_cmds=setup_cmds,
             need_warming_up=warm_up,
         )
         self.settings.logger.debug(f"Command: {cmd}")
         task.run()
 
     def analyze_verification(self):
+        configs_v = self.settings.verification_configs
         verification_results = {}
         verifiers = []
-        for tool in self.settings.verification_configs["verifiers"]:
-            for options in self.settings.verification_configs["verifiers"][tool]:
+        for tool in configs_v["verifiers"]:
+            for options in configs_v["verifiers"][tool]:
                 verifier = globals()[tool]([options])
                 verifiers += [verifier]
 
-        time_limit = self.settings.verification_configs["time"]
-        memory_limit = self.settings.verification_configs["memory"]
+        time_limit = configs_v["time"]
+        memory_limit = configs_v["memory"]
         for verifier in verifiers:
             dnnv_wb_flag = "_wb" if isinstance(verifier, DNNV_wb) else ""
             log_path = os.path.join(
@@ -527,13 +548,38 @@ class VerificationProblem:
                         break
 
                     if re.search("Result: ", l):
-                        print("1: ", "lines[i - 1]", lines[i - 1])
-                        print("2: ", lines[i - 1].strip().split()[-1])
-                        print("3: ", log_path)
 
                         verification_answer = l.strip().split()[-1]
                         verification_time = float(lines[i - 1].strip().split()[-1])
                         break
+                    
+                    # TODO: hacks for neurify
+                    if verifier.verifier_name == 'neuralsat':
+                        if re.search('vnnlib UNSAT', l):
+                            verification_answer = 'unsat'
+                            verification_time = float(l.strip().split()[-1])
+                            break
+                        if re.search('vnnlib SAT', l):
+                            verification_answer = 'sat'
+                            verification_time = float(l.strip().split()[-1])
+                            break
+                        if re.search('vnnlib UNKNOWN', l):
+                            verification_answer = 'unknown'
+                            verification_time = float(l.strip().split()[-1])
+                            break
+                        
+                    # TODO: hacks for veristable
+                    if verifier.verifier_name == 'veristable':
+                        if re.search('unsat,', l):
+                            verification_answer = 'unsat'
+                            verification_time = float(l.strip().split(',')[-1])
+                            break
+                        if re.search('sat,', l):
+                            verification_answer = 'sat'
+                            verification_time = float(l.strip().split(',')[-1])
+                            break
+                    
+                    
 
                     # exceptions that DNNV didn't catch
                     # exception_patterns = ["Aborted         "]

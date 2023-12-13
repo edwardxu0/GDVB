@@ -8,7 +8,6 @@ from matplotlib.patches import Patch
 from matplotlib.font_manager import FontProperties
 
 fontP = FontProperties()
-root = './data'
 
 
 class PieScatter2D(PLOT):
