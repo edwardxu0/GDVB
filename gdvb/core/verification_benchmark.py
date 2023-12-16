@@ -272,8 +272,9 @@ class VerificationBenchmark:
                         stride = last_layer.stride
                         padding = last_layer.padding
                         layer = {
-                            "layer_type": "FullyConnected",
-                            "parameters": [nb_kernels, kernel_size, stride, padding],
+                            "layer_type": "Conv",
+                            # "parameters": [nb_kernels, kernel_size, stride, padding],
+                            "parameters": [nb_kernels, kernel_size, 1, 0],
                             "activation_function": "relu",
                             "layer_id": conv_add_ids,
                         }
@@ -438,9 +439,9 @@ class VerificationBenchmark:
                     "student"
                 ] = transform
             network_specifications += [n]
-            #self.settings.logger.debug("----------New Network----------")
-            #self.settings.logger.debug(f"Number neurons: {np.sum(n.nb_neurons)}")
-            #for i, x in enumerate(n.layers):
+            # self.settings.logger.debug("----------New Network----------")
+            # self.settings.logger.debug(f"Number neurons: {np.sum(n.nb_neurons)}")
+            # for i, x in enumerate(n.layers):
             #    self.settings.logger.debug(f"{i}: {x}")
 
         self.settings.logger.info(f"# NN: {len(network_specifications)}")

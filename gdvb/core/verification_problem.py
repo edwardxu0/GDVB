@@ -168,6 +168,29 @@ class VerificationProblem:
                         self.layers.insert(layer_id, new_layer)
                         self.nb_neurons.insert(layer_id, np.prod(new_layer.out_shape))
                         self.fc_and_conv_kernel_sizes.insert(layer_id, size)
+                elif layer["layer_type"] == "Conv":
+                    for layer_id in layer["layer_id"]:
+                        kernel_size = layer["parameters"][0]  # number of kernels
+                        stride = layer["parameters"][1]
+                        padding = layer["parameters"][2]
+                        in_shape = self.layers[layer_id - 1].out_shape
+                        for x in self.scale_ids_factors:
+                            if x[0] == i:
+                                kernel_size = int(round(kernel_size * x[1]))
+                                break
+
+                        new_layer = Conv(
+                            kernel_size,
+                            None,
+                            None,
+                            kernel_size,
+                            stride,
+                            padding,
+                            in_shape,
+                        )
+                        self.layers.insert(layer_id, new_layer)
+                        self.nb_neurons.insert(layer_id, np.prod(new_layer.out_shape))
+                        self.fc_and_conv_kernel_sizes.insert(layer_id, kernel_size)
                 else:
                     raise NotImplementedError
             self.layers = [x for x in self.layers if x is not None]
@@ -244,7 +267,6 @@ class VerificationProblem:
         else:
             trained = os.path.exists(self.dis_log_path)
         return trained
-        
 
     # train network
     def train(self):
@@ -306,7 +328,9 @@ class VerificationProblem:
             prop_id = self.vpc["prop"]
 
             if "eps" in self.vpc:
-                eps = F(str(self.vpc["eps"])) * F(str(self.settings.verification_configs["eps"]))
+                eps = F(str(self.vpc["eps"])) * F(
+                    str(self.settings.verification_configs["eps"])
+                )
             else:
                 eps = self.settings.verification_configs["eps"]
             eps = round(float(eps), self.settings.precision)
@@ -334,18 +358,19 @@ class VerificationProblem:
     def verified(self):
         log_path = self.veri_log_path
         verified = False
-        #self.settings.logger.debug(f"Checking log file: {log_path}")
+        # self.settings.logger.debug(f"Checking log file: {log_path}")
         if os.path.exists(log_path):
             lines = open(log_path).readlines()
             for line in lines:
                 if any(
                     x in line
-                    for x in ['(resmonitor) Process finished successfully',
-                              "Timeout (terminating process)",
-                        "Out of Memory (terminating process)",]
-                    
+                    for x in [
+                        "(resmonitor) Process finished successfully",
+                        "Timeout (terminating process)",
+                        "Out of Memory (terminating process)",
+                    ]
                 ):
-                    '''
+                    """
                     for x in [
                         # dnnv
                         "  result: ",
@@ -359,7 +384,7 @@ class VerificationProblem:
                         'vnnlib UNSAT',
                         'vnnlib UNKNOWN'
                     ]
-                    '''
+                    """
                     verified = True
                     break
         if not verified:
@@ -370,13 +395,13 @@ class VerificationProblem:
     def verify(self, tool, options):
         options = [options]
         configs_v = self.settings.verification_configs
-        
+
         if "debug" in configs_v and configs_v["debug"]:
             options += ["debug"]
         verifier = globals()[tool](options)
 
         # added 60 for DNNV load time
-        
+
         time_limit = configs_v["time"]
         memory_limit = configs_v["memory"]
 
@@ -413,17 +438,19 @@ class VerificationProblem:
         if any(isinstance(verifier, x) for x in [DNNV, DNNV_wb, DNNF]):
             cmd = f"python -W ignore $DNNV/tools/resmonitor.py -q -T {time_limit+60} -M {memory_limit} "
             cmd += verifier.execute([property_path, "--network N", self.dis_model_path])
-        
+
         # SwarmHost executor
         elif isinstance(verifier, SwarmHost):
             self.veri_config_path = os.path.join(
                 self.settings.veri_config_dir,
                 f"{self.vp_name}_T={time_limit}_M={memory_limit}:{verifier.verifier_name}{dnnv_wb_flag}.yaml",
             )
-            data_config =  self.distillation_config["distillation"]["data"]["transform"]["student"]
-            p_mean = ' '.join(str(x) for x in data_config['mean'])
-            p_std = ' '.join(str(x) for x in data_config['std'])
-            print(f'{data_config}')
+            data_config = self.distillation_config["distillation"]["data"]["transform"][
+                "student"
+            ]
+            p_mean = " ".join(str(x) for x in data_config["mean"])
+            p_std = " ".join(str(x) for x in data_config["std"])
+            print(f"{data_config}")
             cmd = verifier.execute(
                 [
                     f"--onnx {self.dis_model_path}",
@@ -436,7 +463,7 @@ class VerificationProblem:
                     f"-m {memory_limit}",
                     f"--p_mean {p_mean}",
                     f"--p_std {p_std}",
-                    #f"--p_clip",
+                    # f"--p_clip",
                 ]
             )
         else:
@@ -448,8 +475,8 @@ class VerificationProblem:
         if nodes:
             dispatch["nodes"] = nodes.split(",")
         warm_up = dispatch["platform"] == "slurm"
-        
-        setup_cmds = None if not 'setup_cmds' in configs_v else configs_v['setup_cmds']
+
+        setup_cmds = None if not "setup_cmds" in configs_v else configs_v["setup_cmds"]
         task = Task(
             cmds,
             dispatch,
@@ -548,38 +575,35 @@ class VerificationProblem:
                         break
 
                     if re.search("Result: ", l):
-
                         verification_answer = l.strip().split()[-1]
                         verification_time = float(lines[i - 1].strip().split()[-1])
                         break
-                    
+
                     # TODO: hacks for neurify
-                    if verifier.verifier_name == 'neuralsat':
-                        if re.search('vnnlib UNSAT', l):
-                            verification_answer = 'unsat'
+                    if verifier.verifier_name == "neuralsat":
+                        if re.search("vnnlib UNSAT", l):
+                            verification_answer = "unsat"
                             verification_time = float(l.strip().split()[-1])
                             break
-                        if re.search('vnnlib SAT', l):
-                            verification_answer = 'sat'
+                        if re.search("vnnlib SAT", l):
+                            verification_answer = "sat"
                             verification_time = float(l.strip().split()[-1])
                             break
-                        if re.search('vnnlib UNKNOWN', l):
-                            verification_answer = 'unknown'
+                        if re.search("vnnlib UNKNOWN", l):
+                            verification_answer = "unknown"
                             verification_time = float(l.strip().split()[-1])
                             break
-                        
+
                     # TODO: hacks for veristable
-                    if verifier.verifier_name == 'veristable':
-                        if re.search('unsat,', l):
-                            verification_answer = 'unsat'
-                            verification_time = float(l.strip().split(',')[-1])
+                    if verifier.verifier_name == "veristable":
+                        if re.search("unsat,", l):
+                            verification_answer = "unsat"
+                            verification_time = float(l.strip().split(",")[-1])
                             break
-                        if re.search('sat,', l):
-                            verification_answer = 'sat'
-                            verification_time = float(l.strip().split(',')[-1])
+                        if re.search("sat,", l):
+                            verification_answer = "sat"
+                            verification_time = float(l.strip().split(",")[-1])
                             break
-                    
-                    
 
                     # exceptions that DNNV didn't catch
                     # exception_patterns = ["Aborted         "]
