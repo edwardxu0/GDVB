@@ -272,7 +272,7 @@ class VerificationBenchmark:
                         stride = last_layer.stride
                         padding = last_layer.padding
                         layer = {
-                            "layer_type": "Conv",
+                            "layer_type": "Convolutional",
                             # "parameters": [nb_kernels, kernel_size, stride, padding],
                             "parameters": [nb_kernels, kernel_size, 1, 0],
                             "activation_function": "relu",

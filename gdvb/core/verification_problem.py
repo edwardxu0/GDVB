@@ -168,7 +168,7 @@ class VerificationProblem:
                         self.layers.insert(layer_id, new_layer)
                         self.nb_neurons.insert(layer_id, np.prod(new_layer.out_shape))
                         self.fc_and_conv_kernel_sizes.insert(layer_id, size)
-                elif layer["layer_type"] == "Conv":
+                elif layer["layer_type"] == "Convolutional":
                     for layer_id in layer["layer_id"]:
                         kernel_size = layer["parameters"][0]  # number of kernels
                         stride = layer["parameters"][1]
