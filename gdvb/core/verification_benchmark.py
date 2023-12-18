@@ -273,8 +273,10 @@ class VerificationBenchmark:
                         padding = last_layer.padding
                         layer = {
                             "layer_type": "Convolutional",
+                            ## TODO: only supports SAME padding in order to maintain output shape
                             # "parameters": [nb_kernels, kernel_size, stride, padding],
-                            "parameters": [nb_kernels, kernel_size, 1, 0],
+                            # padding: VALID: 0, SAME: -1
+                            "parameters": [nb_kernels, kernel_size, 1, -1],
                             "activation_function": "relu",
                             "layer_id": conv_add_ids,
                         }

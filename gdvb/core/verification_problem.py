@@ -168,19 +168,22 @@ class VerificationProblem:
                         self.layers.insert(layer_id, new_layer)
                         self.nb_neurons.insert(layer_id, np.prod(new_layer.out_shape))
                         self.fc_and_conv_kernel_sizes.insert(layer_id, size)
+
                 elif layer["layer_type"] == "Convolutional":
                     for layer_id in layer["layer_id"]:
-                        kernel_size = layer["parameters"][0]  # number of kernels
-                        stride = layer["parameters"][1]
-                        padding = layer["parameters"][2]
+                        nb_kernels = layer["parameters"][0]  # number of kernels
+                        kernel_size = layer["parameters"][1]
+                        stride = layer["parameters"][2]
+                        padding = layer["parameters"][3]
+
                         in_shape = self.layers[layer_id - 1].out_shape
                         for x in self.scale_ids_factors:
                             if x[0] == i:
-                                kernel_size = int(round(kernel_size * x[1]))
+                                nb_kernels = int(round(nb_kernels * x[1]))
                                 break
 
                         new_layer = Conv(
-                            kernel_size,
+                            nb_kernels,
                             None,
                             None,
                             kernel_size,

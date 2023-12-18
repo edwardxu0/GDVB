@@ -23,12 +23,12 @@ class WeightedLayer(Layer):
 # Concrete layers
 class Input(Layer):
     def __init__(self, in_shape):
-        super().__init__('Input', in_shape, in_shape)
+        super().__init__("Input", in_shape, in_shape)
 
 
 class Dense(WeightedLayer):
     def __init__(self, size, weights, bias, in_shape):
-        super().__init__('FC', size, weights, bias, in_shape, np.array(size))
+        super().__init__("FC", size, weights, bias, in_shape, np.array(size))
 
 
 class Conv(WeightedLayer):
@@ -36,19 +36,23 @@ class Conv(WeightedLayer):
         self.kernel_size = kernel_size
         self.stride = stride
         self.padding = padding
-        shape = (((in_shape[1]-kernel_size+2*padding) // stride)+1)
-        out_shape = np.array([size, shape, shape])
-        super().__init__('Conv', size, weights, bias, in_shape, out_shape)
+        #'SAME padding'
+        if padding == -1:
+            out_shape = in_shape
+        else:
+            shape = ((in_shape[1] - kernel_size + 2 * padding) // stride) + 1
+            out_shape = np.array([size, shape, shape])
+        super().__init__("Conv", size, weights, bias, in_shape, out_shape)
 
 
 class ReLU(Layer):
     def __init__(self, in_shape):
-        super().__init__('ReLU', in_shape, in_shape)
+        super().__init__("ReLU", in_shape, in_shape)
 
 
 class Flatten(Layer):
     def __init__(self, in_shape):
-        super().__init__('Flatten', in_shape, np.array(np.array(in_shape).prod()))
+        super().__init__("Flatten", in_shape, np.array(np.array(in_shape).prod()))
 
 
 class Pool(Layer):
@@ -60,14 +64,14 @@ class Pool(Layer):
         self.kernel_size = kernel_size
         self.stride = stride
         self.padding = padding
-        shape = (((in_shape[1]-kernel_size+2*padding) // stride)+1)
+        shape = ((in_shape[1] - kernel_size + 2 * padding) // stride) + 1
         out_shape = np.append(in_shape[0], [shape, shape])
-        super().__init__('Pool', in_shape, out_shape)
+        super().__init__("Pool", in_shape, out_shape)
 
 
 class Transpose(Layer):
     def __init__(self, order, in_shape):
         self.order = order
         assert len(order) == len(in_shape)
-        out_shape = np.array([in_shape[x-1] for x in order])
-        super().__init__('Transpose', in_shape, out_shape)
+        out_shape = np.array([in_shape[x - 1] for x in order])
+        super().__init__("Transpose", in_shape, out_shape)
