@@ -132,8 +132,9 @@ class VerificationBenchmark:
 
         strength = ca_configs["strength"]
 
-        ca_config_path = os.path.join(self.settings.root, "ca_config.txt")
-        ca_path = os.path.join(self.settings.root, "ca.txt")
+
+        ca_config_path = os.path.join(self.settings.root, 'cas', f"ca_config_{hash(self.settings)}.txt")
+        ca_path = os.path.join(self.settings.root, 'cas', f"ca_{hash(self.settings)}.txt")
 
         open(ca_config_path, "w").writelines(lines)
 
@@ -506,7 +507,9 @@ class VerificationBenchmark:
             self.settings.logger.info(
                 f"Verifying {vp.vp_name} with {tool}:[{options}] ..."
             )
-            vp.gen_prop()
+            if tool != 'SwarmHost':
+                vp.gen_prop()
+                
             vp.verify(tool, options)
             progress_bar.update(1)
             progress_bar.refresh()

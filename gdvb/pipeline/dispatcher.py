@@ -71,15 +71,13 @@ class Task:
             f"#SBATCH --error={self.error_path}",
             f"#SBATCH --ntasks={self.nb_cpus}",
         ]
-        if nb_gpus != 0:
-            lines += [
-                "#SBATCH --partition=gpu",
-                f"#SBATCH --gres=gpu:{nb_gpus}",
-            ]
+
         if self.exclude:
             lines += [f"#SBATCH --exclude={self.exclude}"]
         if self.partition:
             lines += [f"#SBATCH --partition={self.partition}"]
+        if nb_gpus != 0:
+            lines += [f"#SBATCH --gres=gpu:{nb_gpus}"]
         lines += [
             f"export TMPDIR={tmpdir}",
             f"mkdir {tmpdir}",
@@ -151,8 +149,9 @@ class Task:
                 if nodes_alive[na] < self.task_per_node:
                     goon = True
                     break
+                
             if goon:
-                #time.sleep(3)
+                time.sleep(1)
                 break
-
+        
         return na

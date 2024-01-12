@@ -37,7 +37,7 @@ class CIFAR10(Artifact):
 
                 npy_img_path = os.path.join(output_dir, f"{idx.item()}.npy")
                 image_shape = (self.input_shape[0], height, width)
-                np.save(npy_img_path, sx.reshape(self.input_shape[0], height, width))
+                np.save(npy_img_path, sx.reshape(1, self.input_shape[0], height, width))
 
                 property_path = os.path.join(output_dir, f"robustness_{i}_{epsilon}.py")
 
@@ -45,18 +45,13 @@ class CIFAR10(Artifact):
                     "from dnnv.properties import *\n",
                     "import numpy as np\n\n",
                     'N = Network("N")\n',
+                    f'x = Image("{npy_img_path}")\n',
                 ]
 
                 if not skip_layers or skip_layers == 0:
-                    property_lines += [
-                        f'x = Image("{npy_img_path}")\n',
-                        f"input_layer = 0\n",
-                    ]
+                    property_lines += [f"input_layer = 0\n"]
                 else:
-                    property_lines += [
-                        f'x = Image("{npy_img_path}").reshape((1,{np.prod(image_shape)}))\n',
-                        f"input_layer = {skip_layers}\n",
-                    ]
+                    property_lines += [f"input_layer = {skip_layers}\n"]
 
                 property_lines += [
                     f"epsilon = {epsilon}\n",

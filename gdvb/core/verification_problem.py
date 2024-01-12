@@ -19,6 +19,7 @@ from ..pipeline.DNNV import DNNV, DNNV_wb
 from ..pipeline.DNNF import DNNF
 from ..pipeline.SwarmHost import SwarmHost
 
+from swarm_host.core.problem import VerificationProblem as SHVP
 
 class VerificationProblem:
     def __init__(self, settings, vpc, verification_benchmark):
@@ -314,9 +315,15 @@ class VerificationProblem:
                 f"Training may not be finished. "
                 f"({len(relative_loss)}/{self.settings.training_configs['epochs']}) {self.dis_log_path}"
             )
-            raise Exception(
-                f"Training may not be finished. ({len(relative_loss)}/{self.settings.training_configs['epochs']}) {self.dis_log_path}"
-            )
+            CUDA_ram_issue = False
+            for l in reversed(lines):
+                if 'CUDA out of memory' in l:
+                    CUDA_ram_issue = True
+                    break
+            if CUDA_ram_issue:
+                self.settings.logger.error(f"Issue: CUDA out of memory.")
+            else:
+                raise RuntimeError('Unknown runtime error.')
         return relative_loss
 
     def gen_prop(self):
@@ -371,6 +378,7 @@ class VerificationProblem:
                         "(resmonitor) Process finished successfully",
                         "Timeout (terminating process)",
                         "Out of Memory (terminating process)",
+                        "Model does not exist"
                     ]
                 ):
                     """
@@ -466,6 +474,7 @@ class VerificationProblem:
                     f"-m {memory_limit}",
                     f"--p_mean {p_mean}",
                     f"--p_std {p_std}",
+                    f"--p_mrb"
                     # f"--p_clip",
                 ]
             )
@@ -493,6 +502,7 @@ class VerificationProblem:
         task.run()
 
     def analyze_verification(self):
+        
         configs_v = self.settings.verification_configs
         verification_results = {}
         verifiers = []
@@ -504,146 +514,131 @@ class VerificationProblem:
         time_limit = configs_v["time"]
         memory_limit = configs_v["memory"]
         for verifier in verifiers:
-            dnnv_wb_flag = "_wb" if isinstance(verifier, DNNV_wb) else ""
-            log_path = os.path.join(
-                self.settings.veri_log_dir,
-                f"{self.vp_name}_T={time_limit}_M={memory_limit}:{verifier.verifier_name}{dnnv_wb_flag}.out",
-            )
+            if isinstance(verifier, SwarmHost):
+                log_path = os.path.join(
+                    self.settings.veri_log_dir,
+                    f"{self.vp_name}_T={time_limit}_M={memory_limit}:{verifier.verifier_name}.out",
+                )
+                vp = SHVP(self.settings.logger, None, options, {'time':configs_v["time"]}, {"veri_log_path": log_path})
+                verification_answer, verification_time = vp.analyze()
 
-            if not os.path.exists(log_path):
-                verification_answer = "unrun"
-                self.settings.logger.warning(f"unrun: {log_path}")
-                verification_time = -1
-            else:
-                lines = list(reversed(open(log_path, "r").readlines()))
+            elif isinstance(verifier, DNNV) or isinstance(verifier, DNNV_wb):
+                dnnv_wb_flag = "_wb" if isinstance(verifier, DNNV_wb) else ""
+                log_path = os.path.join(
+                    self.settings.veri_log_dir,
+                    f"{self.vp_name}_T={time_limit}_M={memory_limit}:{verifier.verifier_name}{dnnv_wb_flag}.out",
+                )
 
-                if os.path.exists(os.path.splitext(log_path)[0] + ".err"):
-                    lines_err = list(
-                        reversed(
-                            open(
-                                os.path.splitext(log_path)[0] + ".err", "r"
-                            ).readlines()
-                        )
-                    )
-                    lines = lines_err + lines
+                if not os.path.exists(log_path):
+                    verification_answer = "unrun"
+                    self.settings.logger.warning(f"unrun: {log_path}")
+                    verification_time = -1
+                else:
+                    lines = list(reversed(open(log_path, "r").readlines()))
 
-                verification_answer = None
-                verification_time = None
-                for i, l in enumerate(lines):
-                    if re.match(r"INFO*", l):
-                        continue
-
-                    if re.search("Timeout", l):
-                        verification_answer = "timeout"
-                        verification_time = time_limit
-                        break
-
-                    if re.search("Out of Memory", l):
-                        verification_answer = "memout"
-                        for l in lines:
-                            if re.search("Duration", l):
-                                verification_time = float(l.split(" ")[9][:-2])
-                                break
-                        break
-
-                    # if re.search('RuntimeError: view size is not compatible', l):
-                    #    verification_answer = 'error'
-                    #    verification_time = time_limit
-                    #    break
-
-                    if re.search(" result: ", l):
-                        error_patterns = [
-                            "PlanetError",
-                            "ReluplexError",
-                            "ReluplexTranslatorError",
-                            "ERANError",
-                            "MIPVerifyTranslatorError",
-                            "NeurifyError",
-                            "NeurifyTranslatorError",
-                            "NnenumError",
-                            "NnenumTranslatorError",
-                            "MarabouError",
-                            "VerinetError",
-                            "MIPVerifyError",
-                        ]
-                        if any(re.search(x, l) for x in error_patterns):
-                            verification_answer = "error"
-                        # elif re.search('Return code: -11', l):
-                        #    verification_answer = 'memout'
-                        else:
-                            verification_answer = l.strip().split(" ")[-1]
-                            verification_time = float(
-                                lines[i - 1].strip().split(" ")[-1]
+                    if os.path.exists(os.path.splitext(log_path)[0] + ".err"):
+                        lines_err = list(
+                            reversed(
+                                open(
+                                    os.path.splitext(log_path)[0] + ".err", "r"
+                                ).readlines()
                             )
-                        break
-
-                    if re.search("Result: ", l):
-                        verification_answer = l.strip().split()[-1]
-                        verification_time = float(lines[i - 1].strip().split()[-1])
-                        break
-
-                    # TODO: hacks for neurify
-                    if verifier.verifier_name == "neuralsat":
-                        if re.search("vnnlib UNSAT", l):
-                            verification_answer = "unsat"
-                            verification_time = float(l.strip().split()[-1])
-                            break
-                        if re.search("vnnlib SAT", l):
-                            verification_answer = "sat"
-                            verification_time = float(l.strip().split()[-1])
-                            break
-                        if re.search("vnnlib UNKNOWN", l):
-                            verification_answer = "unknown"
-                            verification_time = float(l.strip().split()[-1])
-                            break
-
-                    # TODO: hacks for veristable
-                    if verifier.verifier_name == "veristable":
-                        if re.search("unsat,", l):
-                            verification_answer = "unsat"
-                            verification_time = float(l.strip().split(",")[-1])
-                            break
-                        if re.search("sat,", l):
-                            verification_answer = "sat"
-                            verification_time = float(l.strip().split(",")[-1])
-                            break
-
-                    # exceptions that DNNV didn't catch
-                    # exception_patterns = ["Aborted         "]
-                    # if any(re.search(x, l) for x in exception_patterns):
-                    #    verification_answer = 'exception'
-                    #    for l in rlines:
-                    #        if re.search('Duration', l):
-                    #            verification_time = float(l.split(' ')[9][:-2])
-                    #            break
-                    #    break
-
-                    # failed jobs that are likely caused by server error
-                    rerun_patterns = [
-                        "CANCELLED AT",
-                        "Unable to open Gurobi license file",
-                        "cannot reshape array of size 0 into shape",
-                        "property_node = module.body[-1]",
-                        "slurmstepd: error: get_exit_code",
-                        "Cannot load file containing pickled data",
-                        "IndexError: list index out of range",
-                        "gurobipy.GurobiError: No Gurobi license",
-                        "gurobipy.GurobiError: License expired ",
-                        "Cannot allocate memory",
-                        "Disk quota exceeded",
-                        "ValueError: Unknown arguments: --",
-                        "--- Logging error ---",
-                        "corrupted size vs. prev_size",
-                        "No space left on device",
-                    ]
-                    if any(re.search(x, l) for x in rerun_patterns):
-                        verification_answer = "rerun"
-                        verification_time = -1
-                        self.settings.logger.warning(
-                            f"Failed job({verification_answer}): {log_path}"
                         )
-                        break
+                        lines = lines_err + lines
 
+                    verification_answer = None
+                    verification_time = None
+                    for i, l in enumerate(lines):
+                        if re.match(r"INFO*", l):
+                            continue
+
+                        if re.search("Timeout", l):
+                            verification_answer = "timeout"
+                            verification_time = time_limit
+                            break
+
+                        if re.search("Out of Memory", l):
+                            verification_answer = "memout"
+                            for l in lines:
+                                if re.search("Duration", l):
+                                    verification_time = float(l.split(" ")[9][:-2])
+                                    break
+                            break
+
+                        # if re.search('RuntimeError: view size is not compatible', l):
+                        #    verification_answer = 'error'
+                        #    verification_time = time_limit
+                        #    break
+
+                        if re.search(" result: ", l):
+                            error_patterns = [
+                                "PlanetError",
+                                "ReluplexError",
+                                "ReluplexTranslatorError",
+                                "ERANError",
+                                "MIPVerifyTranslatorError",
+                                "NeurifyError",
+                                "NeurifyTranslatorError",
+                                "NnenumError",
+                                "NnenumTranslatorError",
+                                "MarabouError",
+                                "VerinetError",
+                                "MIPVerifyError",
+                            ]
+                            if any(re.search(x, l) for x in error_patterns):
+                                verification_answer = "error"
+                            # elif re.search('Return code: -11', l):
+                            #    verification_answer = 'memout'
+                            else:
+                                verification_answer = l.strip().split(" ")[-1]
+                                verification_time = float(
+                                    lines[i - 1].strip().split(" ")[-1]
+                                )
+                            break
+
+                        if re.search("Result: ", l):
+                            verification_answer = l.strip().split()[-1]
+                            verification_time = float(lines[i - 1].strip().split()[-1])
+                            break
+
+                        # exceptions that DNNV didn't catch
+                        # exception_patterns = ["Aborted         "]
+                        # if any(re.search(x, l) for x in exception_patterns):
+                        #    verification_answer = 'exception'
+                        #    for l in rlines:
+                        #        if re.search('Duration', l):
+                        #            verification_time = float(l.split(' ')[9][:-2])
+                        #            break
+                        #    break
+
+                        # failed jobs that are likely caused by server error
+                        rerun_patterns = [
+                            "CANCELLED AT",
+                            "Unable to open Gurobi license file",
+                            "cannot reshape array of size 0 into shape",
+                            "property_node = module.body[-1]",
+                            "slurmstepd: error: get_exit_code",
+                            "Cannot load file containing pickled data",
+                            "IndexError: list index out of range",
+                            "gurobipy.GurobiError: No Gurobi license",
+                            "gurobipy.GurobiError: License expired ",
+                            "Cannot allocate memory",
+                            "Disk quota exceeded",
+                            "ValueError: Unknown arguments: --",
+                            "--- Logging error ---",
+                            "corrupted size vs. prev_size",
+                            "No space left on device",
+                        ]
+                        if any(re.search(x, l) for x in rerun_patterns):
+                            verification_answer = "rerun"
+                            verification_time = -1
+                            self.settings.logger.warning(
+                                f"Failed job({verification_answer}): {log_path}"
+                            )
+                            break
+            else:
+                raise NotImplementedError()
+            
             if not verification_answer:
                 verification_answer = "undetermined"
                 verification_time = -1
@@ -672,6 +667,7 @@ class VerificationProblem:
                 "rerun",
                 "unrun",
                 "undetermined",
+                "hardware_limit"
             ], f"{verification_answer}:{log_path}"
 
             # double check verification time to recover time loss
