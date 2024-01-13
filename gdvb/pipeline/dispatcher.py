@@ -48,11 +48,14 @@ class Task:
             cmd = "sbatch"
             cmd += f" --reservation {self.reservation}" if self.reservation else ""
 
-            if self.nodes:
-                print(f"Requesting a node from: {self.nodes}")
-                node = self.request_node()
-                cmd += f" -w {node}"
-            cmd += f" {self.slurm_path}"
+            #if self.nodes:
+                #print(f"Requesting a node from: {self.nodes}")
+                #node = self.request_node()
+                #cmd += f" -w {node}"
+            if self.reservation:
+                cmd += f" -q csresnolim {self.slurm_path}"
+            else:
+                cmd += f" {self.slurm_path}"
             print(cmd)
             subprocess.run(cmd, shell=True)
 
