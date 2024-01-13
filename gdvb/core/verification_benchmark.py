@@ -2,6 +2,8 @@ import os
 import sys
 import random
 import pickle
+import copy
+import time
 
 import numpy as np
 from tqdm import tqdm
@@ -132,9 +134,12 @@ class VerificationBenchmark:
 
         strength = ca_configs["strength"]
 
-
-        ca_config_path = os.path.join(self.settings.root, 'cas', f"ca_config_{hash(self.settings)}.txt")
-        ca_path = os.path.join(self.settings.root, 'cas', f"ca_{hash(self.settings)}.txt")
+        ca_config_path = os.path.join(
+            self.settings.root, "cas", f"ca_config_{hash(self.settings)}.txt"
+        )
+        ca_path = os.path.join(
+            self.settings.root, "cas", f"ca_{hash(self.settings)}.txt"
+        )
 
         open(ca_config_path, "w").writelines(lines)
 
@@ -488,6 +493,84 @@ class VerificationBenchmark:
             progress_bar.refresh()
         progress_bar.close()
 
+    def critical_region_analysis(self):
+        self.settings.logger.info("Critial Region Analysis ...")
+
+        if "eps" in self.parameters:
+            raise ValueError(
+                "Critial region analysis cannot be performed with customized eps regions."
+            )
+
+        verification_problem_backup = self.verification_problems
+        # critial region analysis verification problems
+        cravp = self.verification_problems
+        cr = None
+        iter = 1
+        while not None:
+            self.settings.logger.debug(f"CRA binary search iteration: {iter}")
+            # 1. Create a new benchmark with scaling eps, limit time to be 10 seconds
+            print("CRA: creating problems ... ")
+            new_cravp = []
+            for x in cravp:
+                if "eps" not in x.vpc:
+                    y = copy.deepcopy(x)
+                    y.vpc["eps"] = 0.5
+                    new_cravp += [y]
+                    y = copy.deepcopy(x)
+                    y.vpc["eps"] = 2
+                    new_cravp += [y]
+                else:
+                    y = copy.deepcopy(x)
+                    y.vpc["eps"] *= 0.5
+                    new_cravp += [y]
+                    y = copy.deepcopy(x)
+                    y.vpc["eps"] *= 2
+                    new_cravp += [y]
+
+            for x in new_cravp:
+                x.gen_names()
+                x.settings.verification_configs["time"] = 10
+            print(len(new_cravp))
+            self.verification_problems = new_cravp
+
+            print("CRA: verifying ... ")
+            # 2. verify the new benchmark
+            self.verify()
+
+            # 3. wait for verification
+            nb_verification_tasks = len(self.verification_problems)
+            progress_bar = tqdm(
+                total=nb_verification_tasks,
+                desc="Waiting on verification ... ",
+                ascii=False,
+                file=sys.stdout,
+            )
+            nb_verified_pre = self.verified(True)
+            progress_bar.update(nb_verified_pre)
+            while not self.verified():
+                time.sleep(10)
+                nb_verified_now = self.verified(True)
+                progress_bar.update(nb_verified_now - nb_verified_pre)
+                progress_bar.refresh()
+                nb_verified_pre = nb_verified_now
+            progress_bar.close()
+
+            print("CRA: analying verification ... ")
+            # 4. analyze verification results
+            self.analyze_verification()
+
+            print("CRA: calculating critical region ... ")
+            # 5. check if critial region is found
+            if True:
+                if iter == 5:
+                    break
+
+            iter += 1
+            cravp = new_cravp
+
+        self.settings.logger.info("Critial Region Analysis done.")
+        exit()
+
     def verify(self):
         self.settings.logger.info("Verifying ...")
         vp_tool_verifiers = []
@@ -507,9 +590,9 @@ class VerificationBenchmark:
             self.settings.logger.info(
                 f"Verifying {vp.vp_name} with {tool}:[{options}] ..."
             )
-            if tool != 'SwarmHost':
+            if tool != "SwarmHost":
                 vp.gen_prop()
-                
+
             vp.verify(tool, options)
             progress_bar.update(1)
             progress_bar.refresh()

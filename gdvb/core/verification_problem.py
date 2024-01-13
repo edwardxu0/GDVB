@@ -21,15 +21,27 @@ from ..pipeline.SwarmHost import SwarmHost
 
 from swarm_host.core.problem import VerificationProblem as SHVP
 
+
 class VerificationProblem:
     def __init__(self, settings, vpc, verification_benchmark):
         self.settings = settings
         self.vpc = vpc
         self.verification_benchmark = verification_benchmark
 
+        self.gen_names()
+
+        self.prop_dir = os.path.join(self.settings.props_dir, self.net_name)
+        source_dis_config = open(self.settings.dnn_configs["r4v_config"], "r").read()
+        self.distillation_config = toml.loads(source_dis_config)
+
+        self.scale_input = False
+        self.training_lost = {}
+        self.verification_results = {}
+
+    def gen_names(self):
         self.vp_name = ""
         self.net_name = ""
-        for factor, level in [(x, vpc[x]) for x in vpc]:
+        for factor, level in [(x, self.vpc[x]) for x in self.vpc]:
             if factor in ["prop"]:
                 token = f"{factor}={level}_"
             else:
@@ -39,15 +51,6 @@ class VerificationProblem:
                 self.net_name += token
         self.vp_name = self.vp_name[:-1]
         self.net_name = self.net_name[:-1]
-
-        self.prop_dir = os.path.join(self.settings.props_dir, self.net_name)
-
-        source_dis_config = open(self.settings.dnn_configs["r4v_config"], "r").read()
-        self.distillation_config = toml.loads(source_dis_config)
-
-        self.scale_input = False
-        self.training_lost = {}
-        self.verification_results = {}
 
     def set_distillation_strategies(self, dis_strats):
         drop_ids = []
@@ -318,19 +321,19 @@ class VerificationProblem:
             ram_issue = False
             CUDA_ram_issue = False
             for l in reversed(lines):
-                if 'Out of Memory' in l:
+                if "Out of Memory" in l:
                     ram_issue = True
                     break
-                if 'CUDA out of memory' in l:
+                if "CUDA out of memory" in l:
                     CUDA_ram_issue = True
                     break
             assert ram_issue or CUDA_ram_issue
             if ram_issue:
-                self.settings.logger.error(f"Hardware limit: out of memory.")        
+                self.settings.logger.error(f"Hardware limit: out of memory.")
             elif CUDA_ram_issue:
                 self.settings.logger.error(f"Hardware limit: CUDA out of memory.")
             else:
-                raise RuntimeError('Unknown runtime error.')
+                raise RuntimeError("Unknown runtime error.")
         return relative_loss
 
     def gen_prop(self):
@@ -385,7 +388,7 @@ class VerificationProblem:
                         "(resmonitor) Process finished successfully",
                         "Timeout (terminating process)",
                         "Out of Memory (terminating process)",
-                        "Model does not exist"
+                        "Model does not exist",
                     ]
                 ):
                     """
@@ -509,7 +512,6 @@ class VerificationProblem:
         task.run()
 
     def analyze_verification(self):
-        
         configs_v = self.settings.verification_configs
         verification_results = {}
         verifiers = []
@@ -526,7 +528,13 @@ class VerificationProblem:
                     self.settings.veri_log_dir,
                     f"{self.vp_name}_T={time_limit}_M={memory_limit}:{verifier.verifier_name}.out",
                 )
-                vp = SHVP(self.settings.logger, None, options, {'time':configs_v["time"]}, {"veri_log_path": log_path})
+                vp = SHVP(
+                    self.settings.logger,
+                    None,
+                    options,
+                    {"time": configs_v["time"]},
+                    {"veri_log_path": log_path},
+                )
                 verification_answer, verification_time = vp.analyze()
 
             elif isinstance(verifier, DNNV) or isinstance(verifier, DNNV_wb):
@@ -602,10 +610,12 @@ class VerificationProblem:
                                     lines[i - 1].strip().split(" ")[-1]
                                 )
                             break
-                        
+
                         # Error of neurify
-                        if re.search("ValueError: attempt to get argmax of an empty sequence", l):
-                            verification_answer = 'error'
+                        if re.search(
+                            "ValueError: attempt to get argmax of an empty sequence", l
+                        ):
+                            verification_answer = "error"
                             verification_time = -1
                             break
 
@@ -651,7 +661,7 @@ class VerificationProblem:
                             break
             else:
                 raise NotImplementedError()
-            
+
             if not verification_answer:
                 verification_answer = "undetermined"
                 verification_time = -1
@@ -680,7 +690,7 @@ class VerificationProblem:
                 "rerun",
                 "unrun",
                 "undetermined",
-                "hardware_limit"
+                "hardware_limit",
             ], f"{verification_answer}:{log_path}"
 
             # double check verification time to recover time loss

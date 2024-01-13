@@ -21,6 +21,8 @@ def gen(settings):
         # verification_benchmark.analyze_training()
     elif settings.task == "gen_props":
         verification_benchmark.gen_props()
+    elif settings.task == "cra":
+        verification_benchmark.critical_region_analysis()
     elif settings.task == "verify":
         verification_benchmark.verify()
         # verification_benchmark.analyze_verification()

@@ -9,6 +9,9 @@ from matplotlib.font_manager import FontProperties
 
 fontP = FontProperties()
 
+answers_pool = ["unsat", "sat", "unknown", "oor", "error", "hardware"]
+color_list = ["lightgreen", "deepskyblue", "yellow", "darkorange", "crimson", "grey"]
+
 
 class PieScatter2D(PLOT):
     def __init__(self, data):
@@ -37,7 +40,7 @@ class PieScatter2D(PLOT):
 
             xy = np.column_stack([x, y])
 
-            markers.append({'marker': xy, 's': size, 'facecolor': c})
+            markers.append({"marker": xy, "s": size, "facecolor": c})
 
             # ax.scatter([xpos], [ypos], marker=markers, s=size,)
         for marker in markers:
@@ -45,19 +48,13 @@ class PieScatter2D(PLOT):
 
         return ax
 
-    def draw(self, xtics, ytics, xlabel, ylabel, title=False, rotation=(0,0)):
-
+    def draw(self, xtics, ytics, xlabel, ylabel, title=False, rotation=(0, 0)):
         levels = self.data.shape
-
-        answers_pool = ['unsat', 'sat', 'unknown', 'oor', 'error']
-        # color_list = sns.color_palette()
-        color_list = ['lightgreen', 'deepskyblue',
-                      'yellow', 'darkorange', 'crimson']
 
         # make legend
         legend_elements = []
         for i, ans in enumerate(answers_pool):
-            le = Patch(facecolor=color_list[i], edgecolor='r', label=ans)
+            le = Patch(facecolor=color_list[i], edgecolor="r", label=ans)
             legend_elements += [le]
 
         fig, ax = plt.subplots(figsize=(levels[0], levels[1]))
@@ -70,8 +67,9 @@ class PieScatter2D(PLOT):
                 Z = []
                 X += [i + 1]
                 Y += [j + 1]
-                for k in range(1, 6):
+                for k in range(1, len(color_list) + 1):
                     Z += [len(np.where(k == self.data[i][j])[0])]
+                print(Z)
                 self.draw_pie(Z, [i + 1], [j + 1], 2200, color_list, ax=ax)
 
         # plt.legend(handles=legend_elements, bbox_to_anchor=(2, 1), loc = 'upper right', prop=fontP)
@@ -80,43 +78,53 @@ class PieScatter2D(PLOT):
         # plt.xlabel('nueron', fontsize=20)
         plt.xlabel(xlabel)
         # plt.xticks(np.arange(0,levels[0]+1).tolist(),fontsize=16)
-        plt.xticks(np.arange(0, levels[0]+1).tolist(), [0]+xtics, rotation=rotation[0])
-    
+        plt.xticks(
+            np.arange(0, levels[0] + 1).tolist(), [0] + xtics, rotation=rotation[0]
+        )
+
         plt.xlim(0, levels[0] + 1)
         # plt.ylabel('FC', fontsize=20)
         plt.ylabel(ylabel)
         # plt.yticks(np.arange(0,levels[1]+1).tolist(),fontsize=16)
-        plt.yticks(np.arange(0, levels[1]+1).tolist(), [0]+ytics, rotation=rotation[1])
+        plt.yticks(
+            np.arange(0, levels[1] + 1).tolist(), [0] + ytics, rotation=rotation[1]
+        )
         plt.ylim(0, levels[1] + 1)
-        
+
         if title:
             plt.title(title)
-            
+
         # plt.savefig(f'{res_dir}/{v}.png', bbox_inches='tight')
         # plt.show()
 
-    def draw_with_ticks(self, xticks, yticks, xlabel, ylabel, x_log_scale=False, y_log_scale=False, pie_size=1000):
+    def draw_with_ticks(
+        self,
+        xticks,
+        yticks,
+        xlabel,
+        ylabel,
+        x_log_scale=False,
+        y_log_scale=False,
+        pie_size=1000,
+    ):
         assert len(xticks) == len(yticks)
         assert len(xticks) == len(self.data)
-
-        answers_pool = ['unsat', 'sat', 'unknown', 'oor', 'error']
-        color_list = ['lightgreen', 'deepskyblue', 'yellow', 'darkorange', 'crimson']
 
         # make legend
         legend_elements = []
         for i, ans in enumerate(answers_pool):
-            le = Patch(facecolor=color_list[i], edgecolor='r', label=ans)
+            le = Patch(facecolor=color_list[i], edgecolor="r", label=ans)
             legend_elements += [le]
 
-        size_x = len(set(xticks))+1
-        size_y = len(set(yticks))+1
+        size_x = len(set(xticks)) + 1
+        size_y = len(set(yticks)) + 1
 
         fig, ax = plt.subplots(figsize=((size_x, size_y)))
         fontP.set_size(20)
 
         for i, raw in enumerate(self.data):
             Z = []
-            for k in range(1, len(raw)+1):
+            for k in range(1, len(color_list) + 1):
                 Z += [len(np.where(k == raw)[0])]
             loc_x = xticks[i]
             loc_y = yticks[i]
@@ -125,22 +133,22 @@ class PieScatter2D(PLOT):
         if ax.get_legend() is not None:
             ax.get_legend().remove()
 
-        ax.get_xaxis().set_major_formatter(FormatStrFormatter('%.2f'))
-        ax.get_yaxis().set_major_formatter(FormatStrFormatter('%.2f'))
+        ax.get_xaxis().set_major_formatter(FormatStrFormatter("%.2f"))
+        ax.get_yaxis().set_major_formatter(FormatStrFormatter("%.2f"))
 
         plt.xlabel(xlabel)
         # plt.xticks(np.arange(0, levels[0]+1).tolist(), [0]+xticks)
         plt.xticks(list(set(xticks)))
         if x_log_scale:
-            plt.xscale('log')
+            plt.xscale("log")
         else:
-            plt.xlim(0, max(xticks)*(1+1/size_x))
+            plt.xlim(0, max(xticks) * (1 + 1 / size_x))
 
         plt.ylabel(ylabel)
         # plt.yticks(np.arange(0, levels[1]+1).tolist(), [0]+yticks)
         plt.yticks(list(set(yticks)))
 
         if y_log_scale:
-            plt.yscale('log')
+            plt.yscale("log")
         else:
-            plt.ylim(0, max(yticks)*(1+1/size_y))
+            plt.ylim(0, max(yticks) * (1 + 1 / size_y))
