@@ -52,10 +52,7 @@ class Task:
                 #print(f"Requesting a node from: {self.nodes}")
                 #node = self.request_node()
                 #cmd += f" -w {node}"
-            if self.reservation:
-                cmd += f" -q csresnolim {self.slurm_path}"
-            else:
-                cmd += f" {self.slurm_path}"
+            cmd += f" {self.slurm_path}"
             print(cmd)
             subprocess.run(cmd, shell=True)
 
