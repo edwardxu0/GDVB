@@ -315,13 +315,20 @@ class VerificationProblem:
                 f"Training may not be finished. "
                 f"({len(relative_loss)}/{self.settings.training_configs['epochs']}) {self.dis_log_path}"
             )
+            ram_issue = False
             CUDA_ram_issue = False
             for l in reversed(lines):
+                if 'Out of Memory' in l:
+                    ram_issue = True
+                    break
                 if 'CUDA out of memory' in l:
                     CUDA_ram_issue = True
                     break
-            if CUDA_ram_issue:
-                self.settings.logger.error(f"Issue: CUDA out of memory.")
+            assert ram_issue or CUDA_ram_issue
+            if ram_issue:
+                self.settings.logger.error(f"Hardware limit: out of memory.")        
+            elif CUDA_ram_issue:
+                self.settings.logger.error(f"Hardware limit: CUDA out of memory.")
             else:
                 raise RuntimeError('Unknown runtime error.')
         return relative_loss
@@ -594,6 +601,12 @@ class VerificationProblem:
                                 verification_time = float(
                                     lines[i - 1].strip().split(" ")[-1]
                                 )
+                            break
+                        
+                        # Error of neurify
+                        if re.search("ValueError: attempt to get argmax of an empty sequence", l):
+                            verification_answer = 'error'
+                            verification_time = -1
                             break
 
                         if re.search("Result: ", l):
