@@ -51,6 +51,7 @@ class VerificationProblem:
                 self.net_name += token
         self.vp_name = self.vp_name[:-1]
         self.net_name = self.net_name[:-1]
+        
 
     def set_distillation_strategies(self, dis_strats):
         drop_ids = []
@@ -266,9 +267,12 @@ class VerificationProblem:
         trained = False
         if strict:
             if os.path.exists(self.dis_log_path):
-                lines = open(self.dis_log_path, "r").readlines()[-10:]
+                lines = open(self.dis_log_path, "r").readlines()
                 for line in lines:
                     if "Process finished successfully" in line:
+                        trained = True
+                        break
+                    elif "Out of Memory" in line:
                         trained = True
                         break
         else:
@@ -324,7 +328,7 @@ class VerificationProblem:
                 if "Out of Memory" in l:
                     ram_issue = True
                     break
-                if "CUDA out of memory" in l:
+                if "CUDA out of memory" in l or "Torch: not enough memory" in l or "CUDA error: out of memory" in l:
                     CUDA_ram_issue = True
                     break
             assert ram_issue or CUDA_ram_issue
@@ -381,6 +385,16 @@ class VerificationProblem:
         # self.settings.logger.debug(f"Checking log file: {log_path}")
         if os.path.exists(log_path):
             lines = open(log_path).readlines()
+            if os.path.exists(os.path.splitext(log_path)[0] + ".err"):
+                        lines_err = list(
+                            reversed(
+                                open(
+                                    os.path.splitext(log_path)[0] + ".err", "r"
+                                ).readlines()
+                            )
+                        )
+                        lines = lines_err + lines
+            
             for line in lines:
                 if any(
                     x in line
@@ -398,12 +412,7 @@ class VerificationProblem:
                         "Timeout (terminating process)",
                         "Out of Memory (terminating process)",
                         # swarm_host
-                        "Result: ",
-                        # TODO: fix if possible
-                        # hacks for neurify and vnnlib
-                        'vnnlib SAT',
-                        'vnnlib UNSAT',
-                        'vnnlib UNKNOWN'
+                        "Result: "
                     ]
                     """
                     verified = True
@@ -471,7 +480,7 @@ class VerificationProblem:
             ]
             p_mean = " ".join(str(x) for x in data_config["mean"])
             p_std = " ".join(str(x) for x in data_config["std"])
-            print(f"{data_config}")
+            
             cmd = verifier.execute(
                 [
                     f"--onnx {self.dis_model_path}",
@@ -563,6 +572,7 @@ class VerificationProblem:
 
                     verification_answer = None
                     verification_time = None
+                    
                     for i, l in enumerate(lines):
                         if re.match(r"INFO*", l):
                             continue
@@ -602,6 +612,7 @@ class VerificationProblem:
                             ]
                             if any(re.search(x, l) for x in error_patterns):
                                 verification_answer = "error"
+                                verification_time = -1
                             # elif re.search('Return code: -11', l):
                             #    verification_answer = 'memout'
                             else:
@@ -611,6 +622,13 @@ class VerificationProblem:
                                 )
                             break
 
+                        # hardware limit: unable to train due to memory issues
+                        if re.search("FileNotFoundError",l) and re.search("onnx", l):
+                            verification_answer = "hardware_limit"
+                            verification_time = -1
+                            break
+                        
+                        # ERRORS found by AdaGDVB
                         # Error of neurify
                         if re.search(
                             "ValueError: attempt to get argmax of an empty sequence", l
@@ -618,7 +636,7 @@ class VerificationProblem:
                             verification_answer = "error"
                             verification_time = -1
                             break
-
+                        
                         if re.search("Result: ", l):
                             verification_answer = l.strip().split()[-1]
                             verification_time = float(lines[i - 1].strip().split()[-1])
@@ -659,6 +677,20 @@ class VerificationProblem:
                                 f"Failed job({verification_answer}): {log_path}"
                             )
                             break
+                        
+                    if 'neurify' in options:
+                        unstable_relus = []
+                        lines = [x for x in open(log_path, "r").readlines() if 'WB' in x]
+                        for l in lines:
+                            if 'unstable ReLUs.' in l:
+                                unstable_relus += [int(l.split()[-3])]
+                        
+                        if not unstable_relus:
+                            unstable_relus_ = np.mean([-1])
+                        else:
+                            unstable_relus_ = np.mean(unstable_relus)
+                        # print(unstable_relus, unstable_relus_)
+                        assert unstable_relus_ is not None, log_path
             else:
                 raise NotImplementedError()
 
@@ -698,7 +730,11 @@ class VerificationProblem:
                 if verification_time > time_limit:
                     verification_time = time_limit
                     verification_answer = "timeout"
-
+            
+            # [WB] temp to calculate unstable ReLUs for neurify
+            if 'neurify' in options:
+                verification_time = unstable_relus_
+            
             verification_results[verifier.verifier_name] = [
                 verification_answer,
                 verification_time,

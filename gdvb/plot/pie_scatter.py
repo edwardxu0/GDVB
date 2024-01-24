@@ -1,6 +1,7 @@
 from gdvb.plot import PLOT
 import matplotlib.pyplot as plt
 import numpy as np
+import seaborn as sns
 
 from matplotlib.ticker import FormatStrFormatter
 from matplotlib.patches import Patch
@@ -12,6 +13,14 @@ fontP = FontProperties()
 answers_pool = ["unsat", "sat", "unknown", "oor", "error", "hardware"]
 color_list = ["lightgreen", "deepskyblue", "yellow", "darkorange", "crimson", "grey"]
 
+label_code = {'neu':'# Neurons(Relative)',
+              'fc': '# Fully Connected Layers(Relative)',
+              'conv': '# Convolutional Layers(Relative)',
+              'eps': 'Radii($\epsilon$, Relative)'
+              }
+
+tick_size = 16
+label_size = 20
 
 class PieScatter2D(PLOT):
     def __init__(self, data):
@@ -69,7 +78,7 @@ class PieScatter2D(PLOT):
                 Y += [j + 1]
                 for k in range(1, len(color_list) + 1):
                     Z += [len(np.where(k == self.data[i][j])[0])]
-                print(Z)
+                #print(Z)
                 self.draw_pie(Z, [i + 1], [j + 1], 2200, color_list, ax=ax)
 
         # plt.legend(handles=legend_elements, bbox_to_anchor=(2, 1), loc = 'upper right', prop=fontP)
@@ -136,19 +145,36 @@ class PieScatter2D(PLOT):
         ax.get_xaxis().set_major_formatter(FormatStrFormatter("%.2f"))
         ax.get_yaxis().set_major_formatter(FormatStrFormatter("%.2f"))
 
-        plt.xlabel(xlabel)
+        plt.xlabel(label_code[xlabel],  fontsize=label_size)
         # plt.xticks(np.arange(0, levels[0]+1).tolist(), [0]+xticks)
-        plt.xticks(list(set(xticks)))
+        plt.xticks(list(set(xticks)), fontsize=tick_size)
         if x_log_scale:
             plt.xscale("log")
         else:
-            plt.xlim(0, max(xticks) * (1 + 1 / size_x))
+            pass
+            #min_ = min(xticks) * (1 - 1 / size_x)
+            #max_ = max(xticks) * (1 + 1 / size_x)
+            #plt.xlim(min_, max_ )
 
-        plt.ylabel(ylabel)
+        plt.ylabel(label_code[ylabel], fontsize=label_size)
         # plt.yticks(np.arange(0, levels[1]+1).tolist(), [0]+yticks)
-        plt.yticks(list(set(yticks)))
+        plt.yticks(list(set(yticks)), fontsize=tick_size)
 
         if y_log_scale:
             plt.yscale("log")
         else:
-            plt.ylim(0, max(yticks) * (1 + 1 / size_y))
+            pass
+            #min_ = min(yticks) * (1 - 1 / size_y)
+            #max_ = max(yticks) * (1 + 1 / size_y)
+            #plt.ylim(min_, max_ )
+
+    def heatmap(self,xticks,yticks,xlabel,ylabel):
+        
+        
+        ax = sns.heatmap(self.data, linewidth=0.5)
+        plt.xlabel(label_code[xlabel],  fontsize=label_size)
+        # plt.xticks(np.arange(0, levels[0]+1).tolist(), [0]+xticks)
+        plt.xticks(list(set(xticks)), fontsize=tick_size)
+        plt.ylabel(label_code[ylabel], fontsize=label_size)
+        # plt.yticks(np.arange(0, levels[1]+1).tolist(), [0]+yticks)
+        plt.yticks(list(set(yticks)), fontsize=tick_size)

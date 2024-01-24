@@ -12,7 +12,7 @@ class SwarmHost:
         verifier_name = None
         for op in options:
             if op in [
-                "acrown","abcrown",'mnbab','nnenum','verinet','neuralsat','neuralsatp','veristable'
+                    "acrown","abcrown","abcrown22","abcrown23","abcrown23g",'mnbab','nnenum','verinet','neuralsat','neuralsatp','neuralsatpp','veristable'
             ]:
                 verifier_name = op
                 pre_params += [f"{op}"]

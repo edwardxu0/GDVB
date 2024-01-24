@@ -432,9 +432,9 @@ class VerificationBenchmark:
                 for x in scale_ids:
                     assert n.fc_and_conv_kernel_sizes[x] > 0
                     if int(n.fc_and_conv_kernel_sizes[x] * neuron_scale_factor) == 0:
-                        self.settings.logger.warn(
-                            "Detected small layer scale factor, layer size is rounded up to 1."
-                        )
+                        #self.settings.logger.warn(
+                        #    "Detected small layer scale factor, layer size is rounded up to 1."
+                        #)
                         dis_strats += [["scale", x, 1 / n.fc_and_conv_kernel_sizes[x]]]
                     else:
                         dis_strats += [["scale", x, neuron_scale_factor]]
@@ -493,48 +493,114 @@ class VerificationBenchmark:
             progress_bar.refresh()
         progress_bar.close()
 
+        
     def critical_region_analysis(self):
-        self.settings.logger.info("Critial Region Analysis ...")
+        self.settings.logger.info("Critical Region Analysis ...")
 
         if "eps" in self.parameters:
             raise ValueError(
-                "Critial region analysis cannot be performed with customized eps regions."
+                "Critical region analysis cannot be performed with customized eps regions."
             )
 
         verification_problem_backup = self.verification_problems
-        # critial region analysis verification problems
-        cravp = self.verification_problems
-        cr = None
-        iter = 1
-        while not None:
-            self.settings.logger.debug(f"CRA binary search iteration: {iter}")
+        
+        def calculate_res():
+            all_res = []
+            for n in self.verification_results:
+                for v in self.verification_results[n]:
+                    all_res += [self.settings.answer_code[self.verification_results[n][v][0]]]
+            unique, counts = np.unique(np.array(all_res), return_counts=True)
+            res = dict(zip(unique, counts))
+            for i in range(1, len(list(self.settings.answer_code.keys()))+1):
+                if i not in res:
+                    res[i] = 0
+            return res
+        
+        iteration = 0
+        # 1)  initial settings
+        self.settings.logger.debug(f"CRA binary search iteration: {iteration}")
+        cravp = verification_problem_backup
+        new_cravp = []
+        for i,x in enumerate(cravp):
+            assert 'eps' not in x.vpc
+            y = copy.deepcopy(x)
+            y.gen_names()
+            y.settings.verification_configs["time"] = 10
+            new_cravp += [y]
+        self.verification_problems = new_cravp
+
+        print("CRA: verifying ... ")
+        # 2. verify the new benchmark
+        self.verify()
+        
+        # 3. wait for verification
+        nb_verification_tasks = len(self.verification_problems)
+        progress_bar = tqdm(
+            total=nb_verification_tasks,
+            desc="Waiting on verification ... ",
+            ascii=False,
+            file=sys.stdout,
+        )
+        nb_verified_pre = self.verified(True)
+        progress_bar.update(nb_verified_pre)
+        while not self.verified():
+            time.sleep(10)
+            nb_verified_now = self.verified(True)
+            progress_bar.update(nb_verified_now - nb_verified_pre)
+            progress_bar.refresh()
+            nb_verified_pre = nb_verified_now
+        progress_bar.close()
+
+        print("CRA: analying verification ... ")
+        # 4. analyze verification results
+        self.analyze_verification()
+        
+        total_problems = len(self.verification_problems)
+        res = calculate_res()
+        del self.verification_problems
+        self.verification_results = {}
+        
+        
+        def bi_search(res, now, low, high, kind, threshold=0.25):
             # 1. Create a new benchmark with scaling eps, limit time to be 10 seconds
-            print("CRA: creating problems ... ")
+            stop = False
+            if kind == 'lb':
+                solved_ratio = res[1]/total_problems
+                if abs(solved_ratio - threshold) < 0.05:
+                    stop = True
+                if solved_ratio < threshold:
+                    high = now
+                    now = (now-low)/2
+                else:
+                    low = now
+                    now = (high-now)/2    
+            elif kind == 'ub':
+                solved_ratio = res[2]/total_problems
+                if abs(solved_ratio - threshold) < 0.05:
+                    stop = True
+                if solved_ratio < threshold:
+                    low = now
+                    now = (high-now)/2
+                else:
+                    high = now
+                    now = (now-low)/2
+            else:
+                assert False
+                
+            cravp = verification_problem_backup
             new_cravp = []
             for x in cravp:
-                if "eps" not in x.vpc:
-                    y = copy.deepcopy(x)
-                    y.vpc["eps"] = 0.5
-                    new_cravp += [y]
-                    y = copy.deepcopy(x)
-                    y.vpc["eps"] = 2
-                    new_cravp += [y]
-                else:
-                    y = copy.deepcopy(x)
-                    y.vpc["eps"] *= 0.5
-                    new_cravp += [y]
-                    y = copy.deepcopy(x)
-                    y.vpc["eps"] *= 2
-                    new_cravp += [y]
-
-            for x in new_cravp:
-                x.gen_names()
-                x.settings.verification_configs["time"] = 10
-            print(len(new_cravp))
+                assert 'eps' not in x.vpc
+                y = copy.deepcopy(x)
+                y.vpc["eps"] = now
+                y.settings.verification_configs["time"] = 10
+                y.gen_names()
+                new_cravp += [y]
+                
             self.verification_problems = new_cravp
-
-            print("CRA: verifying ... ")
+            
             # 2. verify the new benchmark
+            print("CRA: verifying ... ")
             self.verify()
 
             # 3. wait for verification
@@ -559,16 +625,45 @@ class VerificationBenchmark:
             # 4. analyze verification results
             self.analyze_verification()
 
-            print("CRA: calculating critical region ... ")
-            # 5. check if critial region is found
-            if True:
-                if iter == 5:
-                    break
+            
+            res = calculate_res()
+            del self.verification_problems
+            self.verification_results = {}
+            
+            return res, now, low, high, stop
 
-            iter += 1
-            cravp = new_cravp
+        res_lb = res
+        now_lb = 1
+        low_lb = 0
+        high_lb = 1/self.settings.verification_configs['eps']
+        stop_lb = False
+        
+        res_ub = res
+        now_ub = 1
+        low_ub = 0
+        high_ub = 1/self.settings.verification_configs['eps']
+        stop_ub = False
+        
+        print(f'[{iteration}]LB: ', res_lb, now_lb, low_lb, high_lb, stop_lb)
+        print(f'[{iteration}]UB: ', res_ub, now_ub, low_ub, high_ub, stop_ub)
 
-        self.settings.logger.info("Critial Region Analysis done.")
+        
+        while iteration < 10 or (stop_lb and stop_ub):
+            iteration += 1
+            self.settings.logger.debug(f"CRA binary search iteration: {iteration}")
+            
+            if not stop_lb:
+                res_lb, now_lb, low_lb, high_lb, stop_lb = bi_search(res_lb, now_lb, low_lb, high_lb, 'lb')
+            if not stop_ub:
+                res_ub, now_ub, low_ub, high_ub, stop_ub = bi_search(res_ub, now_ub, low_ub, high_ub, 'ub')
+            
+            print(f'[{iteration}]LB: ', res_lb, now_lb, low_lb, high_lb, stop_lb)
+            print(f'[{iteration}]UB: ', res_ub, now_ub, low_ub, high_ub, stop_ub)
+            
+        self.settings.logger.info("Critical Region Analysis done.")
+        
+        
+        
         exit()
 
     def verify(self):
@@ -616,6 +711,7 @@ class VerificationBenchmark:
     def analyze_verification(self):
         for vp in self.verification_problems:
             self.verification_results[vp.vp_name] = vp.analyze_verification()
+            #print(f'rm {vp.veri_log_path}')
 
     def save_results(self):
         save_path_prefix = os.path.join(
