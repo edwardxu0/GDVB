@@ -92,4 +92,3 @@ dependencies:
   - zstd=1.5.2=ha4553b6_0
   - pip:
       - torchvision==0.2.0
-prefix: /u/dx3yy/.conda/envs/gdvb

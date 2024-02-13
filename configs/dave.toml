@@ -21,37 +21,64 @@ name = 'dave'
 		prop = 5
 
 	[ca.parameters.range]
-		neu = [0.2,1.0]
-		fc = [0,1]
-    	conv = [0,1]
-		idm = [0.2,1.0]
-		ids = [0.2,1.0]
-		eps = [0.2,1.0]
-		prop = [0,4]
+		neu = ['1/5','1']
+		fc = ['0','1']
+    	conv = ['0','1']
+		idm = ['1/5','1']
+		ids = ['1/5','1']
+		eps = ['1/5','1']
+		prop = ['0','4']
 
 	
+	# prevent invalid network specifications
 	[ca.constraints]
 		value = [
-		'fc=0 => conv!=0',
-		'conv=0 => neu=0',
-		'conv=5 => idm!=0',
-		'conv=0 && neu=0 => idm <4'
+			'fc=0 => conv!=0',
+			'conv=0 => neu=0',
+			'conv=5 => idm!=0',
+			'conv=0 && neu=0 => idm <4'
 		]
 
 [train]
 	epoches = 10
 	drop_scheme = 'random'
+
 	[train.dispatch]
 		platform = 'local'
 		gpu = false
 
 
 [verify]
-	eps = 2
+	eps = 2 #2 out of 255
 	time = 14400
 	memory = '64G'
-	GRB_LICENSE_FILE="./lib/gurobi.lic"
-	verifiers = ['eran_deepzono','eran_deeppoly','eran_refinezono','eran_refinepoly','neurify','planet','bab','bab_sb','reluplex']
+	GRB_LICENSE_FILE="./lib/gurobi.lic" #path to gurobi licence
+
+	[verify.verifiers]
+		# requires full installation of DNNV, including all verifiers
+		DNNV = ['eran_deepzono',
+				'eran_deeppoly',
+				'eran_refinezono',
+				'eran_refinepoly',
+				'neurify',
+				'planet',
+				'bab',
+				'bab_sb',
+				'reluplex',
+				'marabou',
+				'nnenum',
+				'mipverify',
+				'verinet']
+		
+		# requires installation of DNNF
+		DNNF = ['default']
+
+		# requires installation of of SwarmHost
+		SwarmHost = ['abcrown',
+					 'neuralsat',
+					 'mnbab',
+					 'nnenum',
+					 'verinet']
 
 	[verify.dispatch]
-		platform = 'local'
+		platform = "local"
