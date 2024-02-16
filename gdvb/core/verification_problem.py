@@ -19,8 +19,6 @@ from ..pipeline.DNNV import DNNV, DNNV_wb
 from ..pipeline.DNNF import DNNF
 from ..pipeline.SwarmHost import SwarmHost
 
-from swarm_host.core.problem import VerificationProblem as SHVP
-
 
 class VerificationProblem:
     def __init__(self, settings, vpc, verification_benchmark):
@@ -51,7 +49,12 @@ class VerificationProblem:
                 self.net_name += token
         self.vp_name = self.vp_name[:-1]
         self.net_name = self.net_name[:-1]
-        
+
+    def set_misc_parameters(self):
+        if "epochs" in self.settings.training_configs:
+            self.distillation_config["distillation"]["parameters"]["epochs"] = (
+                self.settings.training_configs["epochs"]
+            )
 
     def set_distillation_strategies(self, dis_strats):
         drop_ids = []
@@ -214,10 +217,6 @@ class VerificationProblem:
 
     # writes the R4V training configs
     def write_training_configs(self):
-        if "epochs" in self.settings.training_configs:
-            self.distillation_config["distillation"]["parameters"][
-                "epochs"
-            ] = self.settings.training_configs["epochs"]
         training_configs = toml.dumps(self.distillation_config)
         open(self.dis_config_path, "w").write(training_configs)
 
@@ -328,7 +327,11 @@ class VerificationProblem:
                 if "Out of Memory" in l:
                     ram_issue = True
                     break
-                if "CUDA out of memory" in l or "Torch: not enough memory" in l or "CUDA error: out of memory" in l:
+                if (
+                    "CUDA out of memory" in l
+                    or "Torch: not enough memory" in l
+                    or "CUDA error: out of memory" in l
+                ):
                     CUDA_ram_issue = True
                     break
             assert ram_issue or CUDA_ram_issue
@@ -342,14 +345,14 @@ class VerificationProblem:
 
     def gen_prop(self):
         if isinstance(self.verification_benchmark.artifact, ACAS):
-            prop_id = self.vpc["prop"]
+            prop_id = 0 if "prop" not in self.vpc else self.vpc["prop"]
+
             self.verification_benchmark.artifact.generate_property(prop_id)
 
         elif isinstance(
             self.verification_benchmark.artifact, (MNIST, CIFAR10, DAVE2, TaxiNet)
         ):
             data_config = self.distillation_config["distillation"]["data"]
-            prop_id = self.vpc["prop"]
 
             if "eps" in self.vpc:
                 eps = F(str(self.vpc["eps"])) * F(
@@ -386,15 +389,13 @@ class VerificationProblem:
         if os.path.exists(log_path):
             lines = open(log_path).readlines()
             if os.path.exists(os.path.splitext(log_path)[0] + ".err"):
-                        lines_err = list(
-                            reversed(
-                                open(
-                                    os.path.splitext(log_path)[0] + ".err", "r"
-                                ).readlines()
-                            )
-                        )
-                        lines = lines_err + lines
-            
+                lines_err = list(
+                    reversed(
+                        open(os.path.splitext(log_path)[0] + ".err", "r").readlines()
+                    )
+                )
+                lines = lines_err + lines
+
             for line in lines:
                 if any(
                     x in line
@@ -459,9 +460,9 @@ class VerificationProblem:
             eps = configs_v["eps"]
         eps = round(float(eps), self.settings.precision)
 
-        property_path = os.path.join(
-            self.prop_dir, f"robustness_{self.vpc['prop']}_{eps}.py"
-        )
+        prop_id = 0 if "prop" not in self.vpc else self.vpc["prop"]
+
+        property_path = os.path.join(self.prop_dir, f"robustness_{prop_id}_{eps}.py")
 
         ### Verifier frameworks
         # DNNV family executor
@@ -480,12 +481,12 @@ class VerificationProblem:
             ]
             p_mean = " ".join(str(x) for x in data_config["mean"])
             p_std = " ".join(str(x) for x in data_config["std"])
-            
+
             cmd = verifier.execute(
                 [
                     f"--onnx {self.dis_model_path}",
                     f"--artifact {self.verification_benchmark.artifact.__name__}",
-                    f"--property_id {self.vpc['prop']}",
+                    f"--property_id {prop_id}",
                     f"--eps {eps}",
                     f"--property_dir {self.prop_dir}",
                     f"--veri_config_path {self.veri_config_path}",
@@ -493,7 +494,7 @@ class VerificationProblem:
                     f"-m {memory_limit}",
                     f"--p_mean {p_mean}",
                     f"--p_std {p_std}",
-                    f"--p_mrb"
+                    f"--p_mrb",
                     # f"--p_clip",
                 ]
             )
@@ -537,6 +538,8 @@ class VerificationProblem:
                     self.settings.veri_log_dir,
                     f"{self.vp_name}_T={time_limit}_M={memory_limit}:{verifier.verifier_name}.out",
                 )
+                from swarm_host.core.problem import VerificationProblem as SHVP
+
                 vp = SHVP(
                     self.settings.logger,
                     None,
@@ -572,7 +575,7 @@ class VerificationProblem:
 
                     verification_answer = None
                     verification_time = None
-                    
+
                     for i, l in enumerate(lines):
                         if re.match(r"INFO*", l):
                             continue
@@ -623,11 +626,11 @@ class VerificationProblem:
                             break
 
                         # hardware limit: unable to train due to memory issues
-                        if re.search("FileNotFoundError",l) and re.search("onnx", l):
+                        if re.search("FileNotFoundError", l) and re.search("onnx", l):
                             verification_answer = "hardware_limit"
                             verification_time = -1
                             break
-                        
+
                         # ERRORS found by AdaGDVB
                         # Error of neurify
                         if re.search(
@@ -636,7 +639,7 @@ class VerificationProblem:
                             verification_answer = "error"
                             verification_time = -1
                             break
-                        
+
                         if re.search("Result: ", l):
                             verification_answer = l.strip().split()[-1]
                             verification_time = float(lines[i - 1].strip().split()[-1])
@@ -677,14 +680,16 @@ class VerificationProblem:
                                 f"Failed job({verification_answer}): {log_path}"
                             )
                             break
-                        
-                    if 'neurify' in options:
+
+                    if "neurify" in options:
                         unstable_relus = []
-                        lines = [x for x in open(log_path, "r").readlines() if 'WB' in x]
+                        lines = [
+                            x for x in open(log_path, "r").readlines() if "WB" in x
+                        ]
                         for l in lines:
-                            if 'unstable ReLUs.' in l:
+                            if "unstable ReLUs." in l:
                                 unstable_relus += [int(l.split()[-3])]
-                        
+
                         if not unstable_relus:
                             unstable_relus_ = np.mean([-1])
                         else:
@@ -730,11 +735,11 @@ class VerificationProblem:
                 if verification_time > time_limit:
                     verification_time = time_limit
                     verification_answer = "timeout"
-            
+
             # [WB] temp to calculate unstable ReLUs for neurify
-            if 'neurify' in options:
+            if "neurify" in options:
                 verification_time = unstable_relus_
-            
+
             verification_results[verifier.verifier_name] = [
                 verification_answer,
                 verification_time,

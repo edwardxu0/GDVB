@@ -14,6 +14,7 @@ class DAVE2(Artifact):
         super().__init__(dnn_configs)
         self.__name__ = "DAVE2"
         self.input_shape = (3, 100, 100)
+        self.start_layer = 1
 
     def generate_property(
         self, data_config, prop_id, epsilon, skip_layers, output_dir, seed, gamma=15

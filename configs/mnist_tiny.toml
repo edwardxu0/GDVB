@@ -4,8 +4,6 @@ name = 'mnist_tiny'
 	artifact = 'MNIST'
 	onnx = './configs/networks/mnist_3x50.onnx'
 	r4v_config = './configs/networks/mnist_3x50.toml'
-	supported_layers= ['Conv', 'FC', 'Transpose', 'Flatten']
-	start_layer = 0
 
 [ca]
 	strength = 2
@@ -14,49 +12,28 @@ name = 'mnist_tiny'
 		[ca.parameters.level]
 			neu = 3
 			fc = 3		# 0,1,2,3
-			idm = 1
-			ids = 1
-			eps = 1
-			prop = 1
 
 		[ca.parameters.range] # 0~1
 			neu = ['1/3','1']
 			fc = ['1/3','1']
-			idm = ['1','1']
-			ids = ['1','1']
-			eps = ['1','1']
-			prop = ['0', '0']
 
 [train]
-	epoches = 2
+	epochs = 2
 	drop_scheme = 'random'
 	add_scheme = 'last_same_relu' # if range is greater than 1
 	
 	[train.dispatch]
-		platform = 'slurm'
-		gpu = true
+		platform = 'local'
+		gpu = false
 
 
 [verify]
-	eps = 0.5
+	eps = 0.02
 	time = 60
 	memory = '2G'
-	setup_cmds = ['export MKL_SERVICE_FORCE_INTEL=1']
-
 
 	[verify.verifiers]
-		# DNNV = ['eran_deepzono']
-		# DNNV = ['eran_deeppoly','neurify','nnenum']
-		# DNNF = ['default']
-		# SwarmHost = ['acrown','abcrown','mnbab','nnenum','verinet','neuralsat','veristable']
-		SwarmHost = ['neuralsat']
+		SwarmHost = ['abcrown']
 
 	[verify.dispatch]
 		platform = 'local'
-
-		nb_cpus = 1
-		#partition='main'
-		#nodes = ['cortado04','cortado05','cortado06','cortado07','cortado10']
-		partition='nolim'
-		nodes = ['doppio02','doppio03','doppio04','doppio05']
-		task_per_node = 7

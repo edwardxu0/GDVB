@@ -1,11 +1,9 @@
 name = 'mcb'
 
 [dnn]
+	artifact = 'MNIST'
 	onnx = './configs/networks/mnist_conv_big.onnx'
 	r4v_config = './configs/networks/mnist_conv_big.toml'
-	data_config = './configs/data/mnist.toml'
-	supported_layers= ['Conv', 'FC', 'Transpose', 'Flatten']
-	start_layer = 0
 
 [ca]
 	strength = 2
@@ -35,19 +33,16 @@ name = 'mcb'
 		'(fc=2 && conv=0 && idm=0) => neu<4']
 
 [train]
-	epoches = 10
+	epochs = 10
 	drop_scheme = 'random'
 
 	[train.dispatch]
-		mode = 'local'
-		gpu = false
+		platform = 'local'
 
 [verify]
 	eps = 0.02 # 0.02 out of 1
 	time = 14400
 	memory = '64G'
-	GRB_LICENSE_FILE="./lib/gurobi.lic" #path to gurobi licence
-
 
 	[verify.verifiers]
 		# requires full installation of DNNV, including all verifiers
@@ -59,21 +54,7 @@ name = 'mcb'
 				'planet',
 				'bab',
 				'bab_sb',
-				'reluplex',
-				'marabou',
-				'nnenum',
-				'mipverify',
-				'verinet']
-		
-		# requires installation of DNNF
-		DNNF = ['default']
-
-		# requires installation of of SwarmHost
-		SwarmHost = ['abcrown',
-					 'neuralsat',
-					 'mnbab',
-					 'nnenum',
-					 'verinet']
+				'reluplex']
 
 	[verify.dispatch]
 		platform = "local"

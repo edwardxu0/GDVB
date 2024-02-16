@@ -14,22 +14,22 @@ def gen(settings):
     )
 
     #  perform tasks
-    if settings.task == "gen_ca":
+    if settings.task == "C":
         pass
-    elif settings.task == "train":
+    elif settings.task == "T":
         verification_benchmark.train()
         # verification_benchmark.analyze_training()
-    elif settings.task == "gen_props":
+    elif settings.task == "P":
         verification_benchmark.gen_props()
-    elif settings.task == "cra":
-        verification_benchmark.critical_region_analysis()
-    elif settings.task == "verify":
+    # elif settings.task == "CRA":
+    #    verification_benchmark.critical_region_analysis()
+    elif settings.task == "V":
         verification_benchmark.verify()
         # verification_benchmark.analyze_verification()
-    elif settings.task == "analyze":
+    elif settings.task == "A":
         verification_benchmark.analyze_all()
         verification_benchmark.save_results()
-    elif settings.task == "all":
+    elif settings.task == "E":
         verification_benchmark.train()
         verification_benchmark.gen_props()
         verification_benchmark.verify()

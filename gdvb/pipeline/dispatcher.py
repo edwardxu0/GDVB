@@ -8,11 +8,18 @@ import tempfile
 
 class Task:
     def __init__(
-        self, cmds, dispatch, task_name, output_path, slurm_path, setup_cmds=None, need_warming_up=False
+        self,
+        cmds,
+        dispatch,
+        task_name,
+        output_path,
+        slurm_path,
+        setup_cmds=None,
+        need_warming_up=False,
     ):
         self.cmds = cmds
         self.platform = dispatch["platform"]
-        
+
         self.output_path = output_path
         # self.error_path = f"{os.path.splitext(output_path)[0]}.err"
         self.error_path = output_path
@@ -39,7 +46,7 @@ class Task:
     def run(self):
         if self.platform == "local":
             if self.setup_cmds:
-                self.cmds = self.setup_cmds+self.cmds
+                self.cmds = self.setup_cmds + self.cmds
             for cmd in self.cmds:
                 cmd += f" > {self.output_path} 2> {self.error_path}"
                 subprocess.run(cmd, shell=True)
@@ -48,10 +55,10 @@ class Task:
             cmd = "sbatch"
             cmd += f" --reservation {self.reservation}" if self.reservation else ""
 
-            #if self.nodes:
-                #print(f"Requesting a node from: {self.nodes}")
-                #node = self.request_node()
-                #cmd += f" -w {node}"
+            # if self.nodes:
+            # print(f"Requesting a node from: {self.nodes}")
+            # node = self.request_node()
+            # cmd += f" -w {node}"
             cmd += f" {self.slurm_path}"
             print(cmd)
             subprocess.run(cmd, shell=True)
@@ -82,7 +89,7 @@ class Task:
             f"export TMPDIR={tmpdir}",
             f"mkdir {tmpdir}",
             "cat /proc/sys/kernel/hostname",
-            "export GRB_LICENSE_FILE=/u/dx3yy/.gurobikeys/`hostname`.gurobi.lic",
+            f"export GRB_LICENSE_FILE={os.environ['GRB_LICENSE_FILE']}",
         ]
         if self.setup_cmds:
             lines += self.setup_cmds
@@ -149,9 +156,9 @@ class Task:
                 if nodes_alive[na] < self.task_per_node:
                     goon = True
                     break
-                
+
             if goon:
                 time.sleep(1)
                 break
-        
+
         return na
