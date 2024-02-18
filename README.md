@@ -1,4 +1,4 @@
-# GDVB(v2.0.0) $\models$ Systematic Generation of Diverse Benchmarks for DNN Verification
+# [The **GDVB** Framework] Systematic Generation of Diverse Benchmarks for DNN Verification
 
 ## I. Overview
 The GDVB framework, which was developed for the paper titled "[Systematic Generation of Diverse Benchmarks for DNN Verification](https://link.springer.com/chapter/10.1007/978-3-030-53288-8_5)," serves as a means to showcase the functionality of the proposed methods outlined in the paper and to reproduce the evaluation results presented within. This artifact encompasses several components, including 1) guidelines for installing the GDVB framework and its dependencies, 2) a tutorial on generating a small DNN verification benchmark using a toy MNIST seed problem, 3) detailed information about the configurable parameters, and 4) instructions and scripts to fully replicate the research results. It is important to note that the GDVB tool is implemented in the Python programming language, thus users are expected to possess a certain level of familiarity with Python, as well as neural network training and verification techniques.

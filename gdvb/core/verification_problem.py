@@ -55,6 +55,9 @@ class VerificationProblem:
             self.distillation_config["distillation"]["parameters"]["epochs"] = (
                 self.settings.training_configs["epochs"]
             )
+        self.distillation_config["distillation"]["teacher"]["model"] = (
+            self.settings.dnn_configs["onnx"]
+        )
 
     def set_distillation_strategies(self, dis_strats):
         drop_ids = []
@@ -344,9 +347,8 @@ class VerificationProblem:
         return relative_loss
 
     def gen_prop(self):
+        prop_id = 0 if "prop" not in self.vpc else self.vpc["prop"]
         if isinstance(self.verification_benchmark.artifact, ACAS):
-            prop_id = 0 if "prop" not in self.vpc else self.vpc["prop"]
-
             self.verification_benchmark.artifact.generate_property(prop_id)
 
         elif isinstance(
