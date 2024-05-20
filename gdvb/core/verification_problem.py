@@ -94,6 +94,9 @@ class VerificationProblem:
         self.dis_model_path = os.path.join(
             self.settings.dis_model_dir, self.net_name + ".onnx"
         )
+        #self.dis_model_path = os.path.join(
+        #    self.settings.dis_model_dir, self.net_name, self.net_name + ".onnx"
+        #)
         self.dis_log_path = os.path.join(
             self.settings.dis_log_dir, self.net_name + ".out"
         )
@@ -326,6 +329,7 @@ class VerificationProblem:
             )
             ram_issue = False
             CUDA_ram_issue = False
+            protobuf_2g_issue = False
             for l in reversed(lines):
                 if "Out of Memory" in l:
                     ram_issue = True
@@ -337,11 +341,16 @@ class VerificationProblem:
                 ):
                     CUDA_ram_issue = True
                     break
-            assert ram_issue or CUDA_ram_issue
+                if "protobuf size of 2GB" in l:
+                    protobuf_2g_issue = True
+                    break
+            assert ram_issue or CUDA_ram_issue or protobuf_2g_issue
             if ram_issue:
                 self.settings.logger.error(f"Hardware limit: out of memory.")
             elif CUDA_ram_issue:
                 self.settings.logger.error(f"Hardware limit: CUDA out of memory.")
+            elif protobuf_2g_issue:
+                self.settings.logger.error(f"Hardware limit: model size > 2GB.")
             else:
                 raise RuntimeError("Unknown runtime error.")
         return relative_loss
