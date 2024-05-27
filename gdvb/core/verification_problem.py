@@ -338,6 +338,7 @@ class VerificationProblem:
                     "CUDA out of memory" in l
                     or "Torch: not enough memory" in l
                     or "CUDA error: out of memory" in l
+                    or "RuntimeError: Unable to find a valid cuDNN algorithm to run convolution" in l
                 ):
                     CUDA_ram_issue = True
                     break
